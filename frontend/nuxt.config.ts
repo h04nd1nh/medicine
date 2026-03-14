@@ -11,8 +11,14 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  runtimeConfig: {
+    public: {
+      apiBase: 'http://localhost:3001'
+    }
+  },
+
   routeRules: {
-    '/': { prerender: true }
+    '/login': { ssr: false }
   },
 
   compatibilityDate: '2025-01-15',

@@ -148,10 +148,10 @@ export class MeridiansService {
       // C11: phải so với giới hạn
       const c11 = R > bounds.upperLimit ? 1 : R < bounds.lowerLimit ? -1 : 0;
 
-      // C12: lệch 2 bên
-      const c12_val = this.round2(L - R);
-      const c12 = Math.abs(c12_val) > bounds.dungSai
-        ? (c12_val > 0 ? 1 : -1)
+      // C12: lệch 2 bên (không làm tròn, khớp code gốc)
+      const diff = L - R;
+      const c12 = Math.abs(diff) > bounds.dungSai
+        ? (diff > 0 ? 1 : -1)
         : 0;
 
       flags.push({ channelIndex: i, channelName: CHANNELS[i], L, R, Avg: avg, c8, c10, c11, c12 });

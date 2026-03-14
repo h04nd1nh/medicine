@@ -24,9 +24,9 @@ cd ..
 # Build frontend
 echo "[4/6] Cài dependencies frontend..."
 cd frontend
-pnpm install
+pnpm install --ignore-scripts
 echo "[5/6] Build frontend..."
-NUXT_PUBLIC_API_BASE=http://103.57.221.26:3001 pnpm build
+NUXT_PUBLIC_API_BASE=http://103.57.221.26:3001 NUXT_TELEMETRY_DISABLED=1 TOKIO_WORKER_THREADS=1 pnpm build
 cd ..
 
 # Khởi động với pm2

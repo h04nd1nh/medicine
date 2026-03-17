@@ -5,7 +5,7 @@ RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
@@ -21,6 +21,9 @@ FROM node:22-alpine
 WORKDIR /app
 
 COPY --from=builder /app/.output ./.output
+
+# Chạy bằng user node (non-root) cho bảo mật
+USER node
 
 EXPOSE 3000
 

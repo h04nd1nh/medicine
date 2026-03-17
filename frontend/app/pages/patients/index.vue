@@ -6,7 +6,8 @@ useSeoMeta({
   description: 'Quản lý danh sách bệnh nhân'
 })
 
-const { fetchPage, remove } = usePatients()
+const { fetchPage } = usePatients()
+const router = useRouter()
 
 const PAGE_SIZE = 10
 const patients = ref<Patient[]>([])
@@ -85,21 +86,8 @@ const handleAdd = () => {
   showModal.value = true
 }
 
-const handleEdit = (patient: Patient) => {
-  editingPatient.value = patient
-  showModal.value = true
-}
-
-const handleDelete = async (id: number, name: string) => {
-  if (!confirm(`Xóa bệnh nhân "${name}"?`)) return
-  try {
-    await remove(id)
-    await loadPatients()
-  }
-  catch {
-    alert('Không thể xóa bệnh nhân. Vui lòng thử lại.')
-  }
-}
+const goDetail = (id: number) => router.push(`/patients/${id}`)
+const goExamine = (id: number) => router.push(`/examine/${id}`)
 </script>
 
 <template>
@@ -166,7 +154,15 @@ const handleDelete = async (id: number, name: string) => {
               </div>
             </td>
           </tr>
-          <tr v-for="patient in patients" :key="patient.id" class="patient-row">
+          <tr
+            v-for="patient in patients"
+            :key="patient.id"
+            class="patient-row"
+            role="button"
+            tabindex="0"
+            @click="goDetail(patient.id)"
+            @keydown.enter.prevent="goDetail(patient.id)"
+          >
             <td>
               <div class="patient-name-cell">
                 <div class="avatar">{{ patient.fullName.charAt(0) }}</div>
@@ -193,18 +189,14 @@ const handleDelete = async (id: number, name: string) => {
               {{ new Date(patient.createdAt).toLocaleDateString('vi-VN') }}
             </td>
             <td>
-            <div class="action-cell">
-                <NuxtLink :to="`/examine/${patient.id}`" class="action-btn action-btn--examine" title="Khám bệnh">
-                  <UIcon name="i-lucide-stethoscope" />
-                </NuxtLink>
-                <NuxtLink :to="`/patients/${patient.id}`" class="action-btn" title="Xem chi tiết">
-                  <UIcon name="i-lucide-eye" />
-                </NuxtLink>
-                <button class="action-btn" title="Sửa" @click="handleEdit(patient)">
-                  <UIcon name="i-lucide-pencil" />
+              <div class="action-cell">
+                <button class="action-pill action-pill--primary" @click.stop="goExamine(patient.id)">
+                  <UIcon name="i-lucide-stethoscope" class="pill-icon" />
+                  Khám bệnh
                 </button>
-                <button class="action-btn action-btn--danger" title="Xóa" @click="handleDelete(patient.id, patient.fullName)">
-                  <UIcon name="i-lucide-trash-2" />
+                <button class="action-pill" @click.stop="goDetail(patient.id)">
+                  <UIcon name="i-lucide-history" class="pill-icon" />
+                  Lịch sử
                 </button>
               </div>
             </td>
@@ -394,6 +386,7 @@ const handleDelete = async (id: number, name: string) => {
 .patient-row { transition: background 0.15s; }
 .patient-row:last-child td { border-bottom: none; }
 .patient-row:hover { background: #f8fcff; }
+.patient-row { cursor: pointer; }
 .cell-muted { color: #64748b !important; }
 
 /* Name cell */
@@ -437,27 +430,41 @@ const handleDelete = async (id: number, name: string) => {
 /* Action */
 .action-cell { display: flex; gap: 6px; }
 
-.action-btn {
-  display: flex;
+.action-pill {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
+  gap: 8px;
   height: 32px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: transparent;
-  color: #64748b;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--kl-border, #D4C5A0);
+  background: var(--kl-bg-white, #FFFDF7);
+  color: var(--kl-text-muted, #5B4A3A);
   cursor: pointer;
   transition: all 0.18s;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-a.action-btn { text-decoration: none; }
-
-.action-btn:hover {
+.action-pill:hover {
   border-color: var(--kl-secondary, #8B1A1A);
   color: var(--kl-secondary, #8B1A1A);
-  background: #f0f7ff;
+  background: var(--kl-bg-light, #FBF8F1);
 }
+
+.action-pill--primary {
+  background: linear-gradient(135deg, var(--kl-primary, #5B3A1A), var(--kl-secondary, #8B1A1A));
+  border-color: transparent;
+  color: #fff;
+}
+
+.action-pill--primary:hover {
+  background: linear-gradient(135deg, var(--kl-secondary, #8B1A1A), #6B1515);
+  color: #fff;
+}
+
+.pill-icon { width: 16px; height: 16px; }
 
 .action-btn--examine:hover {
   border-color: #2e7d32;

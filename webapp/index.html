@@ -240,13 +240,21 @@
                 <h2 style="color:white; margin:0; padding: 20px;">Kinh Lạc</h2>
             </div>
 
-            <nav>
+            <nav style="flex:1;">
                 <ul style="list-style:none;">
                     <li><a href="#" class="nav-link active" onclick="showSection('dashboard')">Trang chủ</a></li>
                     <li><a href="#" class="nav-link" onclick="showSection('patients')">Bệnh nhân</a></li>
                     <li><a href="#" class="nav-link" onclick="showSection('models')">Mô hình bệnh</a></li>
                 </ul>
             </nav>
+            <div id="sidebar-user" style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.15);font-size:0.8rem;color:rgba(255,255,255,0.7);display:none;">
+                <div id="sidebar-username" style="margin-bottom:8px;"></div>
+                <button id="btn-sidebar-logout" onclick="doLogout()"
+                    style="width:100%;padding:6px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);
+                    border:1px solid rgba(255,255,255,0.2);border-radius:4px;cursor:pointer;font-size:0.78rem;">
+                    Đăng xuất
+                </button>
+            </div>
         </aside>
 
         <!-- Main -->
@@ -256,8 +264,9 @@
                     <h1 id="page-title" style="color: var(--secondary); margin: 0; font-size: 1.8rem;">Hệ thống Kinh Lạc</h1>
                     <p id="page-subtitle" style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Quản lý sức khỏe bằng y học cổ truyền</p>
                 </div>
-                <div style="font-weight: 600;">
-                    Bác sĩ: Admin | <span style="color: #2D5A27;">Đang kết nối</span>
+                <div id="user-info" style="font-weight: 600;">
+                    <span id="user-display">Bác sĩ: <span id="user-name">---</span></span>
+                    <button id="btn-logout" onclick="doLogout()" style="display:none;"></button>
                 </div>
             </header>
             <!-- Breadcrumb + nút quay lại -->
@@ -874,6 +883,30 @@
                     <button id="new-pt-save-btn" class="btn btn-primary" onclick="saveNewPatient()">Lưu bệnh nhân</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#F5F0E8 0%,#E8DCC8 100%);
+        align-items:center;justify-content:center;">
+        <div style="background:#FFFDF7;padding:40px 36px 32px;border-radius:8px;box-shadow:0 8px 32px rgba(91,58,26,0.15);
+            width:360px;max-width:90vw;border-top:4px solid #8B1A1A;text-align:center;">
+            <h2 style="color:#5B3A1A;margin:0 0 6px;font-size:1.4rem;">Kinh Lạc Health Care</h2>
+            <p style="color:#A09580;font-size:0.82rem;margin:0 0 24px;">Đăng nhập để tiếp tục</p>
+            <div style="text-align:left;">
+                <label style="font-size:0.82rem;color:#5B3A1A;font-weight:600;">Tên đăng nhập</label>
+                <input id="login-username" type="text" autocomplete="username"
+                    style="width:100%;padding:8px 10px;margin:4px 0 14px;border:1px solid #D4C5A0;border-radius:4px;font-size:0.9rem;box-sizing:border-box;">
+                <label style="font-size:0.82rem;color:#5B3A1A;font-weight:600;">Mật khẩu</label>
+                <input id="login-password" type="password" autocomplete="current-password"
+                    style="width:100%;padding:8px 10px;margin:4px 0 6px;border:1px solid #D4C5A0;border-radius:4px;font-size:0.9rem;box-sizing:border-box;">
+            </div>
+            <div id="login-error" style="color:#B03A2E;font-size:0.78rem;min-height:20px;margin:6px 0;"></div>
+            <button id="btn-login" onclick="doLogin()"
+                style="width:100%;padding:10px;background:#2D5A27;color:white;border:none;border-radius:4px;
+                font-size:0.95rem;font-weight:600;cursor:pointer;transition:background 0.2s;">
+                Đăng nhập
+            </button>
         </div>
     </div>
 

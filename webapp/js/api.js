@@ -7,6 +7,46 @@ function _base() {
     return BASE_NEST;
 }
 
+// ---- AUTH ----
+
+const _TOKEN_KEY = 'kinhlac_token';
+const _USER_KEY = 'kinhlac_user';
+
+function _getToken() { return localStorage.getItem(_TOKEN_KEY); }
+function _setToken(t) { localStorage.setItem(_TOKEN_KEY, t); }
+function _clearToken() { localStorage.removeItem(_TOKEN_KEY); localStorage.removeItem(_USER_KEY); }
+function _getUser() { try { return JSON.parse(localStorage.getItem(_USER_KEY)); } catch { return null; } }
+function _setUser(u) { localStorage.setItem(_USER_KEY, JSON.stringify(u)); }
+function isLoggedIn() { return !!_getToken(); }
+
+function _authHeaders() {
+    const h = { 'Content-Type': 'application/json' };
+    const t = _getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+}
+
+async function apiLogin(username, password) {
+    const res = await fetch(_base() + '/auth/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+        const msg = await _safeText(res, 'Sai tên đăng nhập hoặc mật khẩu');
+        return { success: false, error: msg };
+    }
+    const data = await res.json();
+    _setToken(data.access_token);
+    const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+    _setUser({ username: payload.username, id: payload.sub });
+    return { success: true };
+}
+
+function apiLogout() {
+    _clearToken();
+}
+
 function _toLegacyTicks(dateInput) {
     if (!dateInput) return null;
     const ms = new Date(dateInput).getTime();

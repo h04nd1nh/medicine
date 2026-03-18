@@ -38,10 +38,30 @@ window.onerror = function(msg, url, line) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    _checkAuthAndInit();
+    document.getElementById('login-password')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+    });
+    document.getElementById('login-username')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('login-password')?.focus();
+    });
+});
+
+function _checkAuthAndInit() {
+    const overlay = document.getElementById('login-overlay');
+    if (!isLoggedIn()) {
+        if (overlay) overlay.style.display = 'flex';
+        return;
+    }
+    if (overlay) overlay.style.display = 'none';
+    _updateUserDisplay();
+    _startApp();
+}
+
+function _startApp() {
     loadData();
     _initMeasureGuideEditor();
     _updateBreadcrumb('dashboard');
-    // Khôi phục section từ URL hash nếu có
     const initHash = window.location.hash.replace('#', '');
     if (initHash && initHash !== '/' && initHash !== '/dashboard') {
         history.replaceState({ section: 'dashboard' }, '', '#/');
@@ -50,7 +70,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.getElementById('patient-search')?.addEventListener('input', e => filterPatients(e.target.value));
     document.getElementById('model-search')?.addEventListener('input', () => filterModels());
-});
+}
+
+function _updateUserDisplay() {
+    const user = _getUser();
+    const logged = isLoggedIn();
+    const nameEl = document.getElementById('user-name');
+    if (nameEl) nameEl.textContent = user?.username || 'Admin';
+    const sidebarUser = document.getElementById('sidebar-user');
+    const sidebarName = document.getElementById('sidebar-username');
+    if (sidebarUser) sidebarUser.style.display = logged ? 'block' : 'none';
+    if (sidebarName) sidebarName.textContent = 'Bác sĩ: ' + (user?.username || 'Admin');
+}
+
+async function doLogin() {
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('btn-login');
+    const username = document.getElementById('login-username')?.value?.trim();
+    const password = document.getElementById('login-password')?.value;
+
+    if (!username || !password) {
+        if (errEl) errEl.textContent = 'Vui lòng nhập tên đăng nhập và mật khẩu.';
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang đăng nhập...'; }
+    if (errEl) errEl.textContent = '';
+
+    try {
+        const res = await apiLogin(username, password);
+        if (!res.success) {
+            if (errEl) errEl.textContent = res.error || 'Đăng nhập thất bại.';
+            return;
+        }
+        _checkAuthAndInit();
+    } catch (e) {
+        if (errEl) errEl.textContent = 'Lỗi kết nối: ' + (e.message || e);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
+    }
+}
+
+function doLogout() {
+    if (!confirm('Bạn muốn đăng xuất?')) return;
+    apiLogout();
+    window.location.reload();
+}
 
 // Danh sách 12 kinh cho màn Khám mới
 const newRecordMeridians = [

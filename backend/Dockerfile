@@ -7,7 +7,8 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
-RUN npx tsc -p tsconfig.build.json && ls dist/main.js
+RUN npx tsc -p tsconfig.build.json
+RUN ls -la dist/
 
 # Stage 2: Production
 FROM node:22-alpine

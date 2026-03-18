@@ -7,7 +7,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN npx tsc -p tsconfig.build.json && ls dist/main.js
 
 # Stage 2: Production
 FROM node:22-alpine
@@ -19,7 +19,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
-# Chạy bằng user node (non-root) cho bảo mật
 USER node
 
 EXPOSE 3001

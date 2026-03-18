@@ -18,6 +18,8 @@ import { AuthRouter } from './routers/auth.router';
 import { MeridiansRouter } from './routers/meridian.router';
 import { PatientsRouter } from './routers/patient.router';
 import { ExaminationsRouter } from './routers/examination.router';
+import { ModelsRouter } from './routers/model.router';
+import { RecordsRouter } from './routers/record.router';
 
 // Controllers (NestJS Services)
 import { AdminsService } from './controllers/admin.controller';
@@ -25,6 +27,7 @@ import { AuthService } from './controllers/auth.controller';
 import { MeridiansService } from './controllers/meridian.controller';
 import { PatientsService } from './controllers/patient.controller';
 import { ExaminationsService } from './controllers/examination.controller';
+import { ModelsService } from './controllers/model.controller';
 
 // Middlewares (Strategies/Guards)
 import { JwtStrategy } from './middlewares/auth/jwt.strategy';
@@ -63,7 +66,7 @@ import { JwtStrategy } from './middlewares/auth/jwt.strategy';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter],
-  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService],
+  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter, ModelsRouter, RecordsRouter],
+  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService, ModelsService],
 })
 export class AppModule {}

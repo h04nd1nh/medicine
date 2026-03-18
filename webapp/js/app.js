@@ -311,6 +311,18 @@ async function loadData() {
                     trieuchung: r.trieuchung || '',
                     phaptri: r.phepchua || '',
                     phuonghuyet: r.phuyet_chamcuu || '',
+                    tieutruong: r.tieutruong ?? 0,
+                    tam: r.tam ?? 0,
+                    tamtieu: r.tamtieu ?? 0,
+                    tambao: r.tambao ?? 0,
+                    daitrang: r.daitrang ?? 0,
+                    phe: r.phe ?? 0,
+                    bangquang: r.bangquang ?? 0,
+                    than: r.than ?? 0,
+                    dam: r.dam ?? 0,
+                    vi: r.vi ?? 0,
+                    can: r.can ?? 0,
+                    ty: r.ty ?? 0,
                 }));
             }
         }
@@ -2270,10 +2282,17 @@ function _modelMeridianMap(m) {
 
 // Tên hiển thị của model (hỗ trợ cả 2 format)
 function _modelName(m) { return m.ten || m.tieuket || ''; }
-function _modelId(m)   { return m.modelId || m._id; }
+function _modelId(m)   { return m.modelId || m._id || m.id; }
 
 function suggestRelatedModels(record, diag) {
+    const backendSyns = record._backendSyndromes || [];
+
+    if (!diseaseModels.length && backendSyns.length) {
+        _renderSuggestedCards(backendSyns);
+        return;
+    }
     if (!diseaseModels.length) return;
+
     const mStats = diag.meridianStats;
 
     const matches = diseaseModels.map(m => {
@@ -2287,21 +2306,26 @@ function suggestRelatedModels(record, diag) {
         return { ...m, rate: total > 0 ? score / total : 0, matchScore: score, totalInModel: total };
     }).filter(m => m.rate > 0.4).sort((a, b) => b.rate - a.rate);
 
+    _renderSuggestedCards(matches);
+}
+
+function _renderSuggestedCards(matches) {
     const grid = document.getElementById('suggested-models');
     const summaryEl = document.getElementById('model-summary');
     if (!grid) return;
 
     if (summaryEl) {
         const matchedCount = matches.length;
+        const totalInfo = diseaseModels.length ? ` trên tổng ${diseaseModels.length} mô hình` : '';
         if (matchedCount > 0) {
-            summaryEl.textContent = `Tìm thấy ${matchedCount} mô hình phù hợp (hiển thị tối đa 12) trên tổng ${diseaseModels.length} mô hình.`;
+            summaryEl.textContent = `Tìm thấy ${matchedCount} mô hình phù hợp (hiển thị tối đa 12)${totalInfo}.`;
         } else {
             summaryEl.textContent = 'Chưa tìm được mô hình bệnh lý nào thực sự phù hợp với số liệu hiện tại.';
         }
     }
 
     grid.innerHTML = matches.slice(0, 12).map(m => {
-        const pct = Math.round(m.rate * 100);
+        const pct = Math.round((m.rate || 0) * 100);
         const mid = _modelId(m);
         const barColor = pct >= 90 ? '#2D5A27' : pct >= 70 ? '#8B4513' : '#8B7355';
         const isSelected = !!_selectedRecordModels[mid];
@@ -2929,7 +2953,10 @@ function openModelEditor(modelId = null) {
         if (_quillTrieuchung) _quillTrieuchung.root.innerHTML = _sanitizeModelHtml(m?.trieuchung || '');
         if (_quillPhaptri) _quillPhaptri.root.innerHTML = _sanitizeModelHtml(m?.phaptri || m?.phepchua || '');
         if (_quillPhuonghuyet) _quillPhuonghuyet.root.innerHTML = _sanitizeModelHtml(m?.phuonghuyet || m?.phuyet_chamcuu || '');
-        setVal('me-kichhoat', m?.kichHoatTuKinh || '');
+        const khObj = {};
+        ['tieutruong','tam','tamtieu','tambao','daitrang','phe','bangquang','than','dam','vi','can','ty']
+            .forEach(k => { if (m?.[k] && m[k] !== 0) khObj[k] = m[k]; });
+        setVal('me-kichhoat', Object.keys(khObj).length ? JSON.stringify(khObj) : (m?.kichHoatTuKinh || ''));
     } else {
         if (title) title.textContent = 'Thêm mô hình bệnh';
         if (delBtn) delBtn.style.display = 'none';

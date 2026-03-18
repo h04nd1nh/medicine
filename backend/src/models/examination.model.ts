@@ -41,6 +41,9 @@ export class Examination {
   @Column({ type: 'jsonb', default: [] })
   syndromes: Array<Record<string, any>>;
 
+  @Column({ type: 'jsonb', default: [] })
+  selectedModelIds: number[];
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

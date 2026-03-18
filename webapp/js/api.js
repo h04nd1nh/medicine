@@ -1,5 +1,7 @@
 // api.js - Lớp mỏng tách UI khỏi NestJS backend
-const BASE_NEST = '';
+const BASE_NEST = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3001'
+    : '';
 
 function _base() {
     return BASE_NEST;
@@ -83,7 +85,12 @@ function _mapNestExamToLegacy(exam) {
         canTrai: Number(input.cantrai ?? 0),
         canPhai: Number(input.canphai ?? 0),
         tyTrai: Number(input.tytrai ?? 0),
-        tyPhai: Number(input.typhai ?? 0)
+        tyPhai: Number(input.typhai ?? 0),
+        _backendSyndromes: exam.syndromes || [],
+        _backendAmDuong: exam.amDuong || null,
+        _backendKhi: exam.khi || null,
+        _backendHuyet: exam.huyet || null,
+        _backendFlags: exam.flags || [],
     };
 }
 
@@ -192,28 +199,75 @@ async function apiDeleteRecord(phieukhamId) {
 
 // ---- MÔ HÌNH BỆNH ----
 
+const _MERID_KEYS = [
+    'tieutruong','tam','tamtieu','tambao','daitrang','phe',
+    'bangquang','than','dam','vi','can','ty'
+];
+
+function _mapNestModelToLegacy(m) {
+    const obj = {
+        modelId: m.id,
+        ten: m.tieuket || '',
+        nhomChinh: m.nhomid != null ? String(m.nhomid) : '',
+        trieuchung: m.trieuchung || '',
+        phaptri: m.benhly || '',
+        phuonghuyet: m.phuyet_chamcuu || '',
+        giainghia_phuyet: m.giainghia_phuyet || '',
+    };
+    _MERID_KEYS.forEach(k => {
+        obj[k] = m[k] ?? 0;
+        obj[k + '_c8'] = m[k + '_c8'] ?? 0;
+        obj[k + '_c11'] = m[k + '_c11'] ?? 0;
+    });
+    return obj;
+}
+
+function _mapLegacyModelToNest(payload) {
+    const dto = {
+        tieuket: payload.ten || '',
+        nhomid: payload.nhom_chinh ? parseInt(payload.nhom_chinh) || null : null,
+        trieuchung: payload.trieuchung || '',
+        benhly: payload.phaptri || '',
+        phuyet_chamcuu: payload.phuonghuyet || '',
+    };
+    if (payload.kich_hoat_tu_kinh) {
+        try {
+            const kh = JSON.parse(payload.kich_hoat_tu_kinh);
+            _MERID_KEYS.forEach(k => {
+                if (kh[k] !== undefined) dto[k] = parseInt(kh[k]) || 0;
+            });
+        } catch {}
+    }
+    return dto;
+}
+
 async function apiGetModels() {
     const res = await fetch(_base() + '/models');
     if (!res.ok) throw new Error('Không tải được danh sách mô hình bệnh');
-    return res.json();
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.map(_mapNestModelToLegacy) : [];
 }
 
 async function apiCreateModel(payload) {
     const res = await fetch(_base() + '/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(_mapLegacyModelToNest(payload))
     });
-    return res.json();
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo mô hình thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id };
 }
 
 async function apiUpdateModel(modelId, payload) {
     const res = await fetch(_base() + '/models/' + modelId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(_mapLegacyModelToNest(payload))
     });
-    return res.json();
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật mô hình thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id };
 }
 
 async function apiDeleteModel(modelId) {

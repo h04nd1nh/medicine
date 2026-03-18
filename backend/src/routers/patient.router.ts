@@ -8,15 +8,12 @@ import {
   Body,
   Query,
   ParseIntPipe,
-  UseGuards,
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { PatientsService } from '../controllers/patient.controller';
 import { CreatePatientDto, UpdatePatientDto } from '../models/patient.dto';
 
-@UseGuards(AuthGuard('jwt'))
 @Controller('patients')
 export class PatientsRouter {
   constructor(private readonly patientsService: PatientsService) {}

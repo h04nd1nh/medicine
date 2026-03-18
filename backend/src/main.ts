@@ -12,6 +12,7 @@ async function bootstrap() {
     .filter(Boolean);
 
   const brandmasterRegex = /^https:\/\/([a-z0-9-]+\.)?brandmaster\.net\.vn$/i;
+  const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -20,6 +21,7 @@ async function bootstrap() {
 
       if (allowedOrigins.includes(origin)) return callback(null, true);
       if (brandmasterRegex.test(origin)) return callback(null, true);
+      if (localhostRegex.test(origin)) return callback(null, true);
 
       return callback(new Error(`CORS blocked for origin: ${origin}`), false);
     },

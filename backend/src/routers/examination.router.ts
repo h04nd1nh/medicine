@@ -2,26 +2,37 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Param,
   Body,
   ParseIntPipe,
-  UseGuards,
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ExaminationsService } from '../controllers/examination.controller';
-import { CreateExaminationDto } from '../models/examination.dto';
+import { CreateExaminationDto, UpdateExaminationDto } from '../models/examination.dto';
 
-@UseGuards(AuthGuard('jwt'))
 @Controller('examinations')
 export class ExaminationsRouter {
   constructor(private readonly examinationsService: ExaminationsService) {}
 
+  @Get()
+  findAll() {
+    return this.examinationsService.findAll();
+  }
+
   @Post()
   create(@Body() dto: CreateExaminationDto) {
     return this.examinationsService.create(dto);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateExaminationDto
+  ) {
+    return this.examinationsService.update(id, dto);
   }
 
   @Get('patient/:patientId')

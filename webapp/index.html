@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinh Lạc Health Care - Dashboard</title>
+    <!-- SEO -->
+    <meta name="description" content="Hệ thống quản lý đo nhiệt độ kinh lạc và chăm sóc sức khỏe.">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Quill (classic rich-text editor, no media) -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <style id="dynamic-styles">
+        /* ===== MEDICAL TABLE — 13 CỘT (Đông Y style) ===== */
+        .classic-table { border-collapse: collapse; max-width: 100%; }
+        .classic-table th, .classic-table td {
+            border: 1px solid #C4B598;
+            padding: 2px 4px;
+            height: 22px;
+            white-space: nowrap;
+            font-size: 0.73rem;
+        }
+        .classic-table thead th {
+            background: #F0E8D8;
+            color: #5B3A1A;
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-align: center;
+        }
+        .classic-table tbody td {
+            font-size: 0.73rem;
+            color: #000;
+        }
+        .classic-table tbody tr:hover { background: #F5F0E8; }
+        .comp-col { background: #F0E8D8; }
+        /* Highlight row khi hover Bát Cương */
+        [data-meridian-id] { transition: background 0.2s, outline 0.2s; }
+        /* Badge Bát Cương */
+        .bat-cuong-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        /* New record layout giống form đo cũ */
+        .newrec-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .newrec-oldwrap{
+            display:grid;
+            grid-template-columns: 320px 1fr 360px;
+            gap: 12px;
+            align-items:start;
+        }
+        .newrec-panel{
+            background:#FFFDF7;
+            border:1px solid #D4C5A0;
+            border-radius:6px;
+            padding:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.06);
+        }
+        .newrec-panel h4{
+            margin:0 0 8px 0;
+            font-size:0.9rem;
+            color:#5B3A1A;
+            border-bottom:1px solid #E2D4B8;
+            padding-bottom:6px;
+        }
+        .newrec-field{
+            display:grid;
+            grid-template-columns: 110px 1fr;
+            gap:8px;
+            align-items:center;
+            margin-bottom:6px;
+            font-size:0.82rem;
+        }
+        .newrec-field label{ color:#5B3A1A; opacity:0.95; }
+        .newrec-field .val{
+            background:#FBF8F1;
+            border:1px solid #E2D4B8;
+            border-radius:4px;
+            padding:4px 6px;
+            min-height:26px;
+            display:flex;
+            align-items:center;
+        }
+        .newrec-two{
+            display:grid;
+            grid-template-columns: 1fr 1fr;
+            gap:10px;
+        }
+        .newrec-mini h5{
+            margin:0 0 6px 0;
+            font-size:0.82rem;
+            color:#8B1A1A;
+        }
+        .newrec-mini table{ width:100%; border-collapse:collapse; font-size:0.8rem; }
+        .newrec-mini td, .newrec-mini th { border:1px solid #E2D4B8; padding:3px 4px; }
+        .newrec-mini th{ background:#F5F0E8; color:#5B3A1A; font-weight:600; text-align:center; }
+        .newrec-mini td:first-child{ width:58%; color:#2D2D2D; }
+        .newrec-mini td:last-child{ width:42%; }
+        .newrec-actions{
+            display:flex;
+            justify-content:flex-end;
+            gap:8px;
+            margin-top:10px;
+        }
+        .newrec-stack{ display:flex; flex-direction:column; gap:10px; }
+        .newrec-subtitle{
+            margin:10px 0 6px 0;
+            font-size:0.82rem;
+            font-weight:600;
+            color:#8B1A1A;
+        }
+        .newrec-textarea{
+            width:100%;
+            padding:6px;
+            border:1px solid #ccc;
+            border-radius:4px;
+            resize:vertical;
+            font-size:0.82rem;
+            background:#fff;
+        }
+        .newrec-select{
+            width:100%;
+            padding:5px;
+            border:1px solid #ccc;
+            border-radius:4px;
+            font-size:0.82rem;
+            background:#fff;
+        }
+        .newrec-btnrow{
+            display:flex;
+            gap:8px;
+            justify-content:flex-end;
+            margin-top:8px;
+        }
+        .newrec-kpis{
+            display:grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap:6px;
+            margin-top:8px;
+        }
+        /* Breadcrumb */
+        #breadcrumb-bar { min-height:28px; }
+        .bc-sep { color:#C4B598; margin: 0 2px; }
+        .bc-link {
+            color:#8B7355;
+            cursor:pointer;
+            text-decoration:none;
+        }
+        .bc-link:hover { color:#8B1A1A; text-decoration:underline; }
+        .bc-current { color:#5B3A1A; font-weight:600; }
+        .bc-back-btn {
+            display:inline-flex;
+            align-items:center;
+            gap:4px;
+            padding:3px 10px;
+            background:#F5F0E8;
+            border:1px solid #D4C5A0;
+            border-radius:4px;
+            color:#5B3A1A;
+            font-size:0.8rem;
+            cursor:pointer;
+            margin-right:8px;
+            text-decoration:none;
+        }
+        .bc-back-btn:hover { background:#EBE3D5; }
+        .newrec-kpis .kpi{
+            background:#FBF8F1;
+            border:1px solid #E2D4B8;
+            border-radius:4px;
+            padding:6px 6px;
+            text-align:center;
+            font-size:0.78rem;
+            color:#5B3A1A;
+            min-height:34px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .newrec-group {
+            background: #FFFDF7;
+            border: 1px solid #D4C5A0;
+            border-radius: 6px;
+            padding: 8px 10px 10px;
+        }
+        .newrec-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #5B3A1A;
+            margin-bottom: 6px;
+        }
+        .newrec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        .newrec-table th,
+        .newrec-table td {
+            border: 1px solid #E2D4B8;
+            padding: 3px 4px;
+            text-align: center;
+        }
+        .newrec-table th {
+            background: #F5F0E8;
+            color: #5B3A1A;
+            font-weight: 600;
+        }
+        .newrec-input {
+            width: 100%;
+            padding: 3px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+    </style>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/diagnosis.js"></script>
+    <script src="js/app.js"></script>
+    <!-- Ionicons for icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+    <div id="model-comparison-tooltip" class="model-tooltip"></div>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside>
+            <div class="logo">
+                <h2 style="color:white; margin:0; padding: 20px;">Kinh Lạc</h2>
+            </div>
+
+            <nav>
+                <ul style="list-style:none;">
+                    <li><a href="#" class="nav-link active" onclick="showSection('dashboard')">Trang chủ</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('patients')">Bệnh nhân</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('models')">Mô hình bệnh</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main -->
+        <main>
+            <header>
+                <div>
+                    <h1 id="page-title" style="color: var(--secondary); margin: 0; font-size: 1.8rem;">Hệ thống Kinh Lạc</h1>
+                    <p id="page-subtitle" style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Quản lý sức khỏe bằng y học cổ truyền</p>
+                </div>
+                <div style="font-weight: 600;">
+                    Bác sĩ: Admin | <span style="color: #2D5A27;">Đang kết nối</span>
+                </div>
+            </header>
+            <!-- Breadcrumb + nút quay lại -->
+            <div id="breadcrumb-bar" style="display:flex;align-items:center;gap:6px;padding:6px 24px 0;font-size:0.82rem;color:#8B7355;flex-wrap:wrap;">
+                <span id="breadcrumb-content"></span>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboard-section" class="section-content">
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <h3>Tổng bệnh nhân</h3>
+                        <div class="value" id="count-patients">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Phiếu khám</h3>
+                        <div class="value" id="count-records">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Tình trạng hệ thống</h3>
+                        <div class="value" style="color: var(--primary)">Ổn định</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Bệnh nhân vừa cập nhật</h2>
+                        <button class="btn btn-primary" onclick="showSection('patients')">Xem tất cả</button>
+                    </div>
+                    <div class="data-table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mã BN</th>
+                                    <th>Họ và Tên</th>
+                                    <th>Giới tính</th>
+                                    <th>Địa chỉ</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-patients-list">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient List Section (hidden by default) -->
+            <div id="patients-section" class="section-content" style="display: none;">
+                    <div class="section">
+                    <div class="section-header" style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
+                        <h2 style="color: var(--secondary); margin:0;">Danh sách Bệnh nhân</h2>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="patient-search" placeholder="Nhập tên hoặc mã BN để tìm..."
+                                style="padding: 0.5rem; border: 1px solid #ccc; width: 260px;">
+                            <button class="btn btn-primary" onclick="openNewPatientForm()">+ Thêm bệnh nhân</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mã BN</th>
+                                    <th>Họ và Tên</th>
+                                    <th>Ngày sinh</th>
+                                    <th>Điện thoại</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-patients-list">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Section (hidden by default) -->
+            <div id="analysis-section" class="section-content" style="display: none;">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 id="analysis-title">Phân tích Kinh Lạc</h2>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button class="btn" style="background:#F5F0E8;color:#5B3A1A;border:1px solid #D4C5A0;" onclick="viewPatient(_selectedPatientIdForNewRecord)">← Hồ sơ bệnh nhân</button>
+                            <button class="btn" style="background:#FFF8E8;color:#8B5500;border:1px solid #E2C97E;" onclick="editCurrentRecord()">✏ Sửa phiếu này</button>
+                            <button class="btn btn-primary" onclick="startNewExamForCurrentPatient()">+ Khám mới</button>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; align-items: start;">
+                            <!-- CỘT TRÁI: Bảng số liệu -->
+                            <div>
+                                <div id="analysis-report-container" style="background: #FFFDF7; padding: 20px; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); color: #2D2D2D; font-family: 'Times New Roman', 'Noto Serif', serif; border-top: 3px solid #8B1A1A;">
+                                <!-- Report Header -->
+                                <div style="text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #D4C5A0;">
+                                    <h2 style="margin: 0; color: #8B1A1A; text-transform: uppercase; font-size: 1.3rem; letter-spacing: 2px;">KẾT QUẢ ĐO KINH LẠC</h2>
+                                    <p style="margin: 6px 0 0; color: #8B7355; font-size: 0.8rem;">Hệ thống chẩn đoán kỹ thuật số</p>
+                                </div>
+
+                                <!-- Patient Summary Box -->
+                                <div id="patient-info-header" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; padding: 10px; background: #FBF8F1; border: 1px solid #D4C5A0; border-radius: 4px; font-size: 0.85rem;">
+                                    <div><strong>Họ và Tên:</strong> <span id="report-pt-name">...</span></div>
+                                    <div><strong>Năm sinh:</strong> <span id="report-pt-birth">...</span></div>
+                                    <div><strong>Giới tính:</strong> <span id="report-pt-gender">...</span></div>
+                                    <div><strong>Huyết áp:</strong> <span id="report-pt-bp">...</span></div>
+                                    <div><strong>BMI:</strong> <span id="report-pt-bmi">...</span></div>
+                                    <div><strong>Ngày đo:</strong> <span id="report-pt-date">...</span></div>
+                                </div>
+
+                                <!-- I. Data Section -->
+                                <div style="font-weight: bold; font-size: 1rem; border-bottom: 2px solid #8B1A1A; margin-bottom: 10px; padding-bottom: 4px; color: #8B1A1A; letter-spacing: 1px;">I. SỐ LIỆU ĐO KINH LẠC</div>
+                                
+                                <div id="stats-summary-container"></div>
+
+                                <div class="table-grid" style="margin-top: 15px;">
+                                    <div class="table-container" style="overflow-x:auto;">
+                                        <h4 style="margin: 5px 0; color: #5B3A1A; border-left: 4px solid #8B7355; padding-left: 8px; font-size: 0.9rem; letter-spacing: 0.5px;">CHI TRÊN (TAY)</h4>
+                                        <table class="classic-table" id="hand-meridian-table" style="width:100%;">
+                                            <thead>
+                                                <tr>
+                                                    <th rowspan="2" style="text-align:left;min-width:130px;">Kinh Mạch / Huyệt Đo</th>
+                                                    <th colspan="2" style="color:#8B1A1A;">Trái (L)</th>
+                                                    <th rowspan="2">Trị L</th>
+                                                    <th rowspan="2" style="background:#F5EDD8;">Trung Bình</th>
+                                                    <th rowspan="2">Chênh</th>
+                                                    <th rowspan="2">Trị R</th>
+                                                    <th colspan="2" style="color:#1A5276;">Phải (R)</th>
+                                                    <th rowspan="2">Lệch (L - R)</th>
+                                                    <th class="bc-col" rowspan="2" style="background:#FBF8F1;min-width:100px;display:none;">Bát Cương &amp; Chẩn Đoán</th>
+                                                    <th class="comp-col" rowspan="2" style="background:#F0E8D8;min-width:80px;">Biện Chứng<br>Luận Trị</th>
+                                                </tr>
+                                                <tr style="background:#F5F0E8;font-size:0.7rem;">
+                                                    <th style="color:#8B1A1A;">(+)</th>
+                                                    <th style="color:#1A5276;">(-)</th>
+                                                    <th style="color:#8B1A1A;">(+)</th>
+                                                    <th style="color:#1A5276;">(-)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="table-container" style="margin-top: 20px;overflow-x:auto;">
+                                        <h4 style="margin: 5px 0; color: #5B3A1A; border-left: 4px solid #8B7355; padding-left: 8px; font-size: 0.9rem; letter-spacing: 0.5px;">CHI DƯỚI (CHÂN)</h4>
+                                        <table class="classic-table" id="foot-meridian-table" style="width:100%;">
+                                            <thead>
+                                                <tr>
+                                                    <th rowspan="2" style="text-align:left;min-width:130px;">Kinh Mạch / Huyệt Đo</th>
+                                                    <th colspan="2" style="color:#8B1A1A;">Trái (L)</th>
+                                                    <th rowspan="2">Trị L</th>
+                                                    <th rowspan="2" style="background:#F5EDD8;">Trung Bình</th>
+                                                    <th rowspan="2">Chênh</th>
+                                                    <th rowspan="2">Trị R</th>
+                                                    <th colspan="2" style="color:#1A5276;">Phải (R)</th>
+                                                    <th rowspan="2">Lệch (L - R)</th>
+                                                    <th class="bc-col" rowspan="2" style="background:#FBF8F1;min-width:100px;display:none;">Bát Cương &amp; Chẩn Đoán</th>
+                                                    <th class="comp-col" rowspan="2" style="background:#F0E8D8;min-width:80px;">Biện Chứng<br>Luận Trị</th>
+                                                </tr>
+                                                <tr style="background:#F5F0E8;font-size:0.7rem;">
+                                                    <th style="color:#8B1A1A;">(+)</th>
+                                                    <th style="color:#1A5276;">(-)</th>
+                                                    <th style="color:#8B1A1A;">(+)</th>
+                                                    <th style="color:#1A5276;">(-)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                 </div><!-- end table-grid -->
+                                </div><!-- end analysis-report-container -->
+                            </div><!-- end cột trái -->
+
+                            <!-- CỘT PHẢI: II + III sticky -->
+                            <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:1rem;">
+
+                                <!-- II. KẾT LUẬN BÁT CƯƠNG -->
+                                <div style="background:#FFFDF7;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,0.1);padding:16px;border:1px solid #E8DCC8;">
+                                    <div style="font-weight:bold;font-size:0.95rem;border-bottom:2px solid #8B1A1A;margin-bottom:12px;padding-bottom:6px;color:#8B1A1A;letter-spacing:1px;">
+                                        II. KẾT LUẬN BÁT CƯƠNG &amp; CHẨN ĐOÁN
+                                    </div>
+                                    <div id="analysis-conclusion-box">
+                                        <div style="color:#A09580;font-style:italic;text-align:center;padding:20px 10px;">Chọn bệnh nhân để xem kết quả chẩn đoán...</div>
+                                    </div>
+                                </div>
+
+                                <!-- III. GỢI Ý MÔ HÌNH BỆNH LÝ -->
+                                <div id="model-section" style="background:#FFFDF7;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,0.1);padding:16px;display:none;border:1px solid #E8DCC8;">
+                                    <div style="font-weight:bold;font-size:0.95rem;border-bottom:2px solid #5B3A1A;margin-bottom:6px;padding-bottom:6px;color:#5B3A1A;letter-spacing:1px;">
+                                        III. GỢI Ý MÔ HÌNH BỆNH LÝ &amp; PHÁP TRỊ
+                                    </div>
+                                    <div id="model-summary" style="font-size:0.78rem;color:#5B4A3A;margin-bottom:6px;">
+                                        <!-- Sẽ hiển thị: Ví dụ 4 mô hình phù hợp trên 20 mô hình -->
+                                    </div>
+                                    <div id="suggested-models" style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;max-height:260px;overflow-y:auto;"></div>
+                                    <!-- Tooltip hover mô hình (ẩn mặc định, hiện khi rê chuột) -->
+                                    <div id="model-hover-tip"
+                                         style="display:none;position:fixed;z-index:1500;max-width:520px;
+                                                padding:10px 12px;border:1px solid #D4C5A0;border-radius:10px;background:#FFFBF0;
+                                                box-shadow:0 12px 28px rgba(0,0,0,0.20);font-size:0.82rem;line-height:1.5;
+                                                backdrop-filter:saturate(1.2);">
+                                    </div>
+                                    <!-- Panel tổng hợp các mô hình đã chọn cho phiếu -->
+                                    <div id="selected-models-panel"
+                                         style="margin-top:10px;padding:10px 12px;border:1px solid #C4A882;border-radius:6px;background:#FFFBF0;font-size:0.8rem;min-height:32px;">
+                                        <div style="color:#A09580;font-size:0.78rem;">Chưa chọn mô hình nào cho phiếu này.</div>
+                                    </div>
+
+                                    <!-- (ĐÃ TẮT) Checklist gia giảm theo yêu cầu UX mới -->
+                                </div>
+
+                            </div><!-- end cột phải -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient Profile Section -->
+            <div id="patient-profile-section" class="section-content" style="display: none;">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 id="profile-name">Hồ sơ chi tiết</h2>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn" style="background:#F5F0E8;color:#5B3A1A;border:1px solid #D4C5A0;" onclick="openEditPatientForm()">✏ Sửa thông tin</button>
+                            <button class="btn btn-primary" onclick="showSection('new-record')">+ Khám mới</button>
+                            <button class="btn" style="background:#FDECEA;color:#B03A2E;border:1px solid #E6B0AA;" onclick="deletePatient(event, _selectedPatientIdForNewRecord)">🗑 Xóa bệnh nhân</button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem;">
+                        <div id="profile-info" style="background: var(--glass); padding: 1.5rem; border-radius: 15px;">
+                            <!-- Info injected here -->
+                        </div>
+                        <div id="profile-history">
+                            <h3>Lịch sử khám bệnh</h3>
+                            <div id="history-list" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- History items -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Section -->
+            <div id="reports-section" class="section-content" style="display: none;">
+                <div class="section printable" id="report-print-area">
+                    <div id="report-content">
+                        <!-- Report content injected here -->
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: right;">
+                    <button class="btn btn-primary" onclick="window.print()">In Báo Cáo</button>
+                </div>
+            </div>
+
+            <!-- New Record Section -->
+            <div id="new-record-section" class="section-content" style="display:none;">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 id="new-record-title" style="color: var(--secondary);">Khám bệnh mới</h2>
+                        <button class="btn" style="background:#F5F0E8;color:#5B3A1A;border:1px solid #D4C5A0;" onclick="viewPatient(_selectedPatientIdForNewRecord)">← Hồ sơ bệnh nhân</button>
+                    </div>
+                    <div class="newrec-oldwrap">
+                        <!-- Cột trái: thông tin bệnh nhân -->
+                        <div class="newrec-panel">
+                            <h4>Thông tin bệnh nhân</h4>
+                            <div class="newrec-field"><label>Mã BN</label><div class="val" id="nr-pt-id">...</div></div>
+                            <div class="newrec-field"><label>Họ và tên</label><div class="val" id="nr-pt-name">...</div></div>
+                            <div class="newrec-field"><label>Giới tính</label><div class="val" id="nr-pt-gender">...</div></div>
+                            <div class="newrec-field"><label>Năm sinh</label><div class="val" id="nr-pt-birth">...</div></div>
+                            <div class="newrec-field"><label>Địa chỉ</label><div class="val" id="nr-pt-address">...</div></div>
+                            <div class="newrec-field"><label>Điện thoại</label><div class="val" id="nr-pt-phone">...</div></div>
+                            <div class="newrec-field"><label>CMND/CCCD</label><div class="val" id="nr-pt-cmnd">...</div></div>
+                            <div class="newrec-field"><label>Ghi chú</label><div class="val" id="nr-pt-notes" style="align-items:flex-start;min-height:54px;">...</div></div>
+                        </div>
+
+                        <!-- Cột giữa: nhập đo (bố cục cũ) -->
+                        <div class="newrec-panel">
+                            <h4>Đo nhiệt độ kinh lạc</h4>
+                            <div class="newrec-measure-wrap">
+                                <div id="input-meridians-grid"></div>
+                                <div id="measure-guide" class="measure-guide">
+                                <div class="mg-head">
+                                    <div class="mg-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                                        <span>Vị trí đo (gợi ý)</span>
+                                        <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                            <button class="btn btn-sm btn-outline" id="mg-edit-btn" onclick="toggleMeasureGuideEdit()">Chỉnh vị trí</button>
+                                            <button class="btn btn-sm btn-primary" id="mg-save-btn" onclick="saveMeasureGuideEdits()" style="display:none;">Lưu</button>
+                                            <button class="btn btn-sm" id="mg-cancel-btn" onclick="cancelMeasureGuideEdits()" style="display:none;">Hủy</button>
+                                        </span>
+                                    </div>
+                                    <div class="mg-sub" id="mg-sub">Chọn ô nhập nhiệt độ để xem vị trí đo tương ứng.</div>
+                                </div>
+                                <div class="mg-body">
+                                    <div class="mg-diagram" id="mg-diagram">
+                                        <!-- Hand diagram -->
+                                        <svg id="mg-hand" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" aria-label="Sơ đồ bàn tay" role="img">
+                                            <rect x="1" y="1" width="298" height="178" rx="10" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <!-- 4 fingers (adult, less rounded) -->
+                                            <rect x="78"  y="16" width="30" height="102" rx="10" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="112" y="12" width="30" height="106" rx="10" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="146" y="14" width="30" height="104" rx="10" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="180" y="20" width="28" height="96"  rx="10" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <!-- nails (to help orientation) -->
+                                            <rect x="84"  y="22" width="18" height="10" rx="4" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="118" y="18" width="18" height="10" rx="4" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="152" y="20" width="18" height="10" rx="4" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="185" y="26" width="16" height="9"  rx="4" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <!-- palm (adult shape) -->
+                                            <rect x="76" y="86" width="144" height="82" rx="18" fill="#F8F3EA" stroke="#C4A882"/>
+                                            <!-- thumb -->
+                                            <rect x="38" y="100" width="46" height="54" rx="14" fill="#F5F0E8" stroke="#C4A882" transform="rotate(-18 38 100)"/>
+                                            <rect x="46" y="108" width="18" height="10" rx="4" fill="#FFFDF7" stroke="#D4C5A0" transform="rotate(-18 46 108)"/>
+                                        </svg>
+
+                                        <!-- Foot diagram -->
+                                        <svg id="mg-foot" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" aria-label="Sơ đồ bàn chân" role="img" style="display:none;">
+                                            <rect x="1" y="1" width="298" height="178" rx="10" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <!-- toes -->
+                                            <!-- big toe + smaller toes (more realistic proportions) -->
+                                            <rect x="46"  y="22" width="52" height="46" rx="18" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="104" y="22" width="42" height="44" rx="16" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="150" y="24" width="36" height="42" rx="15" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="190" y="26" width="32" height="40" rx="14" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <rect x="226" y="30" width="28" height="36" rx="13" fill="#F5F0E8" stroke="#C4A882"/>
+                                            <!-- nails -->
+                                            <rect x="58"  y="30" width="30" height="12" rx="6" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="114" y="30" width="22" height="11" rx="6" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="156" y="32" width="18" height="10" rx="5" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="196" y="34" width="16" height="10" rx="5" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <rect x="232" y="38" width="14" height="9"  rx="5" fill="#FFFDF7" stroke="#D4C5A0"/>
+                                            <!-- foot -->
+                                            <path d="M66,64 C92,62 120,60 150,60 C180,60 210,62 236,66 C254,70 266,84 266,104 C266,136 244,160 210,170 C184,178 162,178 150,178 C138,178 116,178 90,170 C56,160 34,136 34,104 C34,84 46,70 66,64 Z"
+                                                  fill="#F8F3EA" stroke="#C4A882" stroke-width="1.2"/>
+                                        </svg>
+
+                                        <!-- marker -->
+                                        <div id="mg-marker" class="mg-marker" style="display:none;">
+                                            <div class="mg-dot"></div>
+                                            <div class="mg-side" id="mg-side">L</div>
+                                        </div>
+                                    </div>
+                                    <div class="mg-cap">
+                                        <span class="mg-cap-pill" id="mg-limb">—</span>
+                                        <span class="mg-cap-note" id="mg-cap-note">—</span>
+                                    </div>
+                                    <div class="mg-desc">
+                                        <div class="mg-k" id="mg-k">—</div>
+                                        <div class="mg-d" id="mg-d">—</div>
+                                        <div id="mg-edit-hint" style="display:none;margin-top:8px;font-size:0.78rem;color:#8B7355;">
+                                            Chế độ chỉnh vị trí: kéo thả chấm đỏ để căn. (Áp dụng cho kinh đang chọn)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                                </div>
+                        </div>
+
+                        <!-- Cột phải: thông tin phiếu khám -->
+                        <div class="newrec-panel">
+                            <h4>Thông tin phiếu khám</h4>
+                            <div class="newrec-field"><label>Số phiếu</label><div class="val" id="nr-rec-no">...</div></div>
+                            <div class="newrec-field"><label>Ngày khám</label><div class="val" id="nr-rec-date">...</div></div>
+                            <div class="newrec-field"><label>Giờ khám</label><div class="val" id="nr-rec-time">...</div></div>
+                            <div class="newrec-field">
+                                <label>Nhiệt độ MT (°C)</label>
+                                <div class="val" style="background:transparent;border:none;padding:0;">
+                                    <input id="input-env-temp" class="newrec-input" type="number" step="0.1" placeholder="VD: 26.5">
+                                </div>
+                            </div>
+                            <div class="newrec-stack">
+                                <div class="newrec-subtitle">Triệu chứng</div>
+                                <textarea id="nr-trieuchung" class="newrec-textarea" rows="2" placeholder="Nhập triệu chứng..."></textarea>
+
+                                <div class="newrec-subtitle">Các XN cận lâm sàng</div>
+                                <textarea id="nr-xn" class="newrec-textarea" rows="2" placeholder="Nhập xét nghiệm cận lâm sàng..."></textarea>
+
+                                <div class="newrec-subtitle">Phân loại</div>
+                                <div class="newrec-field" style="grid-template-columns: 150px 1fr;">
+                                    <label>Phân loại chứng bệnh</label>
+                                    <select id="nr-phanloai-chungbenh" class="newrec-select">
+                                        <option value="">-- chọn --</option>
+                                        <option value="AmDuong">Âm / Dương</option>
+                                        <option value="BieuLy">Biểu / Lý</option>
+                                        <option value="HanNhiet">Hàn / Nhiệt</option>
+                                        <option value="HuThuc">Hư / Thực</option>
+                                    </select>
+                                </div>
+                                <div class="newrec-field" style="grid-template-columns: 150px 1fr;">
+                                    <label>Phân loại cân bằng</label>
+                                    <select id="nr-phanloai-canbang" class="newrec-select">
+                                        <option value="">-- chọn --</option>
+                                        <option value="CanBang">Cân bằng</option>
+                                        <option value="LechNhe">Lệch nhẹ</option>
+                                        <option value="LechRo">Lệch rõ</option>
+                                    </select>
+                                </div>
+
+                                <div class="newrec-subtitle">Đường kinh cần xử lý / Tà khí</div>
+                                <textarea id="nr-takhi" class="newrec-textarea" rows="3" placeholder="Tự ghi chú (tuỳ chọn)..."></textarea>
+
+                                <div class="newrec-btnrow">
+                                    <button class="btn" onclick="showSection('patient-profile')">Thoát</button>
+                                    <button class="btn btn-primary" onclick="saveNewRecord()">Lưu</button>
+                                </div>
+                                <div id="new-rec-error" style="color:#B03A2E;font-size:0.78rem;min-height:16px;margin-top:2px;"></div>
+
+                                <div class="newrec-kpis">
+                                    <div class="kpi" id="nr-kpi-1">—</div>
+                                    <div class="kpi" id="nr-kpi-2">—</div>
+                                    <div class="kpi" id="nr-kpi-3">—</div>
+                                    <div class="kpi" id="nr-kpi-4">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disease Models Section -->
+            <div id="models-section" class="section-content" style="display: none;">
+                <div class="section">
+                    <div class="section-header">
+                        <h2 style="color: var(--secondary);">Danh mục Mô hình bệnh</h2>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input type="text" id="model-search" placeholder="Tìm tên mô hình bệnh..."
+                                style="padding: 0.5rem; border: 1px solid #ccc; width: 300px;" onkeyup="filterModels()">
+                            <select id="model-filter-group" style="padding:0.5rem;border:1px solid #ccc;" onchange="filterModels()">
+                                <option value="">-- Nhóm --</option>
+                            </select>
+                            <select id="model-filter-tag" style="padding:0.5rem;border:1px solid #ccc;" onchange="filterModels()">
+                                <option value="">-- Tag --</option>
+                                <option value="tagAmDuong:Âm">Âm</option>
+                                <option value="tagAmDuong:Dương">Dương</option>
+                                <option value="tagBieuLy:Biểu">Biểu</option>
+                                <option value="tagBieuLy:Lý">Lý</option>
+                                <option value="tagHanNhiet:Hàn">Hàn</option>
+                                <option value="tagHanNhiet:Nhiệt">Nhiệt</option>
+                                <option value="tagHuThuc:Hư">Hư</option>
+                                <option value="tagHuThuc:Thực">Thực</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="openModelEditor()">+ Thêm mô hình</button>
+                        </div>
+                    </div>
+                    <div class="data-table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Tên Mô hình</th>
+                                    <th>Triệu chứng chính</th>
+                                    <th style="width: 100px; text-align: center;">Chi tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody id="models-list">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Editor Modal (CRUD) -->
+            <div id="model-editor-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1300; overflow-y:auto;">
+                <div style="background:#FFFDF7; margin:4% auto; width:90%; max-width:980px; padding:16px 18px; border-radius:10px; border:1px solid #D4C5A0; box-shadow:0 6px 20px rgba(0,0,0,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #5B3A1A; padding-bottom:8px; margin-bottom:10px;">
+                        <div style="font-weight:900; color:#5B3A1A; letter-spacing:0.5px;" id="model-editor-title">Thêm/Sửa mô hình</div>
+                        <button class="btn" onclick="closeModelEditor()" style="padding:2px 10px;">✕</button>
+                    </div>
+                    <div id="model-editor-status" style="display:none; color:#A09580; font-size:0.8rem; margin-bottom:8px;"></div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <label style="font-size:0.8rem;color:#5B3A1A;">Tên mô hình<br>
+                            <input id="me-ten" type="text" style="width:100%;padding:6px 8px;border:1px solid #D4C5A0;border-radius:8px;">
+                        </label>
+                        <label style="font-size:0.8rem;color:#5B3A1A;">Nhóm chính (tuỳ chọn)<br>
+                            <input id="me-nhom" type="text" style="width:100%;padding:6px 8px;border:1px solid #D4C5A0;border-radius:8px;">
+                        </label>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px;">
+                        <div style="font-size:0.8rem;color:#5B3A1A;font-weight:700;">Triệu chứng</div>
+                        <div id="me-trieuchung-toolbar" style="display:none;"></div>
+                        <div id="me-trieuchung-editor" style="background:#FFF;border:1px solid #D4C5A0;border-radius:8px; min-height:160px;"></div>
+
+                        <div style="font-size:0.8rem;color:#5B3A1A;font-weight:700;">Pháp trị</div>
+                        <div id="me-phaptri-toolbar" style="display:none;"></div>
+                        <div id="me-phaptri-editor" style="background:#FFF;border:1px solid #D4C5A0;border-radius:8px; min-height:160px;"></div>
+
+                        <div style="font-size:0.8rem;color:#5B3A1A;font-weight:700;">Phương huyệt</div>
+                        <div id="me-phuonghuyet-toolbar" style="display:none;"></div>
+                        <div id="me-phuonghuyet-editor" style="background:#FFF;border:1px solid #D4C5A0;border-radius:8px; min-height:160px;"></div>
+                        <label style="font-size:0.8rem;color:#5B3A1A;">Kích hoạt từ kinh (JSON, tuỳ chọn)<br>
+                            <textarea id="me-kichhoat" rows="3" placeholder='{"tam":1,"phe":-1,...}' style="width:100%;padding:8px;border:1px solid #D4C5A0;border-radius:8px;font-family:Consolas, monospace;"></textarea>
+                        </label>
+                    </div>
+
+                    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:12px;flex-wrap:wrap;">
+                        <button class="btn btn-danger" id="me-delete-btn" style="display:none;" onclick="deleteCurrentModel()">🗑 Xóa mô hình</button>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;flex:1;">
+                            <button class="btn btn-outline" onclick="cleanModelEditorContent()">Làm sạch nội dung</button>
+                            <button class="btn btn-outline" onclick="previewModelReport()">Preview báo cáo</button>
+                            <button class="btn" onclick="closeModelEditor()">Hủy</button>
+                            <button class="btn btn-primary" onclick="saveModelEditor()">Lưu</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Preview Modal -->
+            <div id="model-preview-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1350; overflow-y:auto;">
+                <div style="background:#FFFDF7; margin:4% auto; width:90%; max-width:980px; padding:16px 18px; border-radius:10px; border:1px solid #D4C5A0; box-shadow:0 6px 20px rgba(0,0,0,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #5B3A1A; padding-bottom:8px; margin-bottom:10px;">
+                        <div style="font-weight:900; color:#5B3A1A; letter-spacing:0.5px;">PREVIEW BÁO CÁO (mô hình hiện tại)</div>
+                        <button class="btn" onclick="closeModelPreview()" style="padding:2px 10px;">✕</button>
+                    </div>
+                    <textarea id="model-preview-text" style="width:100%; min-height:360px; padding:10px 12px; border:1px solid #D4C5A0; border-radius:8px; background:#FFF; font-family:'Times New Roman', serif; font-size:14px; line-height:1.5;"></textarea>
+                    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+                        <button class="btn btn-outline" onclick="copyModelPreviewText()">Copy</button>
+                        <button class="btn btn-outline" onclick="printModelPreviewText()">In</button>
+                        <button class="btn btn-primary" onclick="closeModelPreview()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Detail Modal -->
+            <div id="model-detail-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+                <div style="background: white; margin: 5% auto; width: 80%; max-width: 900px; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--secondary); padding-bottom: 10px; margin-bottom: 1.5rem;">
+                        <h2 id="modal-model-title" style="color: var(--secondary); margin: 0;"></h2>
+                        <button onclick="closeModelModal()" style="border: none; background: none; font-size: 2rem; cursor: pointer;">&times;</button>
+                    </div>
+                    <div id="modal-model-body">
+                        <!-- Content injected here -->
+                    </div>
+                    <div style="margin-top: 2rem; text-align: right; border-top: 1px solid #eee; padding-top: 1rem;">
+                        <button class="btn" onclick="closeModelModal()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Summary Modal -->
+            <div id="ai-summary-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1200; overflow-y:auto;">
+                <div style="background:#FFFDF7; margin:5% auto; width:86%; max-width:980px; padding:16px 18px; border-radius:10px; border:1px solid #D4C5A0; box-shadow:0 6px 20px rgba(0,0,0,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #5B3A1A; padding-bottom:8px; margin-bottom:10px;">
+                        <div>
+                            <div style="font-weight:900; color:#5B3A1A; letter-spacing:0.5px;">TỔNG HỢP VĂN BẢN (AI/Template)</div>
+                            <div id="ai-summary-subtitle" style="font-size:0.78rem; color:#A09580; margin-top:2px;">Dùng để bác sĩ tham khảo, không thay thế chẩn đoán.</div>
+                        </div>
+                        <button class="btn" onclick="closeAiSummaryModal()" style="padding:2px 10px;">✕</button>
+                    </div>
+                    <div id="ai-summary-status" style="display:none; color:#A09580; font-size:0.8rem; margin-bottom:8px;"></div>
+                    <textarea id="ai-summary-text" style="width:100%; min-height:320px; padding:10px 12px; border:1px solid #D4C5A0; border-radius:8px; background:#FFF; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.45;"></textarea>
+                    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+                        <button class="btn" style="background:#E8F0FE; color:#1A5276; border:1px solid #BFD3F2;" onclick="copyAiSummaryText()">Copy</button>
+                        <button class="btn" style="background:#FFF6E5;color:#8B4513;border:1px solid #E8DCC8;" onclick="printAiSummaryText()">In</button>
+                        <button class="btn btn-primary" onclick="closeAiSummaryModal()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- New Patient Modal -->
+        <div id="new-patient-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center;">
+            <div style="background:#FFFDF7;border-radius:8px;padding:16px 20px;min-width:460px;max-width:560px;border:1px solid #D4C5A0;box-shadow:0 6px 20px rgba(0,0,0,0.25);font-size:0.85rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div>
+                        <h3 id="new-patient-modal-title" style="margin:0;color:#8B1A1A;font-size:1rem;">Thêm bệnh nhân mới</h3>
+                        <div style="font-size:0.75rem;color:#A09580;margin-top:2px;">
+                            Mã BN dự kiến: <strong id="new-pt-code">#...</strong>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="closeNewPatientForm()" style="padding:2px 8px;">✕</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:10px;margin-bottom:10px;">
+                    <label>Họ và tên<br><input id="new-pt-name" type="text" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;"></label>
+                    <div>
+                        <span>Ngày sinh</span><br>
+                        <div style="display:grid;grid-template-columns:0.8fr 0.8fr 1.2fr;gap:4px;">
+                            <select id="new-pt-birth-day" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                                <option value="">Ngày</option>
+                            </select>
+                            <select id="new-pt-birth-month" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                                <option value="">Tháng</option>
+                            </select>
+                            <select id="new-pt-birth-year" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                                <option value="">Năm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label>Giới tính<br>
+                        <select id="new-pt-gender" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                            <option value="">-- chọn --</option>
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        </select>
+                    </label>
+                    <label>Điện thoại<br><input id="new-pt-phone" type="text" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;"></label>
+                    <label>Số CMND / CCCD<br><input id="new-pt-idcard" type="text" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;"></label>
+                    <label>Tỉnh / TP<br>
+                        <select id="new-pt-province" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                            <option value="">-- Chọn Tỉnh / TP --</option>
+                        </select>
+                    </label>
+                    <label>Xã / Phường<br>
+                        <select id="new-pt-ward" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
+                            <option value="">-- Chọn Xã / Phường --</option>
+                        </select>
+                    </label>
+                    <label style="grid-column:1 / span 2;">Địa chỉ chi tiết (thôn/xóm, số nhà...)<br><input id="new-pt-address-detail" type="text" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;"></label>
+                    <label style="grid-column:1 / span 2;">Ghi chú<br><textarea id="new-pt-notes" rows="2" style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;resize:vertical;"></textarea></label>
+                </div>
+                <div id="new-pt-error" style="color:#B03A2E;font-size:0.78rem;min-height:16px;margin-bottom:6px;"></div>
+                <div style="text-align:right;margin-top:6px;">
+                    <button class="btn" onclick="closeNewPatientForm()" style="margin-right:6px;">Hủy</button>
+                    <button id="new-pt-save-btn" class="btn btn-primary" onclick="saveNewPatient()">Lưu bệnh nhân</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

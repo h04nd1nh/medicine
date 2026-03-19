@@ -295,8 +295,13 @@ async function apiCreateModel(payload) {
         body: JSON.stringify(_mapLegacyModelToNest(payload))
     });
     if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo mô hình thất bại') };
-    const data = await res.json();
-    return { success: true, id: data.id };
+    const text = await res.text();
+    try {
+        const data = JSON.parse(text);
+        return { success: true, id: data.id };
+    } catch {
+        return { success: false, error: text || 'Phản hồi không phải JSON hợp lệ khi tạo mô hình' };
+    }
 }
 
 async function apiUpdateModel(modelId, payload) {
@@ -306,8 +311,13 @@ async function apiUpdateModel(modelId, payload) {
         body: JSON.stringify(_mapLegacyModelToNest(payload))
     });
     if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật mô hình thất bại') };
-    const data = await res.json();
-    return { success: true, id: data.id };
+    const text = await res.text();
+    try {
+        const data = JSON.parse(text);
+        return { success: true, id: data.id };
+    } catch {
+        return { success: false, error: text || 'Phản hồi không phải JSON hợp lệ khi cập nhật mô hình' };
+    }
 }
 
 async function apiDeleteModel(modelId) {

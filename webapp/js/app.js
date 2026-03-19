@@ -212,9 +212,12 @@ function updateMeasureGuide(meridianId, side /* 'L' | 'R' */) {
         activeSvg.classList.remove('mg-flip');
     }
 
+    // Nếu dữ liệu tọa độ gốc đang theo quy ước bên trái,
+    // thì với bên phải cần mirror theo trục X để nhìn đúng L/R.
     if (marker) {
         marker.style.display = '';
-        marker.style.left = g.x + '%';
+        const x = (side === 'R') ? (100 - g.x) : g.x;
+        marker.style.left = x + '%';
         marker.style.top = g.y + '%';
     }
     if (sideEl) sideEl.textContent = sideShort;

@@ -212,11 +212,12 @@ function updateMeasureGuide(meridianId, side /* 'L' | 'R' */) {
         activeSvg.classList.remove('mg-flip');
     }
 
-    // Nếu dữ liệu tọa độ gốc đang theo quy ước bên trái,
-    // thì với bên phải cần mirror theo trục X để nhìn đúng L/R.
+    // Marker dùng tọa độ (g.x) theo một quy ước cố định.
+    // Sau khi chỉnh lật hiển thị, bên nào cần mirror trục X sẽ ngược nhau;
+    // hiện tại: chân trái đang bị mirror ngược => áp mirror cho 'L'.
     if (marker) {
         marker.style.display = '';
-        const x = (side === 'R') ? (100 - g.x) : g.x;
+        const x = (side === 'L') ? (100 - g.x) : g.x;
         marker.style.left = x + '%';
         marker.style.top = g.y + '%';
     }

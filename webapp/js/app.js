@@ -2569,7 +2569,11 @@ async function selectModelForRecord(modelId) {
         const m = diseaseModels.find(x => _modelId(x) == mid);
         const payload = { modelId: mid, duocChon: true, doPhuHop: 0 };
         try {
-            await apiSaveRecordModel(phieukhamId, payload);
+            const result = await apiSaveRecordModel(phieukhamId, payload);
+            if (result && result.success === false) {
+                alert('Lỗi khi lưu: ' + (result.error || 'Không rõ lỗi'));
+                return;
+            }
             _selectedRecordModels[mid] = { modelId: mid, ten: _modelName(m), phaptri: m?.phaptri || m?.phepchua || '', phuonghuyet: m?.phuonghuyet || m?.phuyet_chamcuu || '', trieuchung: m?.trieuchung || '' };
             if (btn) {
                 btn.textContent = '✓ Đã chọn cho phiếu này';

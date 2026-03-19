@@ -319,8 +319,12 @@ async function apiDeleteModel(modelId) {
 // Lấy mô hình đã chọn cho một phiếu khám
 async function apiGetRecordModels(phieukhamId) {
     const res = await fetch(_base() + '/records/' + phieukhamId + '/models');
-    if (!res.ok) throw new Error('Không tải được mô hình đã chọn');
-    return res.json();
+    if (!res.ok) {
+        const msg = await _safeText(res, 'Không tải được mô hình đã chọn');
+        throw new Error(msg);
+    }
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { throw new Error('Không tải được mô hình đã chọn (phản hồi không hợp lệ)'); }
 }
 
 // Thêm / cập nhật mô hình được chọn cho phiếu khám
@@ -330,7 +334,12 @@ async function apiSaveRecordModel(phieukhamId, payload) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
-    return res.json();
+    if (!res.ok) {
+        const msg = await _safeText(res, 'Lưu mô hình thất bại');
+        return { success: false, error: msg };
+    }
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { success: false, error: 'Phản hồi từ server không hợp lệ' }; }
 }
 
 // Bỏ chọn mô hình khỏi phiếu khám

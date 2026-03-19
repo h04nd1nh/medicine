@@ -11,7 +11,7 @@ async function bootstrap() {
     .map(o => o.trim())
     .filter(Boolean);
 
-  const brandmasterRegex = /^https:\/\/([a-z0-9-]+\.)?brandmaster\.net\.vn$/i;
+  const brandmasterRegex = /^https?:\/\/([a-z0-9-]+\.)?brandmaster\.net\.vn$/i;
   const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
   app.enableCors({

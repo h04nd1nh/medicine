@@ -85,8 +85,9 @@ export class MeridiansService {
    * - Nếu val = 0: coi là chưa đo -> giữ nguyên 0
    * - Nếu val nằm trong [20,40]: giữ nguyên
    * - Nếu val > 40:
-   *    - chỉ khi val/10 nằm trong [20,40] thì mới quy đổi (vd 354 -> 35.4)
-   *    - còn lại: báo lỗi để tránh quy đổi sai
+   *    - thử chia theo 10^k (k=1..4) để đưa về [20,40]
+   *      (vd 354 -> 35.4; 3544 -> 35.44)
+   *    - nếu không có k phù hợp: báo lỗi để tránh quy đổi sai
    */
   private normalizeChannelValue(val: number, fieldName: string): number {
     if (!Number.isFinite(val) || val === 0) return 0;
@@ -94,15 +95,19 @@ export class MeridiansService {
     // Đã đúng đơn vị
     if (val >= 20 && val <= 40) return val;
 
-    // Rất có thể người dùng nhập theo "mười lần" (vd 354 -> 35.4)
+    // Rất có thể người dùng nhập theo dạng "x10" hoặc "x100" cho đúng số lẻ
     if (val > 40) {
-      const cand = val / 10;
-      if (cand >= 20 && cand <= 40) return this.round2(cand);
+      const maxPow = 4; // cho phép tối đa 4 chữ số "nhân lên"
+      for (let pow = 1; pow <= maxPow; pow++) {
+        const cand = val / Math.pow(10, pow);
+        if (cand >= 20 && cand <= 40) return this.round2(cand);
+      }
     }
 
     throw new BadRequestException(
       `Giá trị nhiệt độ không hợp lệ (${fieldName} = ${val}). ` +
-      `Chỉ chấp nhận trong khoảng 20..40 °C. Nếu bạn nhập theo dạng "x10" (ví dụ 354 -> 35.4) thì mới được tự quy đổi.`,
+      `Chỉ chấp nhận trong khoảng 20..40 °C. Nếu bạn nhập theo dạng "x10/x100" ` +
+      `(ví dụ 354 -> 35.4, 3544 -> 35.44) thì hệ thống sẽ tự quy đổi.`,
     );
   }
 

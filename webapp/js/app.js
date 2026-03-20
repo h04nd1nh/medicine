@@ -677,6 +677,34 @@ function _showSectionInternal(id) {
 
             // Gắn handler để panel “Vị trí đo” cập nhật theo ô đang nhập
             _bindMeasureGuideHandlers(grid);
+
+            // Normalize giá trị nhiệt độ kinh lạc khi người dùng nhập theo dạng "x10/x100"
+            // Ví dụ: 354 -> 35.4 (chia 10), 3544 -> 35.44 (chia 100)
+            const normalizeMeridianTempInputEl = (inputEl) => {
+                if (!inputEl) return;
+                const raw = parseFloat(inputEl.value);
+                if (!Number.isFinite(raw) || raw === 0) return;
+                if (raw >= 20 && raw <= 40) return;
+                if (raw > 40) {
+                    const maxPow = 4;
+                    for (let pow = 1; pow <= maxPow; pow++) {
+                        const cand = raw / Math.pow(10, pow);
+                        if (cand >= 20 && cand <= 40) {
+                            const rounded2 = Math.round(cand * 100) / 100;
+                            inputEl.value = (pow === 1) ? (Math.round(cand * 10) / 10).toFixed(1) : rounded2.toFixed(2);
+                            return;
+                        }
+                    }
+                }
+            };
+
+            grid.addEventListener('blur', (e) => {
+                const t = e.target;
+                if (!t || !t.id) return;
+                if (!/^in-[a-z0-9_]+-(L|R)$/i.test(t.id)) return;
+                normalizeMeridianTempInputEl(t);
+            }, true);
+
             // Default highlight: ô đầu tiên (nếu có)
             setTimeout(() => {
                 const first = grid.querySelector('input[id^="in-"]');

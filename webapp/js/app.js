@@ -207,26 +207,24 @@ function updateMeasureGuide(meridianId, side /* 'L' | 'R' */) {
     if (capNoteEl) capNoteEl.textContent = (g.part === 'hand') ? 'Sơ đồ bàn tay' : 'Sơ đồ bàn chân';
 
     // Với sơ đồ bàn chân, lật gương khi chọn chân trái để đúng trực quan.
+    // Lật theo nhóm SVG (`mg-foot-g`) để ổn định hơn trên các trình duyệt.
     const activeSvg = g.part === 'hand' ? hand : foot;
-    if (activeSvg) {
-        activeSvg.classList.toggle('mg-flip', g.part === 'foot' && side === 'L');
+    const isFootLeft = g.part === 'foot' && side === 'L';
+    const footG = document.getElementById('mg-foot-g');
+    if (hand) hand.style.transform = 'none';
+    if (foot) foot.style.transform = 'none';
+    if (footG) {
+        // viewBox width = 300 => flip theo trục X: translate(300,0) scale(-1,1)
+        footG.setAttribute('transform', isFootLeft ? 'translate(300 0) scale(-1 1)' : 'none');
+        if (!isFootLeft) footG.removeAttribute('transform');
     }
+    // (mg-flip trong CSS đã được vô hiệu để tránh lật kép)
+    if (activeSvg) activeSvg.classList.toggle('mg-flip', false);
 
-    // Marker: tự động căn theo trạng thái transform của SVG (scaleX(-1) sẽ cần mirror lại marker).
+    // Marker: mirror theo cùng logic lật gương của bàn chân.
     if (marker) {
         marker.style.display = '';
-        let x = g.x;
-        const svgToMeasure = (g.part === 'hand') ? hand : foot;
-        if (svgToMeasure) {
-            const tr = window.getComputedStyle(svgToMeasure).transform;
-            // tr dạng: matrix(a,b,c,d,e,f)
-            // Với scaleX(-1): a < 0
-            const m = tr && tr !== 'none' ? tr.match(/matrix\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/) : null;
-            if (m) {
-                const a = parseFloat(m[1]);
-                if (Number.isFinite(a) && a < 0) x = 100 - g.x;
-            }
-        }
+        const x = isFootLeft ? (100 - g.x) : g.x;
         marker.style.left = x + '%';
         marker.style.top = g.y + '%';
     }
@@ -308,19 +306,9 @@ function _mgSetFromPointer(clientX, clientY) {
     xDisp = Math.max(0, Math.min(100, xDisp));
     y = Math.max(0, Math.min(100, y));
 
-    const activeSvg = _mgActive.meridianId ? (_getGuideFor(_mgActive.meridianId)?.part === 'hand'
-        ? document.getElementById('mg-hand')
-        : document.getElementById('mg-foot')) : null;
-    let flip = false;
-    if (activeSvg) {
-        const tr = window.getComputedStyle(activeSvg).transform;
-        const m = tr && tr !== 'none' ? tr.match(/matrix\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/) : null;
-        if (m) {
-            const a = parseFloat(m[1]);
-            flip = Number.isFinite(a) && a < 0;
-        }
-    }
-    const xBase = flip ? (100 - xDisp) : xDisp; // lưu theo hệ tọa độ gốc (chưa flip)
+    const g = _getGuideFor(_mgActive.meridianId);
+    const flip = !!(g && g.part === 'foot' && _mgActive.side === 'L');
+    const xBase = flip ? (100 - xDisp) : xDisp; // lưu theo hệ tọa độ gốc (không lật)
     _mgDraft = { x: xBase, y };
 
     // update UI ngay lập tức

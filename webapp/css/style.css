@@ -246,7 +246,7 @@ tr:hover {
     transform-origin: 50% 50%;
 }
 .measure-guide svg.mg-flip {
-    transform: scaleX(-1);
+    transform: none;
 }
 .measure-guide .mg-marker {
     position: absolute;

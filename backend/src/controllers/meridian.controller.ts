@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MeridianSyndrome } from '../models/meridian-syndrome.model';
@@ -78,7 +78,44 @@ export class MeridiansService {
     return Math.round(n * 100) / 100;
   }
 
+  /**
+   * Chuẩn hoá dữ liệu nhiệt độ kinh lạc về đúng khoảng sinh lý 20..40 °C.
+   *
+   * Quy tắc:
+   * - Nếu val = 0: coi là chưa đo -> giữ nguyên 0
+   * - Nếu val nằm trong [20,40]: giữ nguyên
+   * - Nếu val > 40:
+   *    - chỉ khi val/10 nằm trong [20,40] thì mới quy đổi (vd 354 -> 35.4)
+   *    - còn lại: báo lỗi để tránh quy đổi sai
+   */
+  private normalizeChannelValue(val: number, fieldName: string): number {
+    if (!Number.isFinite(val) || val === 0) return 0;
+
+    // Đã đúng đơn vị
+    if (val >= 20 && val <= 40) return val;
+
+    // Rất có thể người dùng nhập theo "mười lần" (vd 354 -> 35.4)
+    if (val > 40) {
+      const cand = val / 10;
+      if (cand >= 20 && cand <= 40) return this.round2(cand);
+    }
+
+    throw new BadRequestException(
+      `Giá trị nhiệt độ không hợp lệ (${fieldName} = ${val}). ` +
+      `Chỉ chấp nhận trong khoảng 20..40 °C. Nếu bạn nhập theo dạng "x10" (ví dụ 354 -> 35.4) thì mới được tự quy đổi.`,
+    );
+  }
+
   async analyze(data: AnalyzeInputDto): Promise<AnalyzeOutputDto> {
+    // Chuẩn hoá/validate 24 giá trị trước khi tính toán ngưỡng
+    // (mutate tại chỗ để các nơi lưu inputData về sau cũng có giá trị chuẩn)
+    for (const ch of CHANNELS) {
+      const leftKey = `${ch}trai` as keyof AnalyzeInputDto;
+      const rightKey = `${ch}phai` as keyof AnalyzeInputDto;
+      (data as any)[leftKey] = this.normalizeChannelValue((data as any)[leftKey], String(leftKey));
+      (data as any)[rightKey] = this.normalizeChannelValue((data as any)[rightKey], String(rightKey));
+    }
+
     const leftChannels = [
       data.tieutruongtrai,
       data.tamtrai,

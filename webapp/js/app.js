@@ -680,9 +680,14 @@ function _showSectionInternal(id) {
 
             // Normalize giá trị nhiệt độ kinh lạc khi người dùng nhập theo dạng "x10/x100"
             // Ví dụ: 354 -> 35.4 (chia 10), 3544 -> 35.44 (chia 100)
+            const _toDotNumber = (v) => {
+                if (v == null) return NaN;
+                const s = String(v).trim().replace(',', '.');
+                return Number.parseFloat(s);
+            };
             const normalizeMeridianTempInputEl = (inputEl) => {
                 if (!inputEl) return;
-                const raw = parseFloat(inputEl.value);
+                const raw = _toDotNumber(inputEl.value);
                 if (!Number.isFinite(raw) || raw === 0) return;
                 if (raw >= 20 && raw <= 40) return;
                 if (raw > 40) {
@@ -2050,7 +2055,12 @@ async function saveNewRecord() {
         if (err) err.innerText = 'Không xác định được bệnh nhân. Hãy vào “Hồ sơ” bệnh nhân và bấm “Khám mới”.';
         return;
     }
-    const env = parseFloat(envEl.value);
+    const _toDotNumber = (v) => {
+        if (v == null) return NaN;
+        const s = String(v).trim().replace(',', '.');
+        return Number.parseFloat(s);
+    };
+    const env = _toDotNumber(envEl.value);
     if (isNaN(env)) {
         if (err) err.innerText = 'Vui lòng nhập nhiệt độ môi trường (hoặc chờ hệ thống tự lấy theo vị trí).';
         return;
@@ -2059,8 +2069,8 @@ async function saveNewRecord() {
     const payload = { benhnhanId: _selectedPatientIdForNewRecord, nhietdoMoitruong: env };
     let sumAbs = 0;
     newRecordMeridians.forEach(m => {
-        const lVal = parseFloat(document.getElementById(`in-${m.id}-L`)?.value);
-        const rVal = parseFloat(document.getElementById(`in-${m.id}-R`)?.value);
+        const lVal = _toDotNumber(document.getElementById(`in-${m.id}-L`)?.value);
+        const rVal = _toDotNumber(document.getElementById(`in-${m.id}-R`)?.value);
         const l = isNaN(lVal) ? 0 : lVal;
         const r = isNaN(rVal) ? 0 : rVal;
         payload[m.id + 'Trai'] = l;

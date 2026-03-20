@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function _checkAuthAndInit() {
+async function _checkAuthAndInit() {
     const overlay = document.getElementById('login-overlay');
     if (!isLoggedIn()) {
         if (overlay) overlay.style.display = 'flex';
@@ -55,19 +55,32 @@ function _checkAuthAndInit() {
     }
     if (overlay) overlay.style.display = 'none';
     _updateUserDisplay();
-    _startApp();
+    await _startApp();
 }
 
-function _startApp() {
-    loadData();
+async function _startApp() {
+    await loadData();
     _initMeasureGuideEditor();
-    _updateBreadcrumb('dashboard');
+    
+    // Xử lý routing ban đầu từ URL hash
     const initHash = window.location.hash.replace('#', '');
     if (initHash && initHash !== '/' && initHash !== '/dashboard') {
-        history.replaceState({ section: 'dashboard' }, '', '#/');
+        const parts = initHash.split('/').filter(Boolean);
+        if (parts[0] === 'analysis' && parts[1]) {
+            viewAnalysis(null, parseInt(parts[1]));
+        } else if (parts[0] === 'patient' && parts[1]) {
+            viewPatient(parseInt(parts[1]));
+        } else if (parts[0] === 'patients') {
+            showSection('patients');
+        } else if (parts[0] === 'models') {
+            showSection('models');
+        } else {
+            showSection('dashboard');
+        }
     } else {
-        history.replaceState({ section: 'dashboard' }, '', '#/');
+        showSection('dashboard');
     }
+
     document.getElementById('patient-search')?.addEventListener('input', e => filterPatients(e.target.value));
     document.getElementById('model-search')?.addEventListener('input', () => filterModels());
 }
@@ -986,8 +999,20 @@ function renderHistory(patientId) {
 // PHÂN TÍCH KINH LẠC
 // =========================================================
 function viewAnalysis(patientId, phieukhamId = null) {
+    if (!patientId && phieukhamId) {
+        // Tìm patientId từ recordData nếu chỉ có phieukhamId
+        const rec = recordData.find(r => r.phieukhamId == phieukhamId);
+        if (rec) patientId = rec.benhnhanId;
+    }
     const recs = recordData.filter(r => r.benhnhanId == patientId);
-    if (!recs.length) { alert('Chưa có dữ liệu đo kinh lạc cho bệnh nhân này.'); return; }
+    if (!recs.length) { 
+        if (phieukhamId) {
+            alert(`Không tìm thấy dữ liệu cho phiếu khám #${phieukhamId}. Có thể bạn cần làm mới trang để cập nhật.`);
+        } else {
+            alert('Chưa có dữ liệu đo kinh lạc cho bệnh nhân này.'); 
+        }
+        return; 
+    }
     _selectedPatientIdForNewRecord = patientId;
     const target = phieukhamId
         ? recs.find(r => r.phieukhamId == phieukhamId)

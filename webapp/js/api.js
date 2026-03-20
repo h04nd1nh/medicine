@@ -95,7 +95,24 @@ function _mapLegacyPatientToNest(payload) {
 }
 
 function _mapNestExamToLegacy(exam) {
-    const input = exam.inputData || {};
+    let rawInput = exam.inputData || {};
+    
+    // Nếu rawInput là chuỗi JSON (trường hợp DB trả về text thay vì jsonb hoặc parse lỗi)
+    if (typeof rawInput === 'string') {
+        try {
+            rawInput = JSON.parse(rawInput);
+        } catch (e) {
+            console.error('Lỗi parse inputData:', e, rawInput);
+            rawInput = {};
+        }
+    }
+
+    // Chuẩn hóa key về lowercase để xử lý cả camelCase (tyTrai) và lowercase (tytrai)
+    const input = {};
+    for (const key in rawInput) {
+        input[key.toLowerCase()] = rawInput[key];
+    }
+
     return {
         phieukhamId: exam.id,
         benhnhanId: exam.patientId,

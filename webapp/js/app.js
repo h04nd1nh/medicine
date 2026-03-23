@@ -613,8 +613,6 @@ function _showSectionInternal(id) {
         l.classList.toggle('active', l.getAttribute('onclick')?.includes(`'${id}'`));
     });
 
-    if (id === 'tayy') {
-        if (typeof initTayyManagement === 'function') initTayyManagement();
     switch (id) {
         case 'tayy':
             if (typeof initTayyManagement === 'function') initTayyManagement();

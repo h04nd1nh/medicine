@@ -32,7 +32,7 @@ export class HuyetViRouter {
   @Post()
   async create(@Body() dto: CreateHuyetViDto) {
     const item = await this.service.create(dto);
-    return { success: true, id: item.id, data: item };
+    return { success: true, id: item.idHuyet, data: item };
   }
 
   @Put(':id')

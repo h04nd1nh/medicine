@@ -32,7 +32,7 @@ export class PhacDoDieuTriRouter {
   @Post()
   async create(@Body() dto: CreatePhacDoDieuTriDto) {
     const item = await this.service.create(dto);
-    return { success: true, id: item.id, data: item };
+    return { success: true, id: item.idPhacDo, data: item };
   }
 
   @Put(':id')

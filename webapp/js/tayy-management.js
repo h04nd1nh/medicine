@@ -4,7 +4,6 @@
 let _tayyData = {
     chungBenh: [],
     benhTayY: [],
-    trieuChung: [],
     activeTab: 'chung-benh',
 };
 
@@ -16,14 +15,12 @@ async function initTayyManagement() {
 
 async function loadAllTayyData() {
     try {
-        const [cb, bty, tc] = await Promise.all([
+        const [cb, bty] = await Promise.all([
             apiGetChungBenh(),
             apiGetBenhTayY(),
-            apiGetTrieuChung(),
         ]);
         _tayyData.chungBenh = cb || [];
         _tayyData.benhTayY = bty || [];
-        _tayyData.trieuChung = tc || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Tây y:', e);
     }
@@ -44,7 +41,6 @@ function renderTayySection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border);">
                 <button class="tayy-tab ${tab === 'chung-benh' ? 'active' : ''}" onclick="switchTayyTab('chung-benh')">Chủng bệnh</button>
                 <button class="tayy-tab ${tab === 'benh-tay-y' ? 'active' : ''}" onclick="switchTayyTab('benh-tay-y')">Bệnh tây y</button>
-                <button class="tayy-tab ${tab === 'trieu-chung' ? 'active' : ''}" onclick="switchTayyTab('trieu-chung')">Triệu chứng</button>
             </div>
 
             <div id="tayy-tab-content"></div>
@@ -66,7 +62,6 @@ function renderTayyTabContent() {
     switch (_tayyData.activeTab) {
         case 'chung-benh': renderChungBenhTab(el); break;
         case 'benh-tay-y': renderBenhTayYTab(el); break;
-        case 'trieu-chung': renderTrieuChungTab(el); break;
     }
 }
 
@@ -202,9 +197,11 @@ function openBenhTayYForm(id) {
         return `<label class="tayy-check-label"><input type="checkbox" name="ty-bt-ids" value="${p.id}" ${checked}> ${escHtml(p.ten_bai_thuoc)}</label>`;
     }).join('');
 
-    const tcChecks = _tayyData.trieuChung.map(t => {
-        const checked = item && (item.trieuChungList || []).some(x => x.id === t.id) ? 'checked' : '';
-        return `<label class="tayy-check-label"><input type="checkbox" value="${t.id}" ${checked}> ${escHtml(t.ten_trieu_chung)}</label>`;
+    // Nạp danh sách triệu chứng (Lấy từ module trieuchung-management tập trung)
+    const allTC = (typeof _trieuchungData !== 'undefined') ? _trieuchungData.trieuChung : [];
+    const tcChecks = allTC.map(tc => {
+        const checked = item && (item.trieuChungList || []).some(x => x.id === tc.id) ? 'checked' : '';
+        return `<label class="tayy-check-label"><input type="checkbox" name="tayy-tc-ids" value="${tc.id}" ${checked}> ${escHtml(tc.ten_trieu_chung)}</label>`;
     }).join('');
 
     showTayyModal(title, `
@@ -280,77 +277,6 @@ async function deleteBenhTayY(id) {
 
 // ═══════════════════════════════════════════════════════════
 // TAB: TRIỆU CHỨNG
-// ═══════════════════════════════════════════════════════════
-function renderTrieuChungTab(el) {
-    const rows = _tayyData.trieuChung.map(item => `
-        <tr>
-            <td style="text-align:center;width:60px;">${item.id}</td>
-            <td>${escHtml(item.ten_trieu_chung)}</td>
-            <td style="text-align:center;width:160px;">
-                <div class="table-actions">
-                    <button class="btn btn-sm btn-outline" onclick="editTrieuChung(${item.id})">✏ Sửa</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteTrieuChung(${item.id})">🗑 Xóa</button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
-
-    el.innerHTML = `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-            <button class="btn btn-primary" onclick="openTrieuChungForm()">+ Thêm triệu chứng</button>
-        </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr><th>Tên triệu chứng</th><th style="width:160px; text-align:center;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="2" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
-            </table>
-        </div>
-    `;
-}
-
-function openTrieuChungForm(id) {
-    const item = id ? _tayyData.trieuChung.find(x => x.id === id) : null;
-    const title = item ? 'Sửa triệu chứng' : 'Thêm triệu chứng mới';
-    showTayyModal(title, `
-        <label class="tayy-form-label">Tên triệu chứng<br>
-            <input id="tayy-inp-tc" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_trieu_chung) : ''}" placeholder="Nhập tên triệu chứng...">
-        </label>
-        <div class="tayy-form-actions">
-            <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveTrieuChung(${id || 0})">Lưu</button>
-        </div>
-    `);
-    setTimeout(() => document.getElementById('tayy-inp-tc')?.focus(), 100);
-}
-
-function editTrieuChung(id) { openTrieuChungForm(id); }
-
-async function saveTrieuChung(id) {
-    const val = document.getElementById('tayy-inp-tc')?.value.trim();
-    if (!val) return alert('Vui lòng nhập tên triệu chứng');
-
-    let result;
-    if (id) {
-        result = await apiUpdateTrieuChung(id, { ten_trieu_chung: val });
-    } else {
-        result = await apiCreateTrieuChung({ ten_trieu_chung: val });
-    }
-
-    if (result.success === false) return alert(result.error || 'Thao tác thất bại');
-    closeTayyModal();
-    await loadAllTayyData();
-    renderTayySection();
-}
-
-async function deleteTrieuChung(id) {
-    if (!confirm('Bạn có chắc muốn xóa triệu chứng này?')) return;
-    const result = await apiDeleteTrieuChung(id);
-    if (result.success === false) return alert(result.error || 'Xóa thất bại');
-    await loadAllTayyData();
-    renderTayySection();
-}
-
-// ═══════════════════════════════════════════════════════════
 // MODAL CHUNG
 // ═══════════════════════════════════════════════════════════
 function showTayyModal(title, bodyHtml, widthClass) {

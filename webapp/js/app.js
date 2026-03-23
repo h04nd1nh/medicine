@@ -615,12 +615,22 @@ function _showSectionInternal(id) {
 
     if (id === 'tayy') {
         if (typeof initTayyManagement === 'function') initTayyManagement();
-    }
-    if (id === 'dongy') {
-        if (typeof initDongyManagement === 'function') initDongyManagement();
-    }
-    if (id === 'thuoc') {
-        if (typeof initThuocManagement === 'function') initThuocManagement();
+    switch (id) {
+        case 'tayy':
+            if (typeof initTayyManagement === 'function') initTayyManagement();
+            break;
+        case 'dongy':
+            if (typeof initDongyManagement === 'function') initDongyManagement();
+            break;
+        case 'thuoc':
+            if (typeof initThuocManagement === 'function') initThuocManagement();
+            break;
+        case 'trieuchung':
+            if (typeof initTrieuchungManagement === 'function') initTrieuchungManagement();
+            break;
+        case 'settings':
+            if (typeof renderSettings === 'function') renderSettings();
+            break;
     }
 
     if (id === 'new-record') {

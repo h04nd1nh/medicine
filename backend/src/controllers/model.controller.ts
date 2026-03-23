@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { MeridianSyndrome } from '../models/meridian-syndrome.model';
 import { BaiThuoc } from '../models/bai-thuoc.model';
+import { TrieuChung } from '../models/trieu-chung.model';
 
 @Injectable()
 export class ModelsService {
@@ -11,11 +12,13 @@ export class ModelsService {
     private readonly repo: Repository<MeridianSyndrome>,
     @InjectRepository(BaiThuoc)
     private readonly baiThuocRepo: Repository<BaiThuoc>,
+    @InjectRepository(TrieuChung)
+    private readonly trieuChungRepo: Repository<TrieuChung>,
   ) {}
 
   findAll(): Promise<MeridianSyndrome[]> {
     return this.repo.find({
-      relations: ['baiThuocList'],
+      relations: ['baiThuocList', 'trieuChungList'],
       order: { id: 'ASC' },
     });
   }
@@ -23,14 +26,14 @@ export class ModelsService {
   async findOne(id: number): Promise<MeridianSyndrome> {
     const row = await this.repo.findOne({
       where: { id },
-      relations: ['baiThuocList'],
+      relations: ['baiThuocList', 'trieuChungList'],
     });
     if (!row) throw new NotFoundException(`Mô hình #${id} không tồn tại`);
     return row;
   }
 
   async create(data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
     const entity = this.repo.create(rest as Partial<MeridianSyndrome>);
 
     if (bai_thuoc_ids && bai_thuoc_ids.length > 0) {
@@ -38,18 +41,28 @@ export class ModelsService {
         id: In(bai_thuoc_ids),
       });
     }
+    if (trieu_chung_ids && trieu_chung_ids.length > 0) {
+      entity.trieuChungList = await this.trieuChungRepo.findBy({
+        id: In(trieu_chung_ids),
+      });
+    }
 
     return this.repo.save(entity);
   }
 
   async update(id: number, data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
     const existing = await this.findOne(id);
     Object.assign(existing, rest);
 
     if (bai_thuoc_ids !== undefined) {
       existing.baiThuocList = bai_thuoc_ids.length > 0
         ? await this.baiThuocRepo.findBy({ id: In(bai_thuoc_ids) })
+        : [];
+    }
+    if (trieu_chung_ids !== undefined) {
+      existing.trieuChungList = trieu_chung_ids.length > 0
+        ? await this.trieuChungRepo.findBy({ id: In(trieu_chung_ids) })
         : [];
     }
 

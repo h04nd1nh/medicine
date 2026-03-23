@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable } from 'typeorm';
 import { BaiThuoc } from './bai-thuoc.model';
+import { TrieuChung } from './trieu-chung.model';
 
 @Entity('benh_dong_y')
 export class MeridianSyndrome {
@@ -154,4 +155,12 @@ export class MeridianSyndrome {
     inverseJoinColumn: { name: 'id_bai_thuoc', referencedColumnName: 'id' },
   })
   baiThuocList: BaiThuoc[];
+
+  @ManyToMany(() => TrieuChung)
+  @JoinTable({
+    name: 'benh_dong_y_trieu_chung',
+    joinColumn: { name: 'id_benh_dong_y', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_trieu_chung', referencedColumnName: 'id' },
+  })
+  trieuChungList: TrieuChung[];
 }

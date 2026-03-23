@@ -138,14 +138,28 @@ function openBenhDongYForm(givenId) {
         return `<label class="tayy-check-label"><input type="checkbox" name="dy-bt-ids" value="${bt.id}" ${checked}> ${escHtml(bt.ten_bai_thuoc)}</label>`;
     }).join('');
 
+    // Nạp danh sách triệu chứng dùng chung (từ _trieuchungData trong trieuchung-management.js)
+    const allTC = (typeof _trieuchungData !== 'undefined') ? _trieuchungData.trieuChung : [];
+    const tcChecks = allTC.map(tc => {
+        const checked = item && (item.trieuChungList || []).some(x => x.id === tc.id) ? 'checked' : '';
+        return `<label class="tayy-check-label"><input type="checkbox" name="dy-tc-ids" value="${tc.id}" ${checked}> ${escHtml(tc.ten_trieu_chung)}</label>`;
+    }).join('');
+
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tên bệnh (Tiêu kết)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${item ? escHtml(item.tieuket) : ''}"></label>
         <label class="tayy-form-label">ID Nhóm<br><input id="dy-inp-nhom" type="number" class="tayy-form-input" value="${item ? (item.nhomid || 0) : ''}"></label>
-        <label class="tayy-form-label">Triệu chứng chính<br><textarea id="dy-inp-tc" class="tayy-form-input" rows="3">${item ? escHtml(item.trieuchung) : ''}</textarea></label>
+        <label class="tayy-form-label">Mô tả triệu chứng (Ghi chú)<br><textarea id="dy-inp-tc" class="tayy-form-input" rows="3">${item ? escHtml(item.trieuchung) : ''}</textarea></label>
         
-        <div class="tayy-form-label">Bài thuốc liên quan
-            <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
-                ${btChecks || '<span style="color:#A09580;">Chưa có bài thuốc nào trong danh mục chung</span>'}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:15px;">
+            <div class="tayy-form-label">Triệu chứng hệ thống
+                <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
+                    ${tcChecks || '<span style="color:#A09580;">Chưa có triệu chứng</span>'}
+                </div>
+            </div>
+            <div class="tayy-form-label">Bài thuốc liên quan
+                <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
+                    ${btChecks || '<span style="color:#A09580;">Chưa có bài thuốc</span>'}
+                </div>
             </div>
         </div>
 
@@ -158,11 +172,14 @@ function openBenhDongYForm(givenId) {
 
 async function saveBenhDongY(id) {
     const btIds = Array.from(document.querySelectorAll('input[name="dy-bt-ids"]:checked')).map(c => parseInt(c.value));
+    const tcIds = Array.from(document.querySelectorAll('input[name="dy-tc-ids"]:checked')).map(c => parseInt(c.value));
+    
     const payload = {
         tieuket: document.getElementById('dy-inp-tieuket').value.trim(),
         nhomid: parseInt(document.getElementById('dy-inp-nhom').value) || 0,
         trieuchung: document.getElementById('dy-inp-tc').value.trim(),
-        bai_thuoc_ids: btIds
+        bai_thuoc_ids: btIds,
+        trieu_chung_ids: tcIds
     };
     if (!payload.tieuket) return alert('Thiếu tên bệnh');
     const res = id ? await apiUpdateModel(id, payload) : await apiCreateModel(payload);
@@ -298,26 +315,50 @@ async function deleteHuyetVi(id) { if(confirm('Xóa?')) { await apiDeleteHuyetVi
 // TAB: PHÁC ĐỒ CHÂM CỨU
 // ═══════════════════════════════════════════════════════════
 function renderPhacDoTab(el) {
-    const rows = _dongyData.phacDo.map(item => `
-        <tr>
-            <td style="text-align:center;">${item.idPhacDo || item.id}</td>
-            <td><strong>${item.benh ? escHtml(item.benh.tieuket) : '—'}</strong></td>
-            <td>${item.huyetVi ? escHtml(item.huyetVi.ten_huyet) : '—'}</td>
-            <td>${escHtml(item.vai_tro_huyet)}</td>
-            <td style="text-align:center;width:130px;">
-                <button class="btn btn-sm btn-outline" onclick="openPhacDoForm(${item.idPhacDo || item.id})">✏</button>
-                <button class="btn btn-sm btn-danger" onclick="deletePhacDo(${item.idPhacDo || item.id})">🗑</button>
-            </td>
-        </tr>
-    `).join('');
-    el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-primary" onclick="openPhacDoForm()">+ Thêm phác đồ</button></div>
-    <div class="data-table-container"><table><thead><tr><th>ID</th><th>Bệnh</th><th>Huyệt</th><th>Vai trò</th><th>Thao tác</th></tr></thead><tbody>${rows || '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
+    const rows = _dongyData.phacDo.map(item => {
+        const id = item.idPhacDo || item.id;
+        const benhName = item.benh ? (item.benh.tieuket || item.benh.ten || '—') : '—';
+        const hvName = item.huyetVi ? (item.huyetVi.ten_huyet || item.huyetVi.name || '—') : '—';
+        return `
+            <tr>
+                <td><strong>${escHtml(benhName)}</strong></td>
+                <td><span style="color:#8B7355; font-weight:600;">${escHtml(hvName)}</span></td>
+                <td>${escHtml(item.vai_tro_huyet || '—')}</td>
+                <td style="text-align:center;width:130px;">
+                    <div class="table-actions" style="justify-content:center;">
+                        <button class="btn btn-sm btn-outline" onclick="openPhacDoForm(${id})">✏ Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deletePhacDo(${id})">🗑 Xóa</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    el.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+            <button class="btn btn-primary" onclick="openPhacDoForm()">+ Thêm phác đồ</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr><th>Bệnh</th><th>Huyệt</th><th>Vai trò</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+            </table>
+        </div>`;
 }
 
 function openPhacDoForm(id) {
     const item = id ? _dongyData.phacDo.find(x => (x.idPhacDo == id || x.id == id)) : null;
-    const benhOpts = _dongyData.benhDongY.map(b => `<option value="${b.id || b.id_benh}" ${item && (item.idBenh == b.id || item.id_benh == b.id_benh) ? 'selected' : ''}>${escHtml(b.tieuket)}</option>`).join('');
-    const hvOpts = _dongyData.huyetVi.map(h => `<option value="${h.idHuyet || h.id}" ${item && (item.idHuyet == h.idHuyet || item.id == h.id) ? 'selected' : ''}>${escHtml(h.ten_huyet)}</option>`).join('');
+    const benhOpts = _dongyData.benhDongY.map(b => {
+        const bid = b.modelId || b.id || b.id_benh;
+        const bname = b.ten || b.tieuket || 'Bệnh không tên';
+        const selected = item && (item.idBenh == bid || item.id_benh == bid) ? 'selected' : '';
+        return `<option value="${bid}" ${selected}>${escHtml(bname)}</option>`;
+    }).join('');
+    const hvOpts = _dongyData.huyetVi.map(h => {
+        const hid = h.idHuyet || h.id;
+        const hname = h.ten_huyet || h.name || 'Huyệt không tên';
+        const selected = item && (item.idHuyet == hid || item.id == hid) ? 'selected' : '';
+        return `<option value="${hid}" ${selected}>${escHtml(hname)}</option>`;
+    }).join('');
     showTayyModal('Phác đồ', `
         <label class="tayy-form-label">Bệnh đông y<br><select id="pd-inp-benh" class="tayy-form-input">${benhOpts}</select></label>
         <label class="tayy-form-label">Huyệt vị<br><select id="pd-inp-hv" class="tayy-form-input">${hvOpts}</select></label>

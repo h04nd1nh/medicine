@@ -186,14 +186,14 @@ function openBaiThuocForm(id) {
         };
     }).filter(x => Number.isFinite(x.idViThuoc));
 
-    const chipsHtml = btRenderBaiThuocChiTietChipsHtml();
+    const rowsHtml = btRenderBaiThuocChiTietRowsHtml();
     showTayyModal('Bài thuốc', `
         <label class="tayy-form-label">Tên bài thuốc<br><input id="bt-inp-ten" type="text" class="tayy-form-input" value="${item?escHtml(item.ten_bai_thuoc):''}"></label>
         <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item?escHtml(item.nguon_goc):''}"></label>
         <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item?escHtml(item.cach_dung):''}</textarea></label>
 
         <label class="tayy-form-label">
-            Thành phần vị thuốc (chips)
+            Thành phần vị thuốc
             <div style="position:relative; margin-top:6px;">
                 <input id="bt-inp-vi-search" type="text" class="tayy-form-input"
                     placeholder="Gõ tên vị thuốc để thêm..."
@@ -204,13 +204,19 @@ function openBaiThuocForm(id) {
                     max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
 
-            <div id="bt-chip-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;
-                padding:10px; border:1px solid #E8DCC8; border-radius:8px; background:#FBF8F1;">
-                ${chipsHtml || '<span style="color:#A09580;">Chưa thêm vị thuốc</span>'}
-            </div>
-
-            <div style="font-size:0.8rem; color:#8B7355; margin-top:8px;">
-                Mẹo: gõ tên để tìm, bấm để thêm; mỗi chip có ô nhập liều_lượng.
+            <div style="margin-top:12px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Tên vị thuốc</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Liều lượng</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Vai trò</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bt-ingredient-tbody" style="background:#FBF8F1;">
+                        ${rowsHtml}
+                    </tbody>
+                </table>
             </div>
         </label>
 
@@ -271,43 +277,53 @@ function btGetViThuocById(idViThuoc) {
     return _thuocData.viThuoc.find(v => (v.id === idViThuoc)) || null;
 }
 
-function btRenderBaiThuocChiTietChipsHtml() {
-    if (!_btDraftChiTiet || _btDraftChiTiet.length === 0) return '';
+function btRenderBaiThuocChiTietRowsHtml() {
+    if (!_btDraftChiTiet || _btDraftChiTiet.length === 0) {
+        return `<tr><td colspan="3" style="text-align:center; color:#A09580; padding:12px; border:1px solid #E2D4B8;">Chưa thêm vị thuốc</td></tr>`;
+    }
 
     return _btDraftChiTiet.map(d => {
         const vt = btGetViThuocById(d.idViThuoc);
         const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
         const lieu = d?.lieu_luong || '';
+        const vaiTro = d?.vai_tro || '';
 
         return `
-            <div class="bt-chip"
-                style="display:flex; align-items:center; gap:8px;
-                background:#FFFDF7; border:1px solid #D4C5A0; border-radius:999px;
-                padding:6px 10px; max-width:100%;">
-                <span style="font-weight:700; color:#5B3A1A; font-size:0.82rem; white-space:nowrap;">
-                    ${escHtml(ten)}
-                </span>
-                <input
-                    type="text"
-                    class="bt-chip-lieu"
-                    style="width:120px; padding:4px 8px; border:1px solid #E8DCC8; border-radius:999px;
-                        font-size:0.8rem; background:#FBF8F1;"
-                    placeholder="liều..."
-                    value="${escHtml(lieu)}"
-                    oninput="btUpdateBaiThuocChipLieu(${d.idViThuoc}, this.value)">
-                <button class="btn btn-sm btn-danger"
-                    style="padding:2px 7px; border-radius:999px; font-size:0.72rem; height:24px;"
-                    type="button"
-                    onclick="btRemoveViThuocChip(${d.idViThuoc})">✕</button>
-            </div>
+            <tr>
+                <td style="border:1px solid #E2D4B8; padding:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <span style="font-weight:700; color:#5B3A1A; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px;">
+                            ${escHtml(ten)}
+                        </span>
+                        <button class="btn btn-sm btn-danger"
+                            style="padding:2px 7px; font-size:0.72rem; height:24px;"
+                            type="button"
+                            onclick="btRemoveViThuocChip(${d.idViThuoc})">✕</button>
+                    </div>
+                </td>
+                <td style="border:1px solid #E2D4B8; padding:8px;">
+                    <input type="text"
+                        style="width:100%; padding:6px 8px; border:1px solid #D4C5A0; border-radius:6px; background:#FBF8F1; font-size:0.85rem;"
+                        placeholder="liều..."
+                        value="${escHtml(lieu)}"
+                        oninput="btUpdateBaiThuocChipLieu(${d.idViThuoc}, this.value)">
+                </td>
+                <td style="border:1px solid #E2D4B8; padding:8px;">
+                    <input type="text"
+                        style="width:100%; padding:6px 8px; border:1px solid #D4C5A0; border-radius:6px; background:#FBF8F1; font-size:0.85rem;"
+                        placeholder="ví dụ: Quân, Thần, Tá, Sứ..."
+                        value="${escHtml(vaiTro)}"
+                        oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
+                </td>
+            </tr>
         `;
     }).join('');
 }
 
-function btRerenderBaiThuocChiTietChips() {
-    const el = document.getElementById('bt-chip-list');
+function btRerenderBaiThuocChiTietRows() {
+    const el = document.getElementById('bt-ingredient-tbody');
     if (!el) return;
-    el.innerHTML = btRenderBaiThuocChiTietChipsHtml() || '<span style="color:#A09580;">Chưa thêm vị thuốc</span>';
+    el.innerHTML = btRenderBaiThuocChiTietRowsHtml();
 }
 
 function btOnViThuocSearchInput(query) {
@@ -360,13 +376,13 @@ function btAddViThuocChip(viThuocId) {
         ten_vi_thuoc: vt?.ten_vi_thuoc || ''
     });
 
-    btRerenderBaiThuocChiTietChips();
+    btRerenderBaiThuocChiTietRows();
     btOnViThuocSearchInput(document.getElementById('bt-inp-vi-search')?.value || '');
 }
 
 function btRemoveViThuocChip(viThuocId) {
     _btDraftChiTiet = (_btDraftChiTiet || []).filter(d => d.idViThuoc !== viThuocId);
-    btRerenderBaiThuocChiTietChips();
+    btRerenderBaiThuocChiTietRows();
     const suggestEl = document.getElementById('bt-vi-suggest');
     if (suggestEl) {
         btOnViThuocSearchInput(document.getElementById('bt-inp-vi-search')?.value || '');
@@ -377,4 +393,10 @@ function btUpdateBaiThuocChipLieu(viThuocId, lieuValue) {
     const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
     if (!target) return;
     target.lieu_luong = lieuValue ?? '';
+}
+
+function btUpdateBaiThuocChipVaiTro(viThuocId, vaiValue) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+    target.vai_tro = vaiValue ?? '';
 }

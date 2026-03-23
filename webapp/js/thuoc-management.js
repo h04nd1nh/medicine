@@ -208,9 +208,11 @@ function openBaiThuocForm(id) {
                 <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
                     <thead>
                         <tr>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Tên vị thuốc</th>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Liều lượng</th>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px;">Vai trò</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:26%;">Tên vị thuốc</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:18%;">Liều lượng</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:18%;">Vai trò</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:19%;">Ngũ vị</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:19%;">Quy kinh</th>
                         </tr>
                     </thead>
                     <tbody id="bt-ingredient-tbody" style="background:#FBF8F1;">
@@ -279,7 +281,7 @@ function btGetViThuocById(idViThuoc) {
 
 function btRenderBaiThuocChiTietRowsHtml() {
     if (!_btDraftChiTiet || _btDraftChiTiet.length === 0) {
-        return `<tr><td colspan="3" style="text-align:center; color:#A09580; padding:12px; border:1px solid #E2D4B8;">Chưa thêm vị thuốc</td></tr>`;
+        return `<tr><td colspan="5" style="text-align:center; color:#A09580; padding:12px; border:1px solid #E2D4B8;">Chưa thêm vị thuốc</td></tr>`;
     }
 
     return _btDraftChiTiet.map(d => {
@@ -287,6 +289,8 @@ function btRenderBaiThuocChiTietRowsHtml() {
         const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
         const lieu = d?.lieu_luong || '';
         const vaiTro = d?.vai_tro || '';
+        const ngu_vi = vt?.tinh_vi || '';
+        const quy_kinh = vt?.quy_kinh || '';
 
         return `
             <tr>
@@ -314,6 +318,12 @@ function btRenderBaiThuocChiTietRowsHtml() {
                         placeholder="ví dụ: Quân, Thần, Tá, Sứ..."
                         value="${escHtml(vaiTro)}"
                         oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
+                </td>
+                <td style="border:1px solid #E2D4B8; padding:8px; color:#5B3A1A; font-size:0.85rem;">
+                    ${escHtml(ngu_vi || '—')}
+                </td>
+                <td style="border:1px solid #E2D4B8; padding:8px; color:#5B3A1A; font-size:0.85rem;">
+                    ${escHtml(quy_kinh || '—')}
                 </td>
             </tr>
         `;

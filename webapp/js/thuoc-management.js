@@ -7,6 +7,10 @@ let _thuocData = {
     activeTab: 'vi-thuoc',
 };
 
+// Draft de chi_tiet (thành phần vị thuốc) đang được chỉnh trong modal bài thuốc
+// Mục tiêu: UI nhập bằng chips, khi lưu sẽ gửi đúng `chi_tiet` lên backend.
+let _btDraftChiTiet = [];
+
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initThuocManagement() {
     await loadAllThuocData();
@@ -137,7 +141,11 @@ async function deleteViThuoc(id) {
 // ═══════════════════════════════════════════════════════════
 function renderBaiThuocTab(el) {
     const rows = _thuocData.baiThuoc.map(item => {
-        const ingredients = (item.chiTietViThuoc || []).map(d => `${d.viThuoc?.ten_vi_thuoc} (${d.lieu_luong || ''})`).join(', ');
+        const ingredients = (item.chiTietViThuoc || []).map(d => {
+            const ten = d?.viThuoc?.ten_vi_thuoc || '';
+            const lieu = (d?.lieu_luong || '').trim();
+            return lieu ? `${ten} (${lieu})` : ten;
+        }).filter(Boolean).join(', ');
         return `
             <tr>
                 <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
@@ -166,23 +174,84 @@ function renderBaiThuocTab(el) {
 
 function openBaiThuocForm(id) {
     const item = id ? _thuocData.baiThuoc.find(x => x.id == id) : null;
+
+    // Chuẩn hóa dữ liệu chi tiết hiện có -> state chips
+    _btDraftChiTiet = (item?.chiTietViThuoc || []).map(d => {
+        const idViThuoc = d?.idViThuoc ?? d?.id_vi_thuoc;
+        return {
+            idViThuoc,
+            lieu_luong: d?.lieu_luong ?? '',
+            vai_tro: d?.vai_tro ?? '',
+            ghi_chu: d?.ghi_chu ?? '',
+        };
+    }).filter(x => Number.isFinite(x.idViThuoc));
+
+    const chipsHtml = btRenderBaiThuocChiTietChipsHtml();
     showTayyModal('Bài thuốc', `
         <label class="tayy-form-label">Tên bài thuốc<br><input id="bt-inp-ten" type="text" class="tayy-form-input" value="${item?escHtml(item.ten_bai_thuoc):''}"></label>
         <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item?escHtml(item.nguon_goc):''}"></label>
         <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item?escHtml(item.cach_dung):''}</textarea></label>
-        <p style="font-size:0.8rem; color:#8B7355; margin:10px 0 5px;">* Thành phần chi tiết có thể chỉnh sửa sau khi khởi tạo bài thuốc.</p>
+
+        <label class="tayy-form-label">
+            Thành phần vị thuốc (chips)
+            <div style="position:relative; margin-top:6px;">
+                <input id="bt-inp-vi-search" type="text" class="tayy-form-input"
+                    placeholder="Gõ tên vị thuốc để thêm..."
+                    oninput="btOnViThuocSearchInput(this.value)">
+                <div id="bt-vi-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 6px);
+                    background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
+                    box-shadow:0 10px 30px rgba(0,0,0,0.12);
+                    max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
+            </div>
+
+            <div id="bt-chip-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;
+                padding:10px; border:1px solid #E8DCC8; border-radius:8px; background:#FBF8F1;">
+                ${chipsHtml || '<span style="color:#A09580;">Chưa thêm vị thuốc</span>'}
+            </div>
+
+            <div style="font-size:0.8rem; color:#8B7355; margin-top:8px;">
+                Mẹo: gõ tên để tìm, bấm để thêm; mỗi chip có ô nhập `liều_lượng`.
+            </div>
+        </label>
+
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
             <button class="btn btn-primary" onclick="saveBaiThuoc(${id||0})">Lưu</button>
         </div>
-    `);
+    `, 'wide');
+
+    // Khởi tạo UI suggestion cho modal mới
+    setTimeout(() => {
+        btOnViThuocSearchInput('');
+    }, 0);
 }
 
 async function saveBaiThuoc(id) {
+    // Luôn gửi chi_tiet để backend có thể xóa/thêm lại theo state chips.
+    const chi_tiet = (_btDraftChiTiet || []).map(d => {
+        const idViThuoc = d?.idViThuoc;
+        const obj = {
+            // gửi cả 2 key để tránh lệch mapping (idViThuoc vs id_vi_thuoc)
+            id_vi_thuoc: idViThuoc,
+            idViThuoc: idViThuoc,
+        };
+        const lieu = (d?.lieu_luong || '').trim();
+        if (lieu) obj.lieu_luong = lieu;
+
+        const vaiTro = (d?.vai_tro || '').trim();
+        if (vaiTro) obj.vai_tro = vaiTro;
+
+        const ghiChu = (d?.ghi_chu || '').trim();
+        if (ghiChu) obj.ghi_chu = ghiChu;
+
+        return obj;
+    }).filter(d => Number.isFinite(d.id_vi_thuoc));
+
     const payload = { 
         ten_bai_thuoc: document.getElementById('bt-inp-ten').value.trim(), 
         nguon_goc: document.getElementById('bt-inp-source').value.trim(), 
-        cach_dung: document.getElementById('bt-inp-usage').value.trim() 
+        cach_dung: document.getElementById('bt-inp-usage').value.trim(),
+        chi_tiet
     };
     if(!payload.ten_bai_thuoc) return alert('Thiếu tên bài thuốc');
     const res = id ? await apiUpdateBaiThuoc(id, payload) : await apiCreateBaiThuoc(payload);
@@ -196,4 +265,116 @@ async function deleteBaiThuoc(id) {
         await loadAllThuocData(); 
         renderThuocSection(); 
     }
+}
+
+function btGetViThuocById(idViThuoc) {
+    return _thuocData.viThuoc.find(v => (v.id === idViThuoc)) || null;
+}
+
+function btRenderBaiThuocChiTietChipsHtml() {
+    if (!_btDraftChiTiet || _btDraftChiTiet.length === 0) return '';
+
+    return _btDraftChiTiet.map(d => {
+        const vt = btGetViThuocById(d.idViThuoc);
+        const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
+        const lieu = d?.lieu_luong || '';
+
+        return `
+            <div class="bt-chip"
+                style="display:flex; align-items:center; gap:8px;
+                background:#FFFDF7; border:1px solid #D4C5A0; border-radius:999px;
+                padding:6px 10px; max-width:100%;">
+                <span style="font-weight:700; color:#5B3A1A; font-size:0.82rem; white-space:nowrap;">
+                    ${escHtml(ten)}
+                </span>
+                <input
+                    type="text"
+                    class="bt-chip-lieu"
+                    style="width:120px; padding:4px 8px; border:1px solid #E8DCC8; border-radius:999px;
+                        font-size:0.8rem; background:#FBF8F1;"
+                    placeholder="liều..."
+                    value="${escHtml(lieu)}"
+                    oninput="btUpdateBaiThuocChipLieu(${d.idViThuoc}, this.value)">
+                <button class="btn btn-sm btn-danger"
+                    style="padding:2px 7px; border-radius:999px; font-size:0.72rem; height:24px;"
+                    type="button"
+                    onclick="btRemoveViThuocChip(${d.idViThuoc})">✕</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function btRerenderBaiThuocChiTietChips() {
+    const el = document.getElementById('bt-chip-list');
+    if (!el) return;
+    el.innerHTML = btRenderBaiThuocChiTietChipsHtml() || '<span style="color:#A09580;">Chưa thêm vị thuốc</span>';
+}
+
+function btOnViThuocSearchInput(query) {
+    const inpVal = (query || '').trim().toLowerCase();
+    const suggestEl = document.getElementById('bt-vi-suggest');
+    if (!suggestEl) return;
+
+    // Nếu modal chưa sẵn sàng hoặc input rỗng -> ẩn gợi ý
+    if (!inpVal) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+        return;
+    }
+
+    const selectedIds = new Set((_btDraftChiTiet || []).map(d => d.idViThuoc));
+    const matches = (_thuocData.viThuoc || [])
+        .filter(v => (v?.ten_vi_thuoc || '').toLowerCase().includes(inpVal))
+        .filter(v => !selectedIds.has(v.id))
+        .slice(0, 10);
+
+    if (matches.length === 0) {
+        suggestEl.style.display = 'block';
+        suggestEl.innerHTML = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy</div>`;
+        return;
+    }
+
+    suggestEl.style.display = 'block';
+    suggestEl.innerHTML = matches.map(v => `
+        <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+             onmouseover="this.style.background='#F5F0E8'"
+             onmouseout="this.style.background='transparent'"
+             onclick="btAddViThuocChip(${v.id})">
+            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(v.ten_vi_thuoc || '')}</div>
+        </div>
+    `).join('');
+}
+
+function btAddViThuocChip(viThuocId) {
+    if (!Number.isFinite(viThuocId)) return;
+
+    const selected = (_btDraftChiTiet || []).some(d => d.idViThuoc === viThuocId);
+    if (selected) return;
+
+    const vt = btGetViThuocById(viThuocId);
+    _btDraftChiTiet.push({
+        idViThuoc: viThuocId,
+        lieu_luong: '',
+        vai_tro: '',
+        ghi_chu: '',
+        ten_vi_thuoc: vt?.ten_vi_thuoc || ''
+    });
+
+    btRerenderBaiThuocChiTietChips();
+    btOnViThuocSearchInput(document.getElementById('bt-inp-vi-search')?.value || '');
+}
+
+function btRemoveViThuocChip(viThuocId) {
+    _btDraftChiTiet = (_btDraftChiTiet || []).filter(d => d.idViThuoc !== viThuocId);
+    btRerenderBaiThuocChiTietChips();
+    const suggestEl = document.getElementById('bt-vi-suggest');
+    if (suggestEl) {
+        btOnViThuocSearchInput(document.getElementById('bt-inp-vi-search')?.value || '');
+    }
+}
+
+function btUpdateBaiThuocChipLieu(viThuocId, lieuValue) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+    target.lieu_luong = lieuValue ?? '';
 }

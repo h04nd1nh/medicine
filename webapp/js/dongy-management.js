@@ -78,20 +78,35 @@ function renderDongyTabContent() {
 // TAB: DANH MỤC BỆNH (BENH DONG Y)
 // ═══════════════════════════════════════════════════════════
 function renderBenhDongYTab(el) {
+    if (!_dongyData.benhDongY || _dongyData.benhDongY.length === 0) {
+        el.innerHTML = '<div style="text-align:center;padding:20px;color:#A09580;">Chưa có dữ liệu Bệnh đông y</div>';
+        return;
+    }
+
     const rows = _dongyData.benhDongY.map(item => {
-        const id = item.id !== undefined ? item.id : (item.id_benh || item.ID_benh || '');
-        const nhom = item.nhomid || item.nhomChinh || '';
-        const ten = item.tieuket || '';
-        
+        // Hàm lấy giá trị không phân biệt hoa thường
+        const getV = (obj, ...keys) => {
+            const lowerKeys = keys.map(k => k.toLowerCase());
+            for (let k in obj) {
+                if (lowerKeys.includes(k.toLowerCase())) return obj[k];
+            }
+            return '';
+        };
+
+        const id = getV(item, 'id', 'id_benh');
+        const ten = getV(item, 'tieuket', 'ten_benh', 'name');
+        const nhom = getV(item, 'nhomid', 'nhomChinh', 'nhom_benh');
+        const tc = getV(item, 'trieuchung', 'trieu_chung_chinh');
+
         return `
             <tr>
-                <td style="text-align:center;width:60px;">${id}</td>
-                <td><strong>${escHtml(ten)}</strong></td>
-                <td>${escHtml(nhom)}</td>
-                <td style="font-size:0.8rem; max-height: 80px; overflow-y: auto; display: block; border:none;">
-                    ${item.trieuchung || ''}
+                <td style="text-align:center;width:60px;">${id || '—'}</td>
+                <td style="font-weight:700; color:#5B3A1A;">${escHtml(ten)}</td>
+                <td style="text-align:center;">${escHtml(nhom)}</td>
+                <td style="font-size:0.75rem; max-height: 100px; overflow-y: auto; display:block; border:none;">
+                    ${tc || ''}
                 </td>
-                <td style="text-align:center;width:160px;">
+                <td style="text-align:center;width:140px;">
                     <div class="table-actions" style="border:none;">
                         <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏ Sửa</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteBenhDongY(${id})">🗑 Xóa</button>

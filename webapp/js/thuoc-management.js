@@ -71,14 +71,15 @@ function renderThuocTabContent() {
 function renderViThuocTab(el) {
     const rows = _thuocData.viThuoc.map(item => `
         <tr>
-            <td style="text-align:center;width:60px;">${item.id}</td>
             <td><strong>${escHtml(item.ten_vi_thuoc)}</strong></td>
-            <td>${escHtml(item.tinh_vi)}</td>
-            <td>${escHtml(item.quy_kinh)}</td>
+            <td style="text-align:center;">${escHtml(item.tinh_vi)}</td>
+            <td style="text-align:center;">${escHtml(item.quy_kinh)}</td>
             <td style="font-size:0.8rem;">${escHtml(item.cong_dung)}</td>
             <td style="text-align:center;width:130px;">
-                <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑</button>
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑 Xóa</button>
+                </div>
             </td>
         </tr>
     `).join('');
@@ -88,8 +89,8 @@ function renderViThuocTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên vị thuốc</th><th>Khí vị</th><th>Quy kinh</th><th>Công dụng</th><th>Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên vị thuốc</th><th style="text-align:center;">Khí vị</th><th style="text-align:center;">Quy kinh</th><th>Công dụng</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -139,13 +140,14 @@ function renderBaiThuocTab(el) {
         const ingredients = (item.chiTietViThuoc || []).map(d => `${d.viThuoc?.ten_vi_thuoc} (${d.lieu_luong || ''})`).join(', ');
         return `
             <tr>
-                <td style="text-align:center;width:60px;">${item.id}</td>
                 <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
                 <td>${escHtml(item.nguon_goc || '—')}</td>
                 <td style="font-size:0.8rem;">${escHtml(ingredients || 'Chưa có vị thuốc')}</td>
                 <td style="text-align:center;width:130px;">
-                    <button class="btn btn-sm btn-outline" onclick="openBaiThuocForm(${item.id})">✏</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteBaiThuoc(${item.id})">🗑</button>
+                    <div class="table-actions" style="justify-content:center;">
+                        <button class="btn btn-sm btn-outline" onclick="openBaiThuocForm(${item.id})">✏ Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBaiThuoc(${item.id})">🗑 Xóa</button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -156,8 +158,8 @@ function renderBaiThuocTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Thành phần</th><th>Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }

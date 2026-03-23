@@ -90,22 +90,25 @@ function renderBenhDongYTab(el) {
             for (let k in obj) { if (lowerKeys.includes(k.toLowerCase())) return obj[k]; }
             return '';
         };
-        const id = getV(item, 'id', 'id_benh');
-        const ten = getV(item, 'tieuket', 'ten_benh', 'name');
+        const id = getV(item, 'id', 'id_benh', 'modelId');
+        const ten = getV(item, 'ten', 'tieuket', 'ten_benh', 'name');
         const nhom = getV(item, 'nhomid', 'nhomChinh', 'nhom_benh');
         const tc = getV(item, 'trieuchung', 'trieu_chung_chinh');
 
         return `
             <tr>
-                <td style="text-align:center;width:60px;">${id || '—'}</td>
-                <td style="font-weight:700; color:#5B3A1A;">${escHtml(ten)}</td>
-                <td style="text-align:center;">${escHtml(nhom)}</td>
-                <td style="font-size:0.75rem; max-height: 100px; overflow-y: auto; display:block; border:none; text-align:left;">
-                    ${tc || ''}
+                <td style="font-weight:700; color:#5B3A1A;">
+                    ${escHtml(ten)}
+                    ${nhom ? `<br><small style="color:#A09580;">ID Nhóm: ${nhom}</small>` : ''}
+                </td>
+                <td style="font-size:0.82rem; line-height:1.45; text-align:left;">
+                    <div style="max-height:100px; overflow-y:auto; padding-right:6px;">${tc || '—'}</div>
                 </td>
                 <td style="text-align:center;width:130px;">
-                    <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteBenhDongY(${id})">🗑</button>
+                    <div class="table-actions" style="justify-content:center;">
+                        <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏ Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBenhDongY(${id})">🗑 Xóa</button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -117,7 +120,7 @@ function renderBenhDongYTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên bệnh</th><th>Nhóm</th><th>Triệu chứng</th><th style="width:130px;">Hành động</th></tr></thead>
+                <thead><tr><th>Tên bệnh</th><th>Triệu chứng</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>
@@ -175,21 +178,39 @@ async function deleteBenhDongY(id) {
 // TAB: KINH MẠCH (Tách riêng)
 // ═══════════════════════════════════════════════════════════
 function renderKinhMachTab(el) {
-    const rows = _dongyData.kinhMach.map(item => `
-        <tr>
-            <td style="text-align:center;width:60px;">${item.idKinhMach || item.id}</td>
-            <td><strong>${escHtml(item.ten_kinh_mach)}</strong></td>
-            <td>${escHtml(item.ky_hieu_quoc_te)}</td>
-            <td>${escHtml(item.ngu_hanh)}</td>
-            <td style="text-align:center;">${item.tong_so_huyet}</td>
-            <td style="text-align:center;width:130px;">
-                <button class="btn btn-sm btn-outline" onclick="openKinhMachForm(${item.idKinhMach || item.id})">✏</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteKinhMach(${item.idKinhMach || item.id})">🗑</button>
-            </td>
-        </tr>
-    `).join('');
-    el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-primary" onclick="openKinhMachForm()">+ Thêm kinh mạch</button></div>
-    <div class="data-table-container"><table><thead><tr><th>ID</th><th>Tên kinh</th><th>Ký hiệu</th><th>Ngũ hành</th><th>Huyệt</th><th>Hành động</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
+    const rows = _dongyData.kinhMach.map(item => {
+        const id = item.idKinhMach || item.id;
+        return `
+            <tr>
+                <td><strong>${escHtml(item.ten_kinh_mach)}</strong></td>
+                <td style="text-align:center;">${escHtml(item.ky_hieu_quoc_te)}</td>
+                <td style="text-align:center;">${escHtml(item.ngu_hanh)}</td>
+                <td style="text-align:center;">${item.tong_so_huyet || 0}</td>
+                <td style="text-align:center;width:130px;">
+                    <div class="table-actions" style="justify-content:center;">
+                        <button class="btn btn-sm btn-outline" onclick="openKinhMachForm(${id})">✏ Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteKinhMach(${id})">🗑 Xóa</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    el.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+            <button class="btn btn-primary" onclick="openKinhMachForm()">+ Thêm kinh mạch</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên kinh mạch</th>
+                    <th style="text-align:center;">Ký hiệu</th>
+                    <th style="text-align:center;">Ngũ hành</th>
+                    <th style="text-align:center;">Số huyệt</th>
+                    <th style="width:130px; text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+            </table>
+        </div>`;
 }
 
 function openKinhMachForm(id) {
@@ -219,21 +240,39 @@ async function deleteKinhMach(id) { if(confirm('Xóa?')) { await apiDeleteKinhMa
 // TAB: HUYỆT VỊ (Tách riêng)
 // ═══════════════════════════════════════════════════════════
 function renderHuyetViTab(el) {
-    const rows = _dongyData.huyetVi.map(item => `
-        <tr>
-            <td style="text-align:center;">${item.idHuyet || item.id}</td>
-            <td><strong>${escHtml(item.ten_huyet)}</strong></td>
-            <td>${escHtml(item.ma_huyet)}</td>
-            <td>${item.kinhMach ? escHtml(item.kinhMach.ten_kinh_mach) : '—'}</td>
-            <td style="font-size:0.8rem;">${escHtml(item.loai_huyet)}</td>
-            <td style="text-align:center;width:130px;">
-                <button class="btn btn-sm btn-outline" onclick="openHuyetViForm(${item.idHuyet || item.id})">✏</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteHuyetVi(${item.idHuyet || item.id})">🗑</button>
-            </td>
-        </tr>
-    `).join('');
-    el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-primary" onclick="openHuyetViForm()">+ Thêm huyệt vị</button></div>
-    <div class="data-table-container"><table><thead><tr><th>ID</th><th>Tên huyệt</th><th>Mã</th><th>Kinh mạch</th><th>Loại</th><th>Thao tác</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
+    const rows = _dongyData.huyetVi.map(item => {
+        const id = item.idHuyet || item.id;
+        return `
+            <tr>
+                <td><strong>${escHtml(item.ten_huyet)}</strong></td>
+                <td style="text-align:center;">${escHtml(item.ma_huyet)}</td>
+                <td>${item.kinhMach ? escHtml(item.kinhMach.ten_kinh_mach) : '—'}</td>
+                <td style="font-size:0.8rem; color:#8B7355;">${escHtml(item.loai_huyet || '—')}</td>
+                <td style="text-align:center;width:130px;">
+                    <div class="table-actions" style="justify-content:center;">
+                        <button class="btn btn-sm btn-outline" onclick="openHuyetViForm(${id})">✏ Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHuyetVi(${id})">🗑 Xóa</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    el.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+            <button class="btn btn-primary" onclick="openHuyetViForm()">+ Thêm huyệt vị</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên huyệt</th>
+                    <th style="text-align:center;">Mã số</th>
+                    <th>Kinh mạch</th>
+                    <th>Loại</th>
+                    <th style="width:130px; text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+            </table>
+        </div>`;
 }
 
 function openHuyetViForm(id) {

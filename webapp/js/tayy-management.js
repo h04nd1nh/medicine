@@ -79,10 +79,9 @@ function renderChungBenhTab(el) {
         const ten = item.ten_chung_benh || item.name || '';
         return `
             <tr>
-                <td style="text-align:center;width:60px;">${id}</td>
                 <td><strong>${escHtml(ten)}</strong></td>
                 <td style="text-align:center;width:160px;">
-                    <div class="table-actions">
+                    <div class="table-actions" style="justify-content:center;">
                         <button class="btn btn-sm btn-outline" onclick="openChungBenhForm(${id})">✏ Sửa</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteChungBenh(${id})">🗑 Xóa</button>
                     </div>
@@ -97,8 +96,8 @@ function renderChungBenhTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên chủng bệnh</th><th style="width:160px;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên chủng bệnh</th><th style="width:160px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="2" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>
     `;
@@ -158,7 +157,6 @@ function renderBenhTayYTab(el) {
         const tcNames = (item.trieuChungList || []).map(t => escHtml(t.ten_trieu_chung || t.name)).join(', ') || '—';
         return `
             <tr>
-                <td style="text-align:center;width:50px;">${id}</td>
                 <td><strong>${escHtml(ten)}</strong></td>
                 <td><span style="color:#8B7355;">${escHtml(chungBenhName)}</span></td>
                 <td style="font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${btNames}</td>
@@ -180,14 +178,13 @@ function renderBenhTayYTab(el) {
         <div class="data-table-container" style="overflow-x:auto;">
             <table>
                 <thead><tr>
-                    <th style="width:50px;">ID</th>
                     <th>Tên bệnh</th>
                     <th>Chủng bệnh</th>
                     <th>Bài thuốc</th>
                     <th>Triệu chứng</th>
                     <th style="width:160px;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>
     `;
@@ -304,8 +301,8 @@ function renderTrieuChungTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên triệu chứng</th><th style="width:160px;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên triệu chứng</th><th style="width:160px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="2" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>
     `;

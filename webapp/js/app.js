@@ -619,6 +619,9 @@ function _showSectionInternal(id) {
     if (id === 'dongy') {
         if (typeof initDongyManagement === 'function') initDongyManagement();
     }
+    if (id === 'thuoc') {
+        if (typeof initThuocManagement === 'function') initThuocManagement();
+    }
 
     if (id === 'new-record') {
         // Cập nhật tiêu đề màn hình

@@ -4,7 +4,6 @@
 let _tayyData = {
     chungBenh: [],
     benhTayY: [],
-    phuongThuoc: [],
     trieuChung: [],
     activeTab: 'chung-benh',
 };
@@ -17,15 +16,13 @@ async function initTayyManagement() {
 
 async function loadAllTayyData() {
     try {
-        const [cb, bty, pt, tc] = await Promise.all([
+        const [cb, bty, tc] = await Promise.all([
             apiGetChungBenh(),
             apiGetBenhTayY(),
-            apiGetPhuongThuoc(),
             apiGetTrieuChung(),
         ]);
         _tayyData.chungBenh = cb || [];
         _tayyData.benhTayY = bty || [];
-        _tayyData.phuongThuoc = pt || [];
         _tayyData.trieuChung = tc || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Tây y:', e);
@@ -47,7 +44,6 @@ function renderTayySection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border);">
                 <button class="tayy-tab ${tab === 'chung-benh' ? 'active' : ''}" onclick="switchTayyTab('chung-benh')">Chủng bệnh</button>
                 <button class="tayy-tab ${tab === 'benh-tay-y' ? 'active' : ''}" onclick="switchTayyTab('benh-tay-y')">Bệnh tây y</button>
-                <button class="tayy-tab ${tab === 'phuong-thuoc' ? 'active' : ''}" onclick="switchTayyTab('phuong-thuoc')">Phương thuốc</button>
                 <button class="tayy-tab ${tab === 'trieu-chung' ? 'active' : ''}" onclick="switchTayyTab('trieu-chung')">Triệu chứng</button>
             </div>
 
@@ -70,7 +66,6 @@ function renderTayyTabContent() {
     switch (_tayyData.activeTab) {
         case 'chung-benh': renderChungBenhTab(el); break;
         case 'benh-tay-y': renderBenhTayYTab(el); break;
-        case 'phuong-thuoc': renderPhuongThuocTab(el); break;
         case 'trieu-chung': renderTrieuChungTab(el); break;
     }
 }
@@ -159,14 +154,14 @@ function renderBenhTayYTab(el) {
         const id = item.id || item.id_benh || '';
         const ten = item.ten_benh || item.name || '';
         const chungBenhName = item.chungBenh ? (item.chungBenh.ten_chung_benh || item.chungBenh.name) : '—';
-        const ptNames = (item.phuongThuocList || []).map(p => escHtml(p.ten_phuong_thuoc || p.name)).join(', ') || '—';
+        const btNames = (item.baiThuocList || []).map(p => escHtml(p.ten_bai_thuoc || p.name)).join(', ') || '—';
         const tcNames = (item.trieuChungList || []).map(t => escHtml(t.ten_trieu_chung || t.name)).join(', ') || '—';
         return `
             <tr>
                 <td style="text-align:center;width:50px;">${id}</td>
                 <td><strong>${escHtml(ten)}</strong></td>
                 <td><span style="color:#8B7355;">${escHtml(chungBenhName)}</span></td>
-                <td style="font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${ptNames}</td>
+                <td style="font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${btNames}</td>
                 <td style="font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${tcNames}</td>
                 <td style="text-align:center;width:160px;">
                     <div class="table-actions">
@@ -188,7 +183,7 @@ function renderBenhTayYTab(el) {
                     <th style="width:50px;">ID</th>
                     <th>Tên bệnh</th>
                     <th>Chủng bệnh</th>
-                    <th>Phương thuốc</th>
+                    <th>Bài thuốc</th>
                     <th>Triệu chứng</th>
                     <th style="width:160px;">Thao tác</th>
                 </tr></thead>
@@ -204,9 +199,10 @@ function openBenhTayYForm(id) {
 
     const cbOptions = _tayyData.chungBenh.map(c => `<option value="${c.id}" ${item && item.idChungBenh === c.id ? 'selected' : ''}>${escHtml(c.ten_chung_benh)}</option>`).join('');
 
-    const ptChecks = _tayyData.phuongThuoc.map(p => {
-        const checked = item && (item.phuongThuocList || []).some(x => x.id === p.id) ? 'checked' : '';
-        return `<label class="tayy-check-label"><input type="checkbox" value="${p.id}" ${checked}> ${escHtml(p.ten_phuong_thuoc)}</label>`;
+    const allBT = (typeof _thuocData !== 'undefined') ? _thuocData.baiThuoc : [];
+    const btChecks = allBT.map(p => {
+        const checked = item && (item.baiThuocList || []).some(x => x.id === p.id) ? 'checked' : '';
+        return `<label class="tayy-check-label"><input type="checkbox" name="ty-bt-ids" value="${p.id}" ${checked}> ${escHtml(p.ten_bai_thuoc)}</label>`;
     }).join('');
 
     const tcChecks = _tayyData.trieuChung.map(t => {
@@ -224,11 +220,15 @@ function openBenhTayYForm(id) {
                 ${cbOptions}
             </select>
         </label>
-        <div class="tayy-form-label">Phương thuốc
-            <div id="tayy-pt-checks" class="tayy-check-grid">${ptChecks || '<span style="color:#A09580;font-size:0.82rem;">Chưa có phương thuốc nào</span>'}</div>
+        <div class="tayy-form-label">Bài thuốc liên quan
+            <div id="tayy-bt-checks" class="tayy-check-grid" style="max-height:120px; overflow-y:auto; border:1px solid #D4C5A0; padding:8px; border-radius:8px;">
+                ${btChecks || '<span style="color:#A09580;font-size:0.82rem;">Chưa có bài thuốc nào trong danh mục chung</span>'}
+            </div>
         </div>
         <div class="tayy-form-label">Triệu chứng
-            <div id="tayy-tc-checks" class="tayy-check-grid">${tcChecks || '<span style="color:#A09580;font-size:0.82rem;">Chưa có triệu chứng nào</span>'}</div>
+            <div id="tayy-tc-checks" class="tayy-check-grid" style="max-height:120px; overflow-y:auto; border:1px solid #D4C5A0; padding:8px; border-radius:8px;">
+                ${tcChecks || '<span style="color:#A09580;font-size:0.82rem;">Chưa có triệu chứng nào</span>'}
+            </div>
         </div>
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
@@ -248,13 +248,13 @@ async function saveBenhTayY(id) {
     if (!tenBenh) return alert('Vui lòng nhập tên bệnh');
     if (!idChungBenh) return alert('Vui lòng chọn chủng bệnh');
 
-    const ptIds = Array.from(document.querySelectorAll('#tayy-pt-checks input:checked')).map(c => parseInt(c.value));
+    const btIds = Array.from(document.querySelectorAll('#tayy-bt-checks input:checked')).map(c => parseInt(c.value));
     const tcIds = Array.from(document.querySelectorAll('#tayy-tc-checks input:checked')).map(c => parseInt(c.value));
 
     const payload = {
         ten_benh: tenBenh,
         id_chung_benh: idChungBenh,
-        phuong_thuoc_ids: ptIds,
+        bai_thuoc_ids: btIds,
         trieu_chung_ids: tcIds,
     };
 
@@ -279,77 +279,7 @@ async function deleteBenhTayY(id) {
     renderTayySection();
 }
 
-// ═══════════════════════════════════════════════════════════
-// TAB: PHƯƠNG THUỐC
-// ═══════════════════════════════════════════════════════════
-function renderPhuongThuocTab(el) {
-    const rows = _tayyData.phuongThuoc.map(item => `
-        <tr>
-            <td style="text-align:center;width:60px;">${item.id}</td>
-            <td>${escHtml(item.ten_phuong_thuoc)}</td>
-            <td style="text-align:center;width:160px;">
-                <div class="table-actions">
-                    <button class="btn btn-sm btn-outline" onclick="editPhuongThuoc(${item.id})">✏ Sửa</button>
-                    <button class="btn btn-sm btn-danger" onclick="deletePhuongThuoc(${item.id})">🗑 Xóa</button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
 
-    el.innerHTML = `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-            <button class="btn btn-primary" onclick="openPhuongThuocForm()">+ Thêm phương thuốc</button>
-        </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr><th style="width:60px;">ID</th><th>Tên phương thuốc</th><th style="width:160px;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
-            </table>
-        </div>
-    `;
-}
-
-function openPhuongThuocForm(id) {
-    const item = id ? _tayyData.phuongThuoc.find(x => x.id === id) : null;
-    const title = item ? 'Sửa phương thuốc' : 'Thêm phương thuốc mới';
-    showTayyModal(title, `
-        <label class="tayy-form-label">Tên phương thuốc<br>
-            <input id="tayy-inp-pt" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_phuong_thuoc) : ''}" placeholder="Nhập tên phương thuốc...">
-        </label>
-        <div class="tayy-form-actions">
-            <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="savePhuongThuoc(${id || 0})">Lưu</button>
-        </div>
-    `);
-    setTimeout(() => document.getElementById('tayy-inp-pt')?.focus(), 100);
-}
-
-function editPhuongThuoc(id) { openPhuongThuocForm(id); }
-
-async function savePhuongThuoc(id) {
-    const val = document.getElementById('tayy-inp-pt')?.value.trim();
-    if (!val) return alert('Vui lòng nhập tên phương thuốc');
-
-    let result;
-    if (id) {
-        result = await apiUpdatePhuongThuoc(id, { ten_phuong_thuoc: val });
-    } else {
-        result = await apiCreatePhuongThuoc({ ten_phuong_thuoc: val });
-    }
-
-    if (result.success === false) return alert(result.error || 'Thao tác thất bại');
-    closeTayyModal();
-    await loadAllTayyData();
-    renderTayySection();
-}
-
-async function deletePhuongThuoc(id) {
-    if (!confirm('Bạn có chắc muốn xóa phương thuốc này?')) return;
-    const result = await apiDeletePhuongThuoc(id);
-    if (result.success === false) return alert(result.error || 'Xóa thất bại');
-    await loadAllTayyData();
-    renderTayySection();
-}
 
 // ═══════════════════════════════════════════════════════════
 // TAB: TRIỆU CHỨNG

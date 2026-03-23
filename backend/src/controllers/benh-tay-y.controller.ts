@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { BenhTayY } from '../models/benh-tay-y.model';
-import { PhuongThuoc } from '../models/phuong-thuoc.model';
+import { BaiThuoc } from '../models/bai-thuoc.model';
 import { TrieuChung } from '../models/trieu-chung.model';
 import { CreateBenhTayYDto, UpdateBenhTayYDto } from '../models/benh-tay-y.dto';
 
@@ -11,15 +11,15 @@ export class BenhTayYService {
   constructor(
     @InjectRepository(BenhTayY)
     private readonly repo: Repository<BenhTayY>,
-    @InjectRepository(PhuongThuoc)
-    private readonly phuongThuocRepo: Repository<PhuongThuoc>,
+    @InjectRepository(BaiThuoc)
+    private readonly baiThuocRepo: Repository<BaiThuoc>,
     @InjectRepository(TrieuChung)
     private readonly trieuChungRepo: Repository<TrieuChung>,
   ) {}
 
   findAll(): Promise<BenhTayY[]> {
     return this.repo.find({
-      relations: ['chungBenh', 'phuongThuocList', 'trieuChungList'],
+      relations: ['chungBenh', 'baiThuocList', 'trieuChungList'],
       order: { id: 'ASC' },
     });
   }
@@ -27,7 +27,7 @@ export class BenhTayYService {
   async findOne(id: number): Promise<BenhTayY> {
     const item = await this.repo.findOne({
       where: { id },
-      relations: ['chungBenh', 'phuongThuocList', 'trieuChungList'],
+      relations: ['chungBenh', 'baiThuocList', 'trieuChungList'],
     });
     if (!item) {
       throw new NotFoundException(`Bệnh tây y #${id} không tồn tại`);
@@ -41,9 +41,9 @@ export class BenhTayYService {
       idChungBenh: dto.id_chung_benh,
     });
 
-    if (dto.phuong_thuoc_ids && dto.phuong_thuoc_ids.length > 0) {
-      entity.phuongThuocList = await this.phuongThuocRepo.findBy({
-        id: In(dto.phuong_thuoc_ids),
+    if (dto.bai_thuoc_ids && dto.bai_thuoc_ids.length > 0) {
+      entity.baiThuocList = await this.baiThuocRepo.findBy({
+        id: In(dto.bai_thuoc_ids),
       });
     }
 
@@ -62,9 +62,9 @@ export class BenhTayYService {
     if (dto.ten_benh !== undefined) item.ten_benh = dto.ten_benh;
     if (dto.id_chung_benh !== undefined) item.idChungBenh = dto.id_chung_benh;
 
-    if (dto.phuong_thuoc_ids !== undefined) {
-      item.phuongThuocList = dto.phuong_thuoc_ids.length > 0
-        ? await this.phuongThuocRepo.findBy({ id: In(dto.phuong_thuoc_ids) })
+    if (dto.bai_thuoc_ids !== undefined) {
+      item.baiThuocList = dto.bai_thuoc_ids.length > 0
+        ? await this.baiThuocRepo.findBy({ id: In(dto.bai_thuoc_ids) })
         : [];
     }
 

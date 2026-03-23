@@ -5,8 +5,6 @@ let _dongyData = {
     benhDongY: [],
     kinhMach: [],
     huyetVi: [],
-    viThuoc: [],
-    baiThuoc: [],
     phacDo: [],
     activeTab: 'benh-dong-y',
 };
@@ -19,19 +17,15 @@ async function initDongyManagement() {
 
 async function loadAllDongyData() {
     try {
-        const [bdy, km, hv, vt, bt, pd] = await Promise.all([
+        const [bdy, km, hv, pd] = await Promise.all([
             apiGetModels(),      // benh_dong_y
             apiGetKinhMach(),
             apiGetHuyetVi(),
-            apiGetViThuoc(),
-            apiGetBaiThuoc(),
             apiGetPhacDo(),
         ]);
         _dongyData.benhDongY = bdy || [];
         _dongyData.kinhMach = km || [];
         _dongyData.huyetVi = hv || [];
-        _dongyData.viThuoc = vt || [];
-        _dongyData.baiThuoc = bt || [];
         _dongyData.phacDo = pd || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Đông y:', e);
@@ -54,8 +48,6 @@ function renderDongySection() {
                 <button class="tayy-tab ${tab === 'benh-dong-y' ? 'active' : ''}" onclick="switchDongyTab('benh-dong-y')">Danh mục bệnh</button>
                 <button class="tayy-tab ${tab === 'kinh-mach' ? 'active' : ''}" onclick="switchDongyTab('kinh-mach')">Kinh mạch</button>
                 <button class="tayy-tab ${tab === 'huyet-vi' ? 'active' : ''}" onclick="switchDongyTab('huyet-vi')">Huyệt vị</button>
-                <button class="tayy-tab ${tab === 'vi-thuoc' ? 'active' : ''}" onclick="switchDongyTab('vi-thuoc')">Vị thuốc</button>
-                <button class="tayy-tab ${tab === 'bai-thuoc' ? 'active' : ''}" onclick="switchDongyTab('bai-thuoc')">Bài thuốc</button>
                 <button class="tayy-tab ${tab === 'phac-do' ? 'active' : ''}" onclick="switchDongyTab('phac-do')">Phác đồ châm cứu</button>
             </div>
 
@@ -79,8 +71,6 @@ function renderDongyTabContent() {
         case 'benh-dong-y': renderBenhDongYTab(el); break;
         case 'kinh-mach': renderKinhMachTab(el); break;
         case 'huyet-vi': renderHuyetViTab(el); break;
-        case 'vi-thuoc': renderViThuocTab(el); break;
-        case 'bai-thuoc': renderBaiThuocTab(el); break;
         case 'phac-do': renderPhacDoTab(el); break;
     }
 }
@@ -135,12 +125,27 @@ function renderBenhDongYTab(el) {
 }
 
 function openBenhDongYForm(givenId) {
-    const item = givenId ? _dongyData.benhDongY.find(x => (x.id == givenId || x.id_benh == givenId || x.ID_benh == givenId)) : null;
-    const realId = item ? (item.id || item.id_benh || item.ID_benh) : null;
+    const item = givenId ? _dongyData.benhDongY.find(x => (x.id == givenId || x.id_benh == givenId)) : null;
+    const realId = item ? (item.id || item.id_benh) : null;
+    
+    // Nạp danh sách bài thuốc dùng chung (từ _thuocData trong thuoc-management.js)
+    const allBT = (typeof _thuocData !== 'undefined') ? _thuocData.baiThuoc : [];
+    const btChecks = allBT.map(bt => {
+        const checked = item && (item.baiThuocList || []).some(x => x.id === bt.id) ? 'checked' : '';
+        return `<label class="tayy-check-label"><input type="checkbox" name="dy-bt-ids" value="${bt.id}" ${checked}> ${escHtml(bt.ten_bai_thuoc)}</label>`;
+    }).join('');
+
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tên bệnh (Tiêu kết)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${item ? escHtml(item.tieuket) : ''}"></label>
         <label class="tayy-form-label">ID Nhóm<br><input id="dy-inp-nhom" type="number" class="tayy-form-input" value="${item ? (item.nhomid || 0) : ''}"></label>
-        <label class="tayy-form-label">Triệu chứng chính<br><textarea id="dy-inp-tc" class="tayy-form-input" rows="5">${item ? escHtml(item.trieuchung) : ''}</textarea></label>
+        <label class="tayy-form-label">Triệu chứng chính<br><textarea id="dy-inp-tc" class="tayy-form-input" rows="3">${item ? escHtml(item.trieuchung) : ''}</textarea></label>
+        
+        <div class="tayy-form-label">Bài thuốc liên quan
+            <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
+                ${btChecks || '<span style="color:#A09580;">Chưa có bài thuốc nào trong danh mục chung</span>'}
+            </div>
+        </div>
+
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
             <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu</button>
@@ -149,10 +154,12 @@ function openBenhDongYForm(givenId) {
 }
 
 async function saveBenhDongY(id) {
+    const btIds = Array.from(document.querySelectorAll('input[name="dy-bt-ids"]:checked')).map(c => parseInt(c.value));
     const payload = {
         tieuket: document.getElementById('dy-inp-tieuket').value.trim(),
         nhomid: parseInt(document.getElementById('dy-inp-nhom').value) || 0,
         trieuchung: document.getElementById('dy-inp-tc').value.trim(),
+        bai_thuoc_ids: btIds
     };
     if (!payload.tieuket) return alert('Thiếu tên bệnh');
     const res = id ? await apiUpdateModel(id, payload) : await apiCreateModel(payload);
@@ -246,85 +253,7 @@ async function saveHuyetVi(id) {
 }
 async function deleteHuyetVi(id) { if(confirm('Xóa?')) { await apiDeleteHuyetVi(id); await loadAllDongyData(); renderDongySection(); } }
 
-// ═══════════════════════════════════════════════════════════
-// TAB: VỊ THUỐC (MỚI)
-// ═══════════════════════════════════════════════════════════
-function renderViThuocTab(el) {
-    const rows = _dongyData.viThuoc.map(item => `
-        <tr>
-            <td style="text-align:center;">${item.id}</td>
-            <td><strong>${escHtml(item.ten_vi_thuoc)}</strong></td>
-            <td>${escHtml(item.tinh_vi)}</td>
-            <td>${escHtml(item.quy_kinh)}</td>
-            <td style="font-size:0.8rem;">${escHtml(item.cong_dung)}</td>
-            <td style="text-align:center;width:130px;">
-                <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑</button>
-            </td>
-        </tr>
-    `).join('');
-    el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-primary" onclick="openViThuocForm()">+ Thêm vị thuốc</button></div>
-    <div class="data-table-container"><table><thead><tr><th>ID</th><th>Tên vị thuốc</th><th>Khí vị</th><th>Quy kinh</th><th>Công dụng</th><th>Thao tác</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
-}
 
-function openViThuocForm(id) {
-    const item = id ? _dongyData.viThuoc.find(x => x.id == id) : null;
-    showTayyModal('Vị thuốc', `
-        <label class="tayy-form-label">Tên vị thuốc<br><input id="vt-inp-ten" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_vi_thuoc) : ''}"></label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <label class="tayy-form-label">Khí vị<br><input id="vt-inp-tinhvi" type="text" class="tayy-form-input" value="${item ? escHtml(item.tinh_vi) : ''}"></label>
-            <label class="tayy-form-label">Quy kinh<br><input id="vt-inp-quykinh" type="text" class="tayy-form-input" value="${item ? escHtml(item.quy_kinh) : ''}"></label>
-        </div>
-        <label class="tayy-form-label">Công dụng<br><textarea id="vt-inp-congdung" class="tayy-form-input">${item ? escHtml(item.cong_dung) : ''}</textarea></label>
-        <div class="tayy-form-actions"><button class="btn" onclick="closeTayyModal()">Hủy</button><button class="btn btn-primary" onclick="saveViThuoc(${id || 0})">Lưu</button></div>
-    `);
-}
-async function saveViThuoc(id) {
-    const payload = { ten_vi_thuoc: document.getElementById('vt-inp-ten').value, tinh_vi: document.getElementById('vt-inp-tinhvi').value, quy_kinh: document.getElementById('vt-inp-quykinh').value, cong_dung: document.getElementById('vt-inp-congdung').value };
-    await (id ? apiUpdateViThuoc(id, payload) : apiCreateViThuoc(payload));
-    closeTayyModal(); await loadAllDongyData(); renderDongySection();
-}
-async function deleteViThuoc(id) { if(confirm('Xóa?')) { await apiDeleteViThuoc(id); await loadAllDongyData(); renderDongySection(); } }
-
-// ═══════════════════════════════════════════════════════════
-// TAB: BÀI THUỐC (MỚI)
-// ═══════════════════════════════════════════════════════════
-function renderBaiThuocTab(el) {
-    const rows = _dongyData.baiThuoc.map(item => {
-        const ingredients = (item.chiTietViThuoc || []).map(d => `${d.viThuoc?.ten_vi_thuoc} (${d.lieu_luong || ''})`).join(', ');
-        return `
-            <tr>
-                <td style="text-align:center;">${item.id}</td>
-                <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
-                <td>${escHtml(item.nguon_goc || '—')}</td>
-                <td style="font-size:0.8rem;">${escHtml(ingredients || 'Chưa có vị thuốc')}</td>
-                <td style="text-align:center;width:130px;">
-                    <button class="btn btn-sm btn-outline" onclick="openBaiThuocForm(${item.id})">✏</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteBaiThuoc(${item.id})">🗑</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-    el.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-primary" onclick="openBaiThuocForm()">+ Thêm bài thuốc</button></div>
-    <div class="data-table-container"><table><thead><tr><th>ID</th><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Thành phần</th><th>Thao tác</th></tr></thead><tbody>${rows || '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody></table></div>`;
-}
-
-function openBaiThuocForm(id) {
-    const item = id ? _dongyData.baiThuoc.find(x => x.id == id) : null;
-    showTayyModal('Bài thuốc', `
-        <label class="tayy-form-label">Tên bài thuốc<br><input id="bt-inp-ten" type="text" class="tayy-form-input" value="${item?escHtml(item.ten_bai_thuoc):''}"></label>
-        <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item?escHtml(item.ngu_hanh || item.nguon_goc):''}"></label>
-        <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input">${item?escHtml(item.cach_dung):''}</textarea></label>
-        <p style="font-size:0.8rem; color:#8B7355; margin:10px 0 5px;">* Các vị thuốc và liều lượng có thể điều chỉnh sau khi lưu tên bài thuốc.</p>
-        <div class="tayy-form-actions"><button class="btn" onclick="closeTayyModal()">Hủy</button><button class="btn btn-primary" onclick="saveBaiThuoc(${id||0})">Lưu</button></div>
-    `);
-}
-async function saveBaiThuoc(id) {
-    const payload = { ten_bai_thuoc: document.getElementById('bt-inp-ten').value, nguon_goc: document.getElementById('bt-inp-source').value, cach_dung: document.getElementById('bt-inp-usage').value };
-    await (id ? apiUpdateBaiThuoc(id, payload) : apiCreateBaiThuoc(payload));
-    closeTayyModal(); await loadAllDongyData(); renderDongySection();
-}
-async function deleteBaiThuoc(id) { if(confirm('Xóa?')) { await apiDeleteBaiThuoc(id); await loadAllDongyData(); renderDongySection(); } }
 
 // ═══════════════════════════════════════════════════════════
 // TAB: PHÁC ĐỒ CHÂM CỨU

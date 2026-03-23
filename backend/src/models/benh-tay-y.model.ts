@@ -8,8 +8,8 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ChungBenh } from './chung-benh.model';
-import { PhuongThuoc } from './phuong-thuoc.model';
 import { TrieuChung } from './trieu-chung.model';
+import { BaiThuoc } from './bai-thuoc.model';
 
 @Entity('benh_tay_y')
 export class BenhTayY {
@@ -26,13 +26,13 @@ export class BenhTayY {
   @JoinColumn({ name: 'id_chung_benh' })
   chungBenh: ChungBenh;
 
-  @ManyToMany(() => PhuongThuoc, (p) => p.benhTayYList)
+  @ManyToMany(() => BaiThuoc)
   @JoinTable({
-    name: 'quan_he_benh_phuong_thuoc',
+    name: 'benh_tay_y_bai_thuoc',
     joinColumn: { name: 'id_benh_tay_y', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'id_phuong_thuoc', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_bai_thuoc', referencedColumnName: 'id' },
   })
-  phuongThuocList: PhuongThuoc[];
+  baiThuocList: BaiThuoc[];
 
   @ManyToMany(() => TrieuChung, (t) => t.benhTayYList)
   @JoinTable({

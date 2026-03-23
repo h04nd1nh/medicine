@@ -519,6 +519,7 @@ const _sections = {
     analysis:       { title: 'Phân tích',        parent: 'patient-profile' },
     reports:        { title: 'Báo cáo',          parent: 'dashboard' },
     models:         { title: 'Mô hình bệnh',    parent: 'dashboard' },
+    tayy:           { title: 'Bệnh Tây Y',       parent: 'dashboard' },
 };
 
 function _sectionLabel(id) {
@@ -578,6 +579,7 @@ function _updateBreadcrumb(currentId) {
         analysis: `/analysis/${activeAnalysisRecord?.phieukhamId || ''}`,
         reports: '/reports',
         models: '/models',
+        tayy: '/tayy',
     };
     const hash = hashMap[currentId] || '/' + currentId;
     if (window.location.hash.replace('#', '') !== hash) {
@@ -608,6 +610,10 @@ function _showSectionInternal(id) {
     document.querySelectorAll('.nav-link').forEach(l => {
         l.classList.toggle('active', l.getAttribute('onclick')?.includes(`'${id}'`));
     });
+
+    if (id === 'tayy') {
+        if (typeof initTayyManagement === 'function') initTayyManagement();
+    }
 
     if (id === 'new-record') {
         // Cập nhật tiêu đề màn hình

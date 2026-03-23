@@ -448,3 +448,160 @@ async function apiSummarizeSelectedModels(phieukhamId) {
     const text = await res.text();
     try { return JSON.parse(text); } catch { return { success: false, error: text || res.status }; }
 }
+
+// ---- CHỦNG BỆNH ----
+
+async function apiGetChungBenh() {
+    const res = await fetch(_base() + '/chung-benh');
+    if (!res.ok) throw new Error('Không tải được danh sách chủng bệnh');
+    return res.json();
+}
+
+async function apiGetChungBenhById(id) {
+    const res = await fetch(_base() + '/chung-benh/' + id);
+    if (!res.ok) throw new Error('Không tìm thấy chủng bệnh');
+    return res.json();
+}
+
+async function apiCreateChungBenh(payload) {
+    const res = await fetch(_base() + '/chung-benh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo chủng bệnh thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+
+async function apiUpdateChungBenh(id, payload) {
+    const res = await fetch(_base() + '/chung-benh/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật chủng bệnh thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+
+async function apiDeleteChungBenh(id) {
+    const res = await fetch(_base() + '/chung-benh/' + id, { method: 'DELETE' });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa chủng bệnh thất bại') };
+    return { success: true };
+}
+
+// ---- BỆNH TÂY Y ----
+
+async function apiGetBenhTayY() {
+    const res = await fetch(_base() + '/benh-tay-y');
+    if (!res.ok) throw new Error('Không tải được danh sách bệnh tây y');
+    return res.json();
+}
+
+async function apiGetBenhTayYById(id) {
+    const res = await fetch(_base() + '/benh-tay-y/' + id);
+    if (!res.ok) throw new Error('Không tìm thấy bệnh tây y');
+    return res.json();
+}
+
+async function apiCreateBenhTayY(payload) {
+    const res = await fetch(_base() + '/benh-tay-y', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo bệnh tây y thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+
+async function apiUpdateBenhTayY(id, payload) {
+    const res = await fetch(_base() + '/benh-tay-y/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật bệnh tây y thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+
+async function apiDeleteBenhTayY(id) {
+    const res = await fetch(_base() + '/benh-tay-y/' + id, { method: 'DELETE' });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa bệnh tây y thất bại') };
+    return { success: true };
+}
+
+// ---- PHƯƠNG THUỐC ----
+
+async function apiGetPhuongThuoc() {
+    const res = await fetch(_base() + '/phuong-thuoc');
+    if (!res.ok) throw new Error('Không tải được danh sách phương thuốc');
+    return res.json();
+}
+
+async function apiCreatePhuongThuoc(payload) {
+    const res = await fetch(_base() + '/phuong-thuoc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo phương thuốc thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+
+async function apiUpdatePhuongThuoc(id, payload) {
+    const res = await fetch(_base() + '/phuong-thuoc/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật phương thuốc thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+
+async function apiDeletePhuongThuoc(id) {
+    const res = await fetch(_base() + '/phuong-thuoc/' + id, { method: 'DELETE' });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa phương thuốc thất bại') };
+    return { success: true };
+}
+
+// ---- TRIỆU CHỨNG ----
+
+async function apiGetTrieuChung() {
+    const res = await fetch(_base() + '/trieu-chung');
+    if (!res.ok) throw new Error('Không tải được danh sách triệu chứng');
+    return res.json();
+}
+
+async function apiCreateTrieuChung(payload) {
+    const res = await fetch(_base() + '/trieu-chung', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo triệu chứng thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+
+async function apiUpdateTrieuChung(id, payload) {
+    const res = await fetch(_base() + '/trieu-chung/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật triệu chứng thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+
+async function apiDeleteTrieuChung(id) {
+    const res = await fetch(_base() + '/trieu-chung/' + id, { method: 'DELETE' });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa triệu chứng thất bại') };
+    return { success: true };
+}
+

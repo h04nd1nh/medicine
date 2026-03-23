@@ -18,6 +18,13 @@ export class CreateBaiThuocDto {
   cong_dung?: string;
   cach_dung?: string;
   ghi_chu?: string;
-  chi_tiet?: { id_vi_thuoc: number; lieu_luong?: string; vai_tro?: string; ghi_chu?: string }[];
+  chi_tiet?: {
+    id_vi_thuoc: number;
+    lieu_luong?: string;
+    vai_tro?: string;
+    ghi_chu?: string;
+    tinh_vi?: string;
+    quy_kinh?: string;
+  }[];
 }
 export class UpdateBaiThuocDto extends CreateBaiThuocDto {}

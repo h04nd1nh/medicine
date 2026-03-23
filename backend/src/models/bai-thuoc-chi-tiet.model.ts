@@ -22,6 +22,13 @@ export class BaiThuocChiTiet {
   @Column({ type: 'text', nullable: true })
   ghi_chu: string; // Tẩm rượu, sao vàng...
 
+  // Tinh vị/quy kinh có thể khác nhau theo từng bài thuốc khi cùng 1 vị thuốc được dùng theo bối cảnh riêng
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  tinh_vi: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  quy_kinh: string;
+
   @ManyToOne(() => BaiThuoc, (bt) => bt.chiTietViThuoc, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_bai_thuoc' })
   baiThuoc: BaiThuoc;

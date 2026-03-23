@@ -183,6 +183,8 @@ function openBaiThuocForm(id) {
             lieu_luong: d?.lieu_luong ?? '',
             vai_tro: d?.vai_tro ?? '',
             ghi_chu: d?.ghi_chu ?? '',
+            tinh_vi: d?.tinh_vi ?? d?.viThuoc?.tinh_vi ?? '',
+            quy_kinh: d?.quy_kinh ?? d?.viThuoc?.quy_kinh ?? '',
         };
     }).filter(x => Number.isFinite(x.idViThuoc));
 
@@ -252,6 +254,12 @@ async function saveBaiThuoc(id) {
         const ghiChu = (d?.ghi_chu || '').trim();
         if (ghiChu) obj.ghi_chu = ghiChu;
 
+        const tinhVi = (d?.tinh_vi || '').trim();
+        if (tinhVi) obj.tinh_vi = tinhVi;
+
+        const quyKinh = (d?.quy_kinh || '').trim();
+        if (quyKinh) obj.quy_kinh = quyKinh;
+
         return obj;
     }).filter(d => Number.isFinite(d.id_vi_thuoc));
 
@@ -289,8 +297,8 @@ function btRenderBaiThuocChiTietRowsHtml() {
         const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
         const lieu = d?.lieu_luong || '';
         const vaiTro = d?.vai_tro || '';
-        const ngu_vi = vt?.tinh_vi || '';
-        const quy_kinh = vt?.quy_kinh || '';
+        const ngu_vi = (d?.tinh_vi || vt?.tinh_vi || '');
+        const quy_kinh = (d?.quy_kinh || vt?.quy_kinh || '');
 
         return `
             <tr>
@@ -319,11 +327,19 @@ function btRenderBaiThuocChiTietRowsHtml() {
                         value="${escHtml(vaiTro)}"
                         oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
                 </td>
-                <td style="border:1px solid #E2D4B8; padding:8px; color:#5B3A1A; font-size:0.85rem;">
-                    ${escHtml(ngu_vi || '—')}
+                <td style="border:1px solid #E2D4B8; padding:8px;">
+                    <input type="text"
+                        style="width:100%; padding:6px 8px; border:1px solid #D4C5A0; border-radius:6px; background:#FBF8F1; font-size:0.85rem;"
+                        placeholder="ví dụ: Hàn, nhiệt, ôn..."
+                        value="${escHtml(ngu_vi || '')}"
+                        oninput="btUpdateBaiThuocChipTinhVi(${d.idViThuoc}, this.value)">
                 </td>
-                <td style="border:1px solid #E2D4B8; padding:8px; color:#5B3A1A; font-size:0.85rem;">
-                    ${escHtml(quy_kinh || '—')}
+                <td style="border:1px solid #E2D4B8; padding:8px;">
+                    <input type="text"
+                        style="width:100%; padding:6px 8px; border:1px solid #D4C5A0; border-radius:6px; background:#FBF8F1; font-size:0.85rem;"
+                        placeholder="ví dụ: Phế, Can, Tỳ..."
+                        value="${escHtml(quy_kinh || '')}"
+                        oninput="btUpdateBaiThuocChipQuyKinh(${d.idViThuoc}, this.value)">
                 </td>
             </tr>
         `;
@@ -383,6 +399,8 @@ function btAddViThuocChip(viThuocId) {
         lieu_luong: '',
         vai_tro: '',
         ghi_chu: '',
+        tinh_vi: vt?.tinh_vi || '',
+        quy_kinh: vt?.quy_kinh || '',
         ten_vi_thuoc: vt?.ten_vi_thuoc || ''
     });
 
@@ -409,4 +427,16 @@ function btUpdateBaiThuocChipVaiTro(viThuocId, vaiValue) {
     const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
     if (!target) return;
     target.vai_tro = vaiValue ?? '';
+}
+
+function btUpdateBaiThuocChipTinhVi(viThuocId, tinhValue) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+    target.tinh_vi = tinhValue ?? '';
+}
+
+function btUpdateBaiThuocChipQuyKinh(viThuocId, quyValue) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+    target.quy_kinh = quyValue ?? '';
 }

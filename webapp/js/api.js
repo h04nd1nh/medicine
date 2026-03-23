@@ -708,4 +708,57 @@ async function apiDeletePhacDo(id) {
     return { success: true };
 }
 
+// ---- VI THUOC ----
+async function apiGetViThuoc() {
+    const res = await fetch(_base() + '/vi-thuoc');
+    return res.json();
+}
+async function apiCreateViThuoc(payload) {
+    const res = await fetch(_base() + '/vi-thuoc', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+async function apiUpdateViThuoc(id, payload) {
+    const res = await fetch(_base() + '/vi-thuoc/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+async function apiDeleteViThuoc(id) {
+    const res = await fetch(_base() + '/vi-thuoc/' + id, { method: 'DELETE', headers: _authHeaders() });
+    return res.json();
+}
+
+// ---- BAI THUOC ----
+async function apiGetBaiThuoc() {
+    const res = await fetch(_base() + '/bai-thuoc');
+    return res.json();
+}
+async function apiCreateBaiThuoc(payload) {
+    const res = await fetch(_base() + '/bai-thuoc', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+async function apiUpdateBaiThuoc(id, payload) {
+    const res = await fetch(_base() + '/bai-thuoc/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    return res.json();
+}
+async function apiDeleteBaiThuoc(id) {
+    const res = await fetch(_base() + '/bai-thuoc/' + id, { method: 'DELETE', headers: _authHeaders() });
+    return res.json();
+}
+
+
 

@@ -530,42 +530,6 @@ async function apiDeleteBenhTayY(id) {
     return { success: true };
 }
 
-// ---- PHƯƠNG THUỐC ----
-
-async function apiGetPhuongThuoc() {
-    const res = await fetch(_base() + '/phuong-thuoc');
-    if (!res.ok) throw new Error('Không tải được danh sách phương thuốc');
-    return res.json();
-}
-
-async function apiCreatePhuongThuoc(payload) {
-    const res = await fetch(_base() + '/phuong-thuoc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo phương thuốc thất bại') };
-    const data = await res.json();
-    return { success: true, id: data.id, data };
-}
-
-async function apiUpdatePhuongThuoc(id, payload) {
-    const res = await fetch(_base() + '/phuong-thuoc/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật phương thuốc thất bại') };
-    const data = await res.json();
-    return { success: true, data };
-}
-
-async function apiDeletePhuongThuoc(id) {
-    const res = await fetch(_base() + '/phuong-thuoc/' + id, { method: 'DELETE' });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa phương thuốc thất bại') };
-    return { success: true };
-}
-
 // ---- TRIỆU CHỨNG ----
 
 async function apiGetTrieuChung() {

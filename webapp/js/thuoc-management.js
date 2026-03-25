@@ -533,9 +533,7 @@ function btRenderQuyKinhTableChips(viThuocId) {
     selected.forEach(name => {
         const chip = document.createElement('div');
         chip.className = 'chip';
-        chip.style.padding = '2px 8px';
-        chip.style.fontSize = '0.72rem';
-        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" style="width:14px; height:14px; font-size:0.8rem;" onclick="btRemoveQuyKinhTableChip(${viThuocId}, '${escHtml(name)}'); event.stopPropagation();">×</span>`;
+        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="btRemoveQuyKinhTableChip(${viThuocId}, '${escHtml(name)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
     });
 }

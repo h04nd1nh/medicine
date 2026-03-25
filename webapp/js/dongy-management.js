@@ -153,16 +153,6 @@ function openBenhDongYForm(givenId) {
         return `<label class="tayy-check-label"><input type="checkbox" name="dy-tc-ids" value="${tc.id}" ${checked}> ${escHtml(tc.ten_trieu_chung)}</label>`;
     }).join('');
 
-    // Nạp danh sách phương huyệt hiện có theo bệnh đang edit
-    _dhDraftPhuongHuyet = (realId != null ? (_dongyData.phacDo || []).filter(p => (p.idBenh ?? p.id_benh) == realId) : []).map(p => ({
-        idHuyet: p.idHuyet ?? p.id_huyet,
-        phuong_phap_tac_dong: p.phuong_phap_tac_dong || '',
-        vai_tro_huyet: p.vai_tro_huyet || '',
-        ghi_chu_ky_thuat: p.ghi_chu_ky_thuat || '',
-    })).filter(x => Number.isFinite(x.idHuyet));
-
-    const phuongHuyetRows = dhRenderPhuongHuyetRowsHtml();
-
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tên bệnh (Tiêu kết)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${item ? escHtml(item.tieuket) : ''}"></label>
         <label class="tayy-form-label">ID Nhóm<br><input id="dy-inp-nhom" type="number" class="tayy-form-input" value="${item ? (item.nhomid || 0) : ''}"></label>
@@ -181,44 +171,31 @@ function openBenhDongYForm(givenId) {
             </div>
         </div>
 
-        <div style="margin-top:18px;">
-            <div class="tayy-form-label" style="margin-bottom:8px;">Phương huyệt
-                <div style="font-size:0.8rem; color:#8B7355; font-weight:500; margin-top:6px;">
-                    Gõ tên huyệt để thêm; mỗi huyệt là 1 dòng. Nhập <b>Phương pháp tác động</b> và <b>Vai trò</b>.
-                </div>
-                <div style="position:relative; margin-top:10px;">
-                    <input id="dy-ph-hv-search" type="text" class="tayy-form-input"
-                        placeholder="Gõ tên huyệt để thêm..."
-                        oninput="dhOnHuyetViSearchInput(this.value)">
-                    <div id="dy-ph-hv-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 6px);
-                        background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                        box-shadow:0 10px 30px rgba(0,0,0,0.12);
-                        max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
-                </div>
-
-                <div style="margin-top:12px;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:34%;">Tên huyệt</th>
-                                <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:33%;">Phương pháp tác động</th>
-                                <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:23%;">Vai trò</th>
-                                <th style="text-align:center; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:10%;">Xóa</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dy-phuong-huyet-tbody" style="background:#FBF8F1;">
-                            ${phuongHuyetRows}
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Thể bệnh & Phương huyệt (mới) -->
+        ${realId ? `
+        <hr style="border:none; border-top:2px solid #E2D4B8; margin:20px 0 0 0;">
+        <div id="tb-section-container">
+            <div style="display:flex; align-items:center; gap:8px; padding:12px 0; color:#8B7355;">
+                <span style="font-size:0.85rem;">⏳ Đang tải thể bệnh...</span>
             </div>
-        </div>
+        </div>` : `
+        <div style="margin-top:16px; padding:12px; background:#FFF8E1; border-radius:8px; border:1px solid #FFE082;">
+            <span style="font-size:0.82rem; color:#8B5E00;">💡 Lưu thông tin cơ bản trước, sau đó mở lại để thêm thể bệnh & phương huyệt.</span>
+        </div>`}
 
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu</button>
+            <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu thông tin bệnh</button>
         </div>
     `, 'wide');
+
+    // Load thể bệnh bất đồng bộ sau khi modal đã render
+    if (realId && typeof tbLoadForBenh === 'function') {
+        setTimeout(async () => {
+            await tbLoadForBenh(realId);
+            tbRenderSection('tb-section-container');
+        }, 50);
+    }
 }
 
 async function saveBenhDongY(id) {

@@ -20,6 +20,8 @@ import { PhacDoDieuTri } from './models/phac-do-dieu-tri.model';
 import { ViThuoc } from './models/vi-thuoc.model';
 import { BaiThuoc } from './models/bai-thuoc.model';
 import { BaiThuocChiTiet } from './models/bai-thuoc-chi-tiet.model';
+import { TheBenh } from './models/the-benh.model';
+import { TheBenhPhuongHuyet } from './models/the-benh-phuong-huyet.model';
 
 // Routers (NestJS Controllers)
 import { AdminsRouter } from './routers/admin.router';
@@ -37,6 +39,7 @@ import { HuyetViRouter } from './routers/huyet-vi.router';
 import { PhacDoDieuTriRouter } from './routers/phac-do-dieu-tri.router';
 import { ViThuocRouter } from './routers/vi-thuoc.router';
 import { BaiThuocRouter } from './routers/bai-thuoc.router';
+import { TheBenhRouter, TheBenhPhuongHuyetRouter } from './routers/the-benh.router';
 
 // Controllers (NestJS Services)
 import { AdminsService } from './controllers/admin.controller';
@@ -53,6 +56,7 @@ import { HuyetViService } from './controllers/huyet-vi.controller';
 import { PhacDoDieuTriService } from './controllers/phac-do-dieu-tri.controller';
 import { ViThuocService } from './controllers/vi-thuoc.controller';
 import { BaiThuocService } from './controllers/bai-thuoc.controller';
+import { TheBenhService, TheBenhPhuongHuyetService } from './controllers/the-benh.controller';
 
 // Middlewares (Strategies/Guards)
 import { JwtStrategy } from './middlewares/auth/jwt.strategy';
@@ -80,7 +84,7 @@ import { JwtStrategy } from './middlewares/auth/jwt.strategy';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([Admin, MeridianSyndrome, Patient, Examination, ChungBenh, BenhTayY, TrieuChung, KinhMach, HuyetVi, PhacDoDieuTri, ViThuoc, BaiThuoc, BaiThuocChiTiet]),
+    TypeOrmModule.forFeature([Admin, MeridianSyndrome, Patient, Examination, ChungBenh, BenhTayY, TrieuChung, KinhMach, HuyetVi, PhacDoDieuTri, ViThuoc, BaiThuoc, BaiThuocChiTiet, TheBenh, TheBenhPhuongHuyet]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -91,7 +95,7 @@ import { JwtStrategy } from './middlewares/auth/jwt.strategy';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter, ModelsRouter, RecordsRouter, ChungBenhRouter, BenhTayYRouter, TrieuChungRouter, KinhMachRouter, HuyetViRouter, PhacDoDieuTriRouter, ViThuocRouter, BaiThuocRouter],
-  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService, ModelsService, ChungBenhService, BenhTayYService, TrieuChungService, KinhMachService, HuyetViService, PhacDoDieuTriService, ViThuocService, BaiThuocService],
+  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter, ModelsRouter, RecordsRouter, ChungBenhRouter, BenhTayYRouter, TrieuChungRouter, KinhMachRouter, HuyetViRouter, PhacDoDieuTriRouter, ViThuocRouter, BaiThuocRouter, TheBenhRouter, TheBenhPhuongHuyetRouter],
+  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService, ModelsService, ChungBenhService, BenhTayYService, TrieuChungService, KinhMachService, HuyetViService, PhacDoDieuTriService, ViThuocService, BaiThuocService, TheBenhService, TheBenhPhuongHuyetService],
 })
 export class AppModule {}

@@ -734,7 +734,54 @@ async function apiDeleteBaiThuoc(id) {
     const res = await fetch(_base() + '/bai-thuoc/' + id, { method: 'DELETE', headers: _authHeaders() });
     if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa bài thuốc thất bại') };
     return { success: true };
+}// ---- THỂ BỆNH ----
+async function apiGetTheBenh(benhId) {
+    const res = await fetch(_base() + '/the-benh?benh=' + benhId);
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateTheBenh(payload) {
+    const res = await fetch(_base() + '/the-benh', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo thể bệnh thất bại') };
+    return res.json();
+}
+async function apiUpdateTheBenh(id, payload) {
+    const res = await fetch(_base() + '/the-benh/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật thể bệnh thất bại') };
+    return res.json();
+}
+async function apiDeleteTheBenh(id) {
+    const res = await fetch(_base() + '/the-benh/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa thể bệnh thất bại') };
+    return { success: true };
 }
 
-
+// ---- THỂ BỆNH PHƯƠNG HUYỆT ----
+async function apiGetTheBenhPhuongHuyet(theBenhId) {
+    const res = await fetch(_base() + '/the-benh-phuong-huyet?the_benh=' + theBenhId);
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateTheBenhPhuongHuyet(payload) {
+    const res = await fetch(_base() + '/the-benh-phuong-huyet', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo phương huyệt thất bại') };
+    return res.json();
+}
+async function apiDeleteTheBenhPhuongHuyet(id) {
+    const res = await fetch(_base() + '/the-benh-phuong-huyet/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa phương huyệt thất bại') };
+    return { success: true };
+}
 

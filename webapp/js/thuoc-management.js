@@ -135,16 +135,18 @@ function openViThuocForm(id) {
         </div>
         <label class="tayy-form-label">Quy kinh (chọn nhiều)<br>
             <div style="position:relative;">
-                <input id="vt-inp-quykinh" type="text" class="tayy-form-input" 
-                    placeholder="Gõ tên kinh mạch hoặc huyệt để thêm..." 
-                    value="${item ? escHtml(item.quy_kinh || '') : ''}"
-                    oninput="vtOnQuyKinhSearchInput(this.value)">
-                <div id="vt-quykinh-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 2px);
+                <div id="vt-quykinh-chips" class="chips-container" onclick="document.getElementById('vt-inp-quykinh').focus()">
+                    <!-- Chips will be rendered here -->
+                    <input id="vt-inp-quykinh" type="text" class="chip-input" 
+                        placeholder="Thêm kinh mạch..." 
+                        oninput="vtOnQuyKinhSearchInput(this.value)"
+                        onkeydown="if(event.key==='Enter' && this.value){vtSelectQuyKinh(this.value); event.preventDefault();} if(event.key==='Backspace' && !this.value) vtRemoveLastQuyKinhChip()">
+                </div>
+                <div id="vt-quykinh-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px);
                     background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
                     box-shadow:0 10px 30px rgba(0,0,0,0.12);
                     max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
-            <small style="color:#8B7355;">Gợi ý: Phế, Can, Tỳ, Hợp cốc... (Có thể nhập nhiều, cách nhau bằng dấu phẩy)</small>
         </label>
 
         <label class="tayy-form-label">Công dụng<br><textarea id="vt-inp-congdung" class="tayy-form-input" rows="3">${item ? escHtml(item.cong_dung) : ''}</textarea></label>
@@ -153,15 +155,47 @@ function openViThuocForm(id) {
             <button class="btn btn-primary" onclick="saveViThuoc(${id || 0})">Lưu</button>
         </div>
     `);
+
+    // Khởi tạo chips
+    _vtCurrentQuyKinh = (item?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    vtRenderQuyKinhChips();
+}
+
+let _vtCurrentQuyKinh = [];
+
+function vtRenderQuyKinhChips() {
+    const container = document.getElementById('vt-quykinh-chips');
+    const input = document.getElementById('vt-inp-quykinh');
+    if (!container || !input) return;
+
+    // Remove old chips
+    container.querySelectorAll('.chip').forEach(c => c.remove());
+
+    _vtCurrentQuyKinh.forEach(name => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="vtRemoveQuyKinhChip('${escHtml(name)}'); event.stopPropagation();">×</span>`;
+        container.insertBefore(chip, input);
+    });
+}
+
+function vtRemoveQuyKinhChip(name) {
+    _vtCurrentQuyKinh = _vtCurrentQuyKinh.filter(x => x !== name);
+    vtRenderQuyKinhChips();
+}
+
+function vtRemoveLastQuyKinhChip() {
+    if (_vtCurrentQuyKinh.length > 0) {
+        _vtCurrentQuyKinh.pop();
+        vtRenderQuyKinhChips();
+    }
 }
 
 function vtOnQuyKinhSearchInput(val) {
     const suggestEl = document.getElementById('vt-quykinh-suggest');
     if (!suggestEl) return;
 
-    // Lấy phần text cuối cùng sau dấu phẩy
-    const parts = val.split(',').map(s => s.trim());
-    const lastPart = parts[parts.length - 1].toLowerCase();
+    const lastPart = val.trim().toLowerCase();
 
     if (!lastPart) {
         suggestEl.style.display = 'none';
@@ -172,13 +206,16 @@ function vtOnQuyKinhSearchInput(val) {
     const matchesHV = (_thuocData.huyetVi || []).filter(h => (h.ten_huyet || '').toLowerCase().includes(lastPart));
     const allMatches = [...matchesKM.map(k => k.ten_kinh_mach), ...matchesHV.map(h => h.ten_huyet)].slice(0, 10);
 
-    if (allMatches.length === 0) {
+    // Lọc bỏ những cái đã chọn
+    const filteredMatches = allMatches.filter(m => !_vtCurrentQuyKinh.includes(m));
+
+    if (filteredMatches.length === 0) {
         suggestEl.style.display = 'none';
         return;
     }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = allMatches.map(m => `
+    suggestEl.innerHTML = filteredMatches.map(m => `
         <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
              onmouseover="this.style.background='#F5F0E8'"
              onmouseout="this.style.background='transparent'"
@@ -189,15 +226,16 @@ function vtOnQuyKinhSearchInput(val) {
 }
 
 function vtSelectQuyKinh(name) {
+    if (!_vtCurrentQuyKinh.includes(name)) {
+        _vtCurrentQuyKinh.push(name);
+    }
     const inp = document.getElementById('vt-inp-quykinh');
-    if (!inp) return;
-    const parts = inp.value.split(',').map(s => s.trim());
-    parts[parts.length - 1] = name;
-    // Lọc bỏ trùng lặp
-    const unique = [...new Set(parts.filter(Boolean))];
-    inp.value = unique.join(', ') + ', ';
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    vtRenderQuyKinhChips();
     document.getElementById('vt-quykinh-suggest').style.display = 'none';
-    inp.focus();
 }
 
 async function saveViThuoc(id) {
@@ -205,7 +243,7 @@ async function saveViThuoc(id) {
         ten_vi_thuoc: document.getElementById('vt-inp-ten').value.trim(), 
         tinh: document.getElementById('vt-inp-tinh').value.trim(),
         vi: document.getElementById('vt-inp-vi').value.trim(),
-        quy_kinh: document.getElementById('vt-inp-quykinh').value.trim().replace(/,$/, ''), 
+        quy_kinh: _vtCurrentQuyKinh.join(', '), 
         cong_dung: document.getElementById('vt-inp-congdung').value.trim() 
     };
     if(!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc');
@@ -316,6 +354,7 @@ function openBaiThuocForm(id) {
     // Khởi tạo UI suggestion cho modal mới
     setTimeout(() => {
         btOnViThuocSearchInput('');
+        btRerenderBaiThuocChiTietRows();
     }, 0);
 }
 
@@ -406,11 +445,16 @@ function btRenderBaiThuocChiTietRowsHtml() {
                         oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
                 </td>
                 <td style="border:1px solid #E2D4B8; padding:8px; position:relative;">
-                    <input id="bt-quykinh-${d.idViThuoc}" type="text"
-                        style="width:100%; padding:6px 8px; border:1px solid #D4C5A0; border-radius:6px; background:#FBF8F1; font-size:0.85rem;"
-                        placeholder="Phế, Can, Tỳ..."
-                        value="${escHtml(quy_kinh)}"
-                        oninput="btOnQuyKinhTableSearchInput(${d.idViThuoc}, this.value)">
+                    <div id="bt-quykinh-chips-${d.idViThuoc}" class="chips-container" 
+                        style="min-height:34px; padding:2px 6px;"
+                        onclick="document.getElementById('bt-quykinh-inp-${d.idViThuoc}').focus()">
+                        <!-- Chips will be rendered here -->
+                        <input id="bt-quykinh-inp-${d.idViThuoc}" type="text" class="chip-input" 
+                            style="min-width:40px; font-size:0.75rem;"
+                            placeholder="..."
+                            oninput="btOnQuyKinhTableSearchInput(${d.idViThuoc}, this.value)"
+                            onkeydown="if(event.key==='Enter' && this.value){btSelectQuyKinhTable(${d.idViThuoc}, this.value); event.preventDefault();} if(event.key==='Backspace' && !this.value) btRemoveLastQuyKinhTableChip(${d.idViThuoc})">
+                    </div>
                     <div id="bt-quykinh-suggest-${d.idViThuoc}" style="position:absolute; left:8px; right:8px; top:calc(100% + 2px);
                         background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
                         box-shadow:0 5px 15px rgba(0,0,0,0.1);
@@ -425,10 +469,7 @@ function btOnQuyKinhTableSearchInput(viThuocId, val) {
     const suggestEl = document.getElementById(`bt-quykinh-suggest-${viThuocId}`);
     if (!suggestEl) return;
 
-    btUpdateBaiThuocChipQuyKinh(viThuocId, val);
-
-    const parts = val.split(',').map(s => s.trim());
-    const lastPart = parts[parts.length - 1].toLowerCase();
+    const lastPart = val.trim().toLowerCase();
 
     if (!lastPart) {
         suggestEl.style.display = 'none';
@@ -439,13 +480,17 @@ function btOnQuyKinhTableSearchInput(viThuocId, val) {
     const matchesHV = (_thuocData.huyetVi || []).filter(h => (h.ten_huyet || '').toLowerCase().includes(lastPart));
     const allMatches = [...matchesKM.map(k => k.ten_kinh_mach), ...matchesHV.map(h => h.ten_huyet)].slice(0, 10);
 
-    if (allMatches.length === 0) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    const selected = (target?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    const filteredMatches = allMatches.filter(m => !selected.includes(m));
+
+    if (filteredMatches.length === 0) {
         suggestEl.style.display = 'none';
         return;
     }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = allMatches.map(m => `
+    suggestEl.innerHTML = filteredMatches.map(m => `
         <div style="padding:6px 8px; cursor:pointer; border-bottom:1px solid #F0E8D8; font-size:0.82rem;"
              onmouseover="this.style.background='#F5F0E8'"
              onmouseout="this.style.background='transparent'"
@@ -456,22 +501,76 @@ function btOnQuyKinhTableSearchInput(viThuocId, val) {
 }
 
 function btSelectQuyKinhTable(viThuocId, name) {
-    const inp = document.getElementById(`bt-quykinh-${viThuocId}`);
-    if (!inp) return;
-    const parts = inp.value.split(',').map(s => s.trim());
-    parts[parts.length - 1] = name;
-    const unique = [...new Set(parts.filter(Boolean))];
-    const finalVal = unique.join(', ') + ', ';
-    inp.value = finalVal;
-    btUpdateBaiThuocChipQuyKinh(viThuocId, finalVal);
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+
+    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!selected.includes(name)) {
+        selected.push(name);
+        target.quy_kinh = selected.join(', ');
+    }
+
+    const inp = document.getElementById(`bt-quykinh-inp-${viThuocId}`);
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    btRenderQuyKinhTableChips(viThuocId);
     document.getElementById(`bt-quykinh-suggest-${viThuocId}`).style.display = 'none';
-    inp.focus();
+}
+
+function btRenderQuyKinhTableChips(viThuocId) {
+    const container = document.getElementById(`bt-quykinh-chips-${viThuocId}`);
+    const input = document.getElementById(`bt-quykinh-inp-${viThuocId}`);
+    if (!container || !input) return;
+
+    // Clear old chips
+    container.querySelectorAll('.chip').forEach(c => c.remove());
+
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    const selected = (target?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+
+    selected.forEach(name => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.style.padding = '2px 8px';
+        chip.style.fontSize = '0.72rem';
+        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" style="width:14px; height:14px; font-size:0.8rem;" onclick="btRemoveQuyKinhTableChip(${viThuocId}, '${escHtml(name)}'); event.stopPropagation();">×</span>`;
+        container.insertBefore(chip, input);
+    });
+}
+
+function btRemoveQuyKinhTableChip(viThuocId, name) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+
+    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    selected = selected.filter(x => x !== name);
+    target.quy_kinh = selected.join(', ');
+    btRenderQuyKinhTableChips(viThuocId);
+}
+
+function btRemoveLastQuyKinhTableChip(viThuocId) {
+    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
+    if (!target) return;
+
+    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (selected.length > 0) {
+        selected.pop();
+        target.quy_kinh = selected.join(', ');
+        btRenderQuyKinhTableChips(viThuocId);
+    }
 }
 
 function btRerenderBaiThuocChiTietRows() {
     const el = document.getElementById('bt-ingredient-tbody');
     if (!el) return;
     el.innerHTML = btRenderBaiThuocChiTietRowsHtml();
+
+    // Render chips for each row
+    (_btDraftChiTiet || []).forEach(d => {
+        btRenderQuyKinhTableChips(d.idViThuoc);
+    });
 }
 
 function btOnViThuocSearchInput(query) {

@@ -7,9 +7,12 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { ExaminationsService } from '../controllers/examination.controller';
 import { CreateExaminationDto, UpdateExaminationDto } from '../models/examination.dto';
+import { JwtAuthGuard } from '../middlewares/auth/jwt-auth.guard';
 
 @Controller('examinations')
 export class ExaminationsRouter {
@@ -43,6 +46,12 @@ export class ExaminationsRouter {
   @Get('patient/:patientId')
   findByPatient(@Param('patientId', ParseIntPipe) patientId: number) {
     return this.examinationsService.findByPatient(patientId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my-records')
+  findMyRecords(@Request() req: any) {
+    return this.examinationsService.findByPatient(req.user.id);
   }
 
   @Get(':id')

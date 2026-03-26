@@ -35,6 +35,9 @@ export class Patient {
   @Column({ type: 'text', nullable: true })
   medicalHistory: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  passwordHash: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

@@ -332,10 +332,11 @@ function openBaiThuocForm(id) {
             <div style="margin-top:12px;">
                 <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
                     <thead>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:25%;">Tên vị thuốc</th>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:20%;">Liều lượng</th>
+                        <tr>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:22%;">Tên vị thuốc</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:18%;">Liều lượng</th>
                             <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:20%;">Vai trò</th>
-                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:35%;">Quy kinh</th>
+                            <th style="text-align:left; background:#F5F0E8; color:#5B3A1A; border:1px solid #E2D4B8; padding:8px; width:40%;">Tính / Vị / Quy kinh</th>
                         </tr>
                     </thead>
                     <tbody id="bt-ingredient-tbody" style="background:#FBF8F1;">
@@ -375,9 +376,6 @@ async function saveBaiThuoc(id) {
         const ghiChu = (d?.ghi_chu || '').trim();
         if (ghiChu) obj.ghi_chu = ghiChu;
 
-        const quyKinh = (d?.quy_kinh || '').trim();
-        if (quyKinh) obj.quy_kinh = quyKinh.replace(/,$/, '');
-
         return obj;
     }).filter(d => Number.isFinite(d.id_vi_thuoc));
 
@@ -415,7 +413,9 @@ function btRenderBaiThuocChiTietRowsHtml() {
         const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
         const lieu = d?.lieu_luong || '';
         const vaiTro = d?.vai_tro || '';
-        const quy_kinh = (d?.quy_kinh || vt?.quy_kinh || '');
+        const tinh = vt?.tinh || '-';
+        const vi = vt?.vi || '-';
+        const vtQuyKinh = vt?.quy_kinh || '-';
 
         return `
             <tr>
@@ -444,131 +444,19 @@ function btRenderBaiThuocChiTietRowsHtml() {
                         value="${escHtml(vaiTro)}"
                         oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
                 </td>
-                <td style="border:1px solid #E2D4B8; padding:8px; position:relative;">
-                    <div id="bt-quykinh-chips-${d.idViThuoc}" class="chips-container" 
-                        style="min-height:34px; padding:2px 6px;"
-                        onclick="document.getElementById('bt-quykinh-inp-${d.idViThuoc}').focus()">
-                        <!-- Chips will be rendered here -->
-                        <input id="bt-quykinh-inp-${d.idViThuoc}" type="text" class="chip-input" 
-                            style="min-width:40px; font-size:0.75rem;"
-                            placeholder="..."
-                            oninput="btOnQuyKinhTableSearchInput(${d.idViThuoc}, this.value)"
-                            onkeydown="if(event.key==='Enter' && this.value){btSelectQuyKinhTable(${d.idViThuoc}, this.value); event.preventDefault();} if(event.key==='Backspace' && !this.value) btRemoveLastQuyKinhTableChip(${d.idViThuoc})">
-                    </div>
-                    <div id="bt-quykinh-suggest-${d.idViThuoc}" style="position:absolute; left:8px; right:8px; top:calc(100% + 2px);
-                        background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                        box-shadow:0 5px 15px rgba(0,0,0,0.1);
-                        max-height:150px; overflow-y:auto; z-index:3000; display:none;"></div>
+                <td style="border:1px solid #E2D4B8; padding:8px; font-size:0.8rem; line-height:1.4; color:#5B3A1A;">
+                    <div><strong>Tính:</strong> ${escHtml(tinh)} <span style="margin:0 4px;color:#D4C5A0;">|</span> <strong>Vị:</strong> ${escHtml(vi)}</div>
+                    <div style="margin-top:2px;"><strong>Quy kinh:</strong> ${escHtml(vtQuyKinh)}</div>
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-function btOnQuyKinhTableSearchInput(viThuocId, val) {
-    const suggestEl = document.getElementById(`bt-quykinh-suggest-${viThuocId}`);
-    if (!suggestEl) return;
-
-    const lastPart = val.trim().toLowerCase();
-
-    if (!lastPart) {
-        suggestEl.style.display = 'none';
-        return;
-    }
-
-    const matchesKM = (_thuocData.kinhMach || []).filter(k => (k.ten_kinh_mach || '').toLowerCase().includes(lastPart));
-    const matchesHV = (_thuocData.huyetVi || []).filter(h => (h.ten_huyet || '').toLowerCase().includes(lastPart));
-    const allMatches = [...matchesKM.map(k => k.ten_kinh_mach), ...matchesHV.map(h => h.ten_huyet)].slice(0, 10);
-
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    const selected = (target?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-    const filteredMatches = allMatches.filter(m => !selected.includes(m));
-
-    if (filteredMatches.length === 0) {
-        suggestEl.style.display = 'none';
-        return;
-    }
-
-    suggestEl.style.display = 'block';
-    suggestEl.innerHTML = filteredMatches.map(m => `
-        <div style="padding:6px 8px; cursor:pointer; border-bottom:1px solid #F0E8D8; font-size:0.82rem;"
-             onmouseover="this.style.background='#F5F0E8'"
-             onmouseout="this.style.background='transparent'"
-             onclick="btSelectQuyKinhTable(${viThuocId}, '${escHtml(m)}')">
-            ${escHtml(m)}
-        </div>
-    `).join('');
-}
-
-function btSelectQuyKinhTable(viThuocId, name) {
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    if (!target) return;
-
-    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (!selected.includes(name)) {
-        selected.push(name);
-        target.quy_kinh = selected.join(', ');
-    }
-
-    const inp = document.getElementById(`bt-quykinh-inp-${viThuocId}`);
-    if (inp) {
-        inp.value = '';
-        inp.focus();
-    }
-    btRenderQuyKinhTableChips(viThuocId);
-    document.getElementById(`bt-quykinh-suggest-${viThuocId}`).style.display = 'none';
-}
-
-function btRenderQuyKinhTableChips(viThuocId) {
-    const container = document.getElementById(`bt-quykinh-chips-${viThuocId}`);
-    const input = document.getElementById(`bt-quykinh-inp-${viThuocId}`);
-    if (!container || !input) return;
-
-    // Clear old chips
-    container.querySelectorAll('.chip').forEach(c => c.remove());
-
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    const selected = (target?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-
-    selected.forEach(name => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="btRemoveQuyKinhTableChip(${viThuocId}, '${escHtml(name)}'); event.stopPropagation();">×</span>`;
-        container.insertBefore(chip, input);
-    });
-}
-
-function btRemoveQuyKinhTableChip(viThuocId, name) {
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    if (!target) return;
-
-    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-    selected = selected.filter(x => x !== name);
-    target.quy_kinh = selected.join(', ');
-    btRenderQuyKinhTableChips(viThuocId);
-}
-
-function btRemoveLastQuyKinhTableChip(viThuocId) {
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    if (!target) return;
-
-    let selected = (target.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (selected.length > 0) {
-        selected.pop();
-        target.quy_kinh = selected.join(', ');
-        btRenderQuyKinhTableChips(viThuocId);
-    }
-}
-
 function btRerenderBaiThuocChiTietRows() {
     const el = document.getElementById('bt-ingredient-tbody');
     if (!el) return;
     el.innerHTML = btRenderBaiThuocChiTietRowsHtml();
-
-    // Render chips for each row
-    (_btDraftChiTiet || []).forEach(d => {
-        btRenderQuyKinhTableChips(d.idViThuoc);
-    });
 }
 
 function btOnViThuocSearchInput(query) {
@@ -706,10 +594,4 @@ function btUpdateBaiThuocChipVaiTro(viThuocId, vaiValue) {
 
 function btUpdateBaiThuocChipVi(viThuocId, viValue) {
     // No-op - Tình/Vị removed from UI
-}
-
-function btUpdateBaiThuocChipQuyKinh(viThuocId, quyValue) {
-    const target = (_btDraftChiTiet || []).find(d => d.idViThuoc === viThuocId);
-    if (!target) return;
-    target.quy_kinh = quyValue ?? '';
 }

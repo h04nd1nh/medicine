@@ -289,7 +289,8 @@ function dhRerenderPhuongHuyetRows() {
 }
 
 function dhOnHuyetViSearchInput(query) {
-    const inpVal = (query || '').trim().toLowerCase();
+    const exactVal = (query || '').trim();
+    const inpVal = exactVal.toLowerCase();
     const suggestEl = document.getElementById('dy-ph-hv-suggest');
     if (!suggestEl) return;
 
@@ -301,25 +302,42 @@ function dhOnHuyetViSearchInput(query) {
 
     const selectedIds = new Set((_dhDraftPhuongHuyet || []).map(d => d.idHuyet));
     const matches = (_dongyData.huyetVi || [])
-        .filter(h => (h?.ten_huyet || '').toLowerCase().includes(inpVal))
+        .filter(h => (h?.ten_huyet || h?.name || '').toLowerCase().includes(inpVal))
         .filter(h => !selectedIds.has(h.idHuyet ?? h.id))
         .slice(0, 10);
 
-    if (matches.length === 0) {
-        suggestEl.style.display = 'block';
-        suggestEl.innerHTML = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy</div>`;
-        return;
+    const hasExactMatch = matches.some(h => (h?.ten_huyet || h?.name || '').toLowerCase() === inpVal);
+
+    let html = '';
+
+    if (matches.length > 0) {
+        html += matches.map(h => `
+            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+                onmouseover="this.style.background='#F5F0E8'"
+                onmouseout="this.style.background='transparent'"
+                onclick="dhAddPhuongHuyet(${h.idHuyet ?? h.id})">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(h.ten_huyet || h.name || '')}</div>
+            </div>
+        `).join('');
+    } else {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy huyệt vị có sẵn</div>`;
+    }
+
+    if (!hasExactMatch && exactVal) {
+        html += `
+            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="softCreateHuyetVi('${escHtml(exactVal)}', 'dh')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm huyệt "${escHtml(exactVal)}"
+                </div>
+            </div>
+        `;
     }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = matches.map(h => `
-        <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-            onmouseover="this.style.background='#F5F0E8'"
-            onmouseout="this.style.background='transparent'"
-            onclick="dhAddPhuongHuyet(${h.idHuyet ?? h.id})">
-            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(h.ten_huyet || h.name || '')}</div>
-        </div>
-    `).join('');
+    suggestEl.innerHTML = html;
 }
 
 function dhAddPhuongHuyet(idHuyet) {
@@ -655,7 +673,8 @@ function pdRerenderPhuongHuyetRows() {
 }
 
 function pdOnHuyetViSearchInput(query) {
-    const inpVal = (query || '').trim().toLowerCase();
+    const exactVal = (query || '').trim();
+    const inpVal = exactVal.toLowerCase();
     const suggestEl = document.getElementById('pd-ph-hv-suggest');
     if (!suggestEl) return;
 
@@ -667,25 +686,88 @@ function pdOnHuyetViSearchInput(query) {
 
     const selectedIds = new Set((_pdDraftPhuongHuyet || []).map(d => d.idHuyet));
     const matches = (_dongyData.huyetVi || [])
-        .filter(h => (h?.ten_huyet || '').toLowerCase().includes(inpVal))
+        .filter(h => (h?.ten_huyet || h?.name || '').toLowerCase().includes(inpVal))
         .filter(h => !selectedIds.has(h.idHuyet ?? h.id))
         .slice(0, 10);
 
-    if (matches.length === 0) {
-        suggestEl.style.display = 'block';
-        suggestEl.innerHTML = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy</div>`;
-        return;
+    const hasExactMatch = matches.some(h => (h?.ten_huyet || h?.name || '').toLowerCase() === inpVal);
+
+    let html = '';
+
+    if (matches.length > 0) {
+        html += matches.map(h => `
+            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+                onmouseover="this.style.background='#F5F0E8'"
+                onmouseout="this.style.background='transparent'"
+                onclick="pdAddPhuongHuyet(${h.idHuyet ?? h.id})">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(h.ten_huyet || h.name || '')}</div>
+            </div>
+        `).join('');
+    } else {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy huyệt vị có sẵn</div>`;
+    }
+
+    if (!hasExactMatch && exactVal) {
+        html += `
+            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="softCreateHuyetVi('${escHtml(exactVal)}', 'pd')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm huyệt "${escHtml(exactVal)}"
+                </div>
+            </div>
+        `;
     }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = matches.map(h => `
-        <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-            onmouseover="this.style.background='#F5F0E8'"
-            onmouseout="this.style.background='transparent'"
-            onclick="pdAddPhuongHuyet(${h.idHuyet ?? h.id})">
-            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(h.ten_huyet || h.name || '')}</div>
-        </div>
-    `).join('');
+    suggestEl.innerHTML = html;
+}
+
+async function softCreateHuyetVi(name, context) {
+    if (!name) return;
+
+    const inpId = context === 'dh' ? 'dy-ph-hv-search' : 'pd-ph-hv-search';
+    const suggestId = context === 'dh' ? 'dy-ph-hv-suggest' : 'pd-ph-hv-suggest';
+    
+    const inp = document.getElementById(inpId);
+    const suggestEl = document.getElementById(suggestId);
+    const oldVal = inp ? inp.value : '';
+    
+    if (inp) {
+        inp.disabled = true;
+        inp.value = 'Đang thêm...';
+    }
+    if (suggestEl) suggestEl.style.display = 'none';
+
+    // Tạo payload trống những trường không cần thiết
+    const payload = { ten_huyet: name };
+    const res = await apiCreateHuyetVi(payload);
+
+    if (inp) {
+        inp.disabled = false;
+        inp.value = '';
+        inp.focus();
+    }
+
+    if (!res.success) {
+        alert('Lỗi khi thêm huyệt mới: ' + (res.error || 'Vui lòng thử lại sau.'));
+        if (inp) inp.value = oldVal;
+        return;
+    }
+
+    const resData = res.data || {};
+    const newId = resData.idHuyet || resData.id;
+    if (!newId) return;
+
+    const newItem = { id: newId, idHuyet: newId, ...payload, ...resData };
+    _dongyData.huyetVi.push(newItem);
+
+    if (context === 'dh') {
+        dhAddPhuongHuyet(newId);
+    } else {
+        pdAddPhuongHuyet(newId);
+    }
 }
 
 function pdAddPhuongHuyet(idHuyet) {

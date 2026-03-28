@@ -239,24 +239,24 @@ function vtSelectQuyKinh(name) {
 }
 
 async function saveViThuoc(id) {
-    const payload = { 
-        ten_vi_thuoc: document.getElementById('vt-inp-ten').value.trim(), 
+    const payload = {
+        ten_vi_thuoc: document.getElementById('vt-inp-ten').value.trim(),
         tinh: document.getElementById('vt-inp-tinh').value.trim(),
         vi: document.getElementById('vt-inp-vi').value.trim(),
-        quy_kinh: _vtCurrentQuyKinh.join(', '), 
-        cong_dung: document.getElementById('vt-inp-congdung').value.trim() 
+        quy_kinh: _vtCurrentQuyKinh.join(', '),
+        cong_dung: document.getElementById('vt-inp-congdung').value.trim()
     };
-    if(!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc');
+    if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc');
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
-    if(!res.success) return alert('Lỗi: ' + res.error);
+    if (!res.success) return alert('Lỗi: ' + res.error);
     closeTayyModal(); await loadAllThuocData(); renderThuocSection();
 }
 
 async function deleteViThuoc(id) {
-    if(confirm('Xóa vị thuốc này?')) { 
-        await apiDeleteViThuoc(id); 
-        await loadAllThuocData(); 
-        renderThuocSection(); 
+    if (confirm('Xóa vị thuốc này?')) {
+        await apiDeleteViThuoc(id);
+        await loadAllThuocData();
+        renderThuocSection();
     }
 }
 
@@ -313,9 +313,9 @@ function openBaiThuocForm(id) {
 
     const rowsHtml = btRenderBaiThuocChiTietRowsHtml();
     showTayyModal('Bài thuốc', `
-        <label class="tayy-form-label">Tên bài thuốc<br><input id="bt-inp-ten" type="text" class="tayy-form-input" value="${item?escHtml(item.ten_bai_thuoc):''}"></label>
-        <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item?escHtml(item.nguon_goc):''}"></label>
-        <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item?escHtml(item.cach_dung):''}</textarea></label>
+        <label class="tayy-form-label">Tên bài thuốc<br><input id="bt-inp-ten" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_bai_thuoc) : ''}"></label>
+        <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item ? escHtml(item.nguon_goc) : ''}"></label>
+        <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item ? escHtml(item.cach_dung) : ''}</textarea></label>
 
         <label class="tayy-form-label">
             Thành phần vị thuốc
@@ -347,7 +347,7 @@ function openBaiThuocForm(id) {
 
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveBaiThuoc(${id||0})">Lưu</button>
+            <button class="btn btn-primary" onclick="saveBaiThuoc(${id || 0})">Lưu</button>
         </div>
     `, 'wide');
 
@@ -381,23 +381,23 @@ async function saveBaiThuoc(id) {
         return obj;
     }).filter(d => Number.isFinite(d.id_vi_thuoc));
 
-    const payload = { 
-        ten_bai_thuoc: document.getElementById('bt-inp-ten').value.trim(), 
-        nguon_goc: document.getElementById('bt-inp-source').value.trim(), 
+    const payload = {
+        ten_bai_thuoc: document.getElementById('bt-inp-ten').value.trim(),
+        nguon_goc: document.getElementById('bt-inp-source').value.trim(),
         cach_dung: document.getElementById('bt-inp-usage').value.trim(),
         chi_tiet
     };
-    if(!payload.ten_bai_thuoc) return alert('Thiếu tên bài thuốc');
+    if (!payload.ten_bai_thuoc) return alert('Thiếu tên bài thuốc');
     const res = id ? await apiUpdateBaiThuoc(id, payload) : await apiCreateBaiThuoc(payload);
-    if(!res.success) return alert('Lỗi: ' + res.error);
+    if (!res.success) return alert('Lỗi: ' + res.error);
     closeTayyModal(); await loadAllThuocData(); renderThuocSection();
 }
 
 async function deleteBaiThuoc(id) {
-    if(confirm('Xóa bài thuốc này?')) { 
-        await apiDeleteBaiThuoc(id); 
-        await loadAllThuocData(); 
-        renderThuocSection(); 
+    if (confirm('Xóa bài thuốc này?')) {
+        await apiDeleteBaiThuoc(id);
+        await loadAllThuocData();
+        renderThuocSection();
     }
 }
 
@@ -572,7 +572,8 @@ function btRerenderBaiThuocChiTietRows() {
 }
 
 function btOnViThuocSearchInput(query) {
-    const inpVal = (query || '').trim().toLowerCase();
+    const exactVal = (query || '').trim();
+    const inpVal = exactVal.toLowerCase();
     const suggestEl = document.getElementById('bt-vi-suggest');
     if (!suggestEl) return;
 
@@ -589,21 +590,77 @@ function btOnViThuocSearchInput(query) {
         .filter(v => !selectedIds.has(v.id))
         .slice(0, 10);
 
-    if (matches.length === 0) {
-        suggestEl.style.display = 'block';
-        suggestEl.innerHTML = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy</div>`;
-        return;
+    const hasExactMatch = matches.some(v => (v?.ten_vi_thuoc || '').toLowerCase() === inpVal);
+
+    let html = '';
+
+    if (matches.length > 0) {
+        html += matches.map(v => `
+            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="btAddViThuocChip(${v.id})">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(v.ten_vi_thuoc || '')}</div>
+            </div>
+        `).join('');
+    } else {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy vị thuốc có sẵn</div>`;
+    }
+
+    // UX: Cho phép thêm mới (soft-create) luôn nếu chưa có match chính xác
+    if (!hasExactMatch && exactVal) {
+        html += `
+            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="btSoftCreateViThuoc('${escHtml(exactVal)}')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm vị thuốc "${escHtml(exactVal)}"
+                </div>
+            </div>
+        `;
     }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = matches.map(v => `
-        <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-             onmouseover="this.style.background='#F5F0E8'"
-             onmouseout="this.style.background='transparent'"
-             onclick="btAddViThuocChip(${v.id})">
-            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(v.ten_vi_thuoc || '')}</div>
-        </div>
-    `).join('');
+    suggestEl.innerHTML = html;
+}
+
+async function btSoftCreateViThuoc(name) {
+    if (!name) return;
+
+    // UI Feedback đang thêm...
+    const inp = document.getElementById('bt-inp-vi-search');
+    const suggestEl = document.getElementById('bt-vi-suggest');
+    const oldVal = inp ? inp.value : '';
+
+    if (inp) {
+        inp.disabled = true;
+        inp.value = 'Đang thêm...';
+    }
+    if (suggestEl) suggestEl.style.display = 'none';
+
+    // Gọi API lưu tức thời (soft-create)
+    const payload = { ten_vi_thuoc: name, tinh: '', vi: '', quy_kinh: '', cong_dung: '' };
+    const res = await apiCreateViThuoc(payload);
+
+    if (inp) {
+        inp.disabled = false;
+        inp.value = ''; // Xóa input khi cập nhật xong
+        inp.focus();
+    }
+
+    if (!res.success) {
+        alert('Lỗi khi thêm vị thuốc mới: ' + (res.error || 'Vui lòng thử lại sau.'));
+        if (inp) inp.value = oldVal;
+        return;
+    }
+
+    // Cập nhật State danh sách vị thuốc dùng chung
+    const newItem = { id: res.id, ...payload, ...(res.data || {}) };
+    _thuocData.viThuoc.push(newItem);
+
+    // Kích hoạt thêm vào bài thuốc theo ID vừa có được
+    btAddViThuocChip(res.id);
 }
 
 function btAddViThuocChip(viThuocId) {

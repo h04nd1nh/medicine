@@ -581,6 +581,11 @@ function btRenderBaiThuocChiTietRowsHtml() {
     return _btDraftChiTiet.map(d => {
         const vt = btGetViThuocById(d.idViThuoc);
         const ten = vt?.ten_vi_thuoc || d?.ten_vi_thuoc || 'Vị thuốc';
+        const vaiTro = d?.vai_tro || '';
+        const tinh = vt?.tinh || '-';
+        const vi = vt?.vi || '-';
+        const vtQuyKinh = vt?.quy_kinh || '-';
+
         // Extract value and unit naturally for the 2 inputs
         const rawLieu = d?.lieu_luong || '';
         let val = rawLieu;

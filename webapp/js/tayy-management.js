@@ -259,7 +259,7 @@ function openBenhTayYForm(id) {
                         placeholder="Gõ tên bài thuốc để thêm..."
                         onfocus="tyOnBaiThuocSearchInput(this.value)"
                         oninput="tyOnBaiThuocSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
+                        onkeydown="if(event.key==='Enter' && this.value.trim()){tySelectBaiThuocByName(this.value.trim()); event.preventDefault();}">
                 </div>
                 <div id="tayy-bt-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
@@ -272,7 +272,7 @@ function openBenhTayYForm(id) {
                         placeholder="Gõ tên thiệt chẩn để thêm..."
                         onfocus="tyOnThietChanSearchInput(this.value)"
                         oninput="tyOnThietChanSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
+                        onkeydown="if(event.key==='Enter' && this.value.trim()){tySelectThietChan(this.value.trim()); event.preventDefault();}">
                 </div>
                 <div id="tayy-thietchan-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
@@ -285,7 +285,7 @@ function openBenhTayYForm(id) {
                         placeholder="Gõ tên mạch chẩn để thêm..."
                         onfocus="tyOnMachChanSearchInput(this.value)"
                         oninput="tyOnMachChanSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
+                        onkeydown="if(event.key==='Enter' && this.value.trim()){tySelectMachChan(this.value.trim()); event.preventDefault();}">
                 </div>
                 <div id="tayy-machchan-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
@@ -438,12 +438,13 @@ function tyOnChungBenhSearchInput(val) {
 }
 
 function tySelectChungBenh(id) {
+    if (!id) return;
     _tyDraftChungBenhId = id;
     tyRenderChungBenhChip();
     const suggestEl = document.getElementById('tayy-cb-suggest');
-    if (suggestEl) suggestEl.style.display = 'none';
     const inp = document.getElementById('tayy-inp-cb-search');
-    if (inp) inp.value = '';
+    if (suggestEl) suggestEl.style.display = 'none';
+    if (inp) { inp.value = ''; inp.focus(); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -471,7 +472,7 @@ function tyRemoveBaiThuocChip(btId) {
 }
 
 function tySelectBaiThuoc(btId) {
-    if (_tyDraftBaiThuoc.some(x => x.id === btId)) return;
+    if (!btId || _tyDraftBaiThuoc.some(x => x.id === btId)) return;
     const bt = _tayyData.baiThuoc.find(x => x.id === btId);
     if (!bt) return;
     _tyDraftBaiThuoc.push({ id: bt.id, ten_bai_thuoc: bt.ten_bai_thuoc || bt.name });
@@ -480,9 +481,16 @@ function tySelectBaiThuoc(btId) {
     tyRenderBaiThuocChips();
     tyUpdateTrieuChungPreview();
     const suggestEl = document.getElementById('tayy-bt-suggest');
-    if (suggestEl) {
-        suggestEl.style.display = 'none';
-        suggestEl.innerHTML = '';
+    if (suggestEl) { suggestEl.style.display = 'none'; suggestEl.innerHTML = ''; }
+}
+
+function tySelectBaiThuocByName(name) {
+    if (!name) return;
+    const bt = _tayyData.baiThuoc.find(x => (x.ten_bai_thuoc || x.name || '').toLowerCase() === name.toLowerCase());
+    if (bt) {
+        tySelectBaiThuoc(bt.id);
+    } else {
+        tySoftCreateBaiThuoc(name);
     }
 }
 
@@ -490,12 +498,13 @@ function tyOnBaiThuocSearchInput(val) {
     const suggestEl = document.getElementById('tayy-bt-suggest');
     if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
+    if (!query) { suggestEl.style.display = 'none'; return; }
 
     const selectedIds = new Set(_tyDraftBaiThuoc.map(bt => bt.id));
     const matches = (_tayyData.baiThuoc || [])
         .filter(bt => (bt.ten_bai_thuoc || bt.name || '').toLowerCase().includes(query))
         .filter(bt => !selectedIds.has(bt.id))
-        .slice(0, 15);
+        .slice(0, 10);
 
     const hasExactMatch = (_tayyData.baiThuoc || []).some(bt => (bt.ten_bai_thuoc || bt.name || '').toLowerCase() === query);
 
@@ -510,8 +519,8 @@ function tyOnBaiThuocSearchInput(val) {
                 ${(bt.trieu_chung || bt.trieuchung) ? `<div style="font-size:0.75rem; color:#A09580; margin-top:2px;">TC: ${escHtml(bt.trieu_chung || bt.trieuchung)}</div>` : ''}
             </div>
         `).join('');
-    } else if (query) {
-        html += `<div style="padding:10px; color:#A09580; font-size:0.85rem;">Không tìm thấy bài thuốc có sẵn</div>`;
+    } else {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy bài thuốc</div>`;
     }
 
     if (!hasExactMatch && query) {
@@ -526,22 +535,7 @@ function tyOnBaiThuocSearchInput(val) {
             </div>
         `;
     }
-
-    // Nếu query rỗng và không có bài thuốc nào đang hiện, hiện top 15 bài thuốc chưa chọn
-    if (!html && !query) {
-       const all = (_tayyData.baiThuoc || []).filter(bt => !selectedIds.has(bt.id)).slice(0, 15);
-       if (all.length > 0) {
-           html = all.map(bt => `
-                <div class="tayy-suggest-item" 
-                     onmouseover="this.style.background='#F5F0E8'"
-                     onmouseout="this.style.background='transparent'"
-                     onclick="tySelectBaiThuoc(${bt.id})">
-                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(bt.ten_bai_thuoc || bt.name)}</div>
-                </div>`).join('');
-       }
-    }
-
-    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.style.display = 'block';
     suggestEl.innerHTML = html;
 }
 
@@ -611,76 +605,54 @@ function tyRemoveThietChanChip(ten) {
     _tyDraftThietChan = _tyDraftThietChan.filter(x => x !== ten);
     tyRenderThietChanChips();
 }
-function tySelectThietChan(ten) {
-    if (_tyDraftThietChan.includes(ten)) return;
-    _tyDraftThietChan.push(ten);
+function tySelectThietChan(name) {
+    if (!name || _tyDraftThietChan.includes(name)) return;
+    _tyDraftThietChan.push(name);
     const inp = document.getElementById('tayy-inp-thietchan-search');
     if (inp) { inp.value = ''; inp.focus(); }
     tyRenderThietChanChips();
     const suggestEl = document.getElementById('tayy-thietchan-suggest');
-    if (suggestEl) suggestEl.style.display = 'none';
+    if (suggestEl) { suggestEl.style.display = 'none'; suggestEl.innerHTML = ''; }
 }
+
 function tyOnThietChanSearchInput(val) {
     const suggestEl = document.getElementById('tayy-thietchan-suggest');
-    if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
+    if (!suggestEl) return;
+    if (!query) { suggestEl.style.display = 'none'; return; }
 
-    const matches = (_tayyData.thietChan || [])
-        .filter(x => (x.ten_thiet_chan || '').toLowerCase().includes(query))
-        .filter(x => !_tyDraftThietChan.includes(x.ten_thiet_chan))
-        .slice(0, 15);
-
-    const exactMatch = matches.find(x => x.ten_thiet_chan.toLowerCase() === query);
+    const allNames = (_tayyData.thietChan || []).map(x => x.ten_thiet_chan || x.name || '');
+    const filtered = allNames.filter(n => n.toLowerCase().includes(query) && !_tyDraftThietChan.includes(n)).slice(0, 10);
+    const hasExact = allNames.some(n => n.toLowerCase() === query);
 
     let html = '';
-    if (matches.length > 0) {
-        html = matches.map(x => `
+    if (filtered.length > 0) {
+        html = filtered.map(m => `
             <div class="tayy-suggest-item" 
                  onmouseover="this.style.background='#F5F0E8'"
                  onmouseout="this.style.background='transparent'"
-                 onclick="tySelectThietChan('${escHtml(x.ten_thiet_chan)}')">
-                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_thiet_chan)}</div>
+                 onclick="tySelectThietChan('${escHtml(m)}')">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
             </div>
         `).join('');
-    } else if (query) {
-        html = `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+    } else {
+        html = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy kết quả</div>`;
     }
 
-    if (!exactMatch && query) {
+    if (!hasExact && query) {
         html += `
             <div class="tayy-suggest-item" style="background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
                  onmouseover="this.style.background='#EFE8D8'"
                  onmouseout="this.style.background='#FAF6EE'"
-                 onclick="tySoftCreateThietChan('${escHtml(val.trim())}')">
+                 onclick="tySelectThietChan('${escHtml(query)}')">
                 <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(query)}"
                 </div>
             </div>
         `;
     }
-
-    if (!html && !query) {
-        const all = (_tayyData.thietChan || []).filter(x => !_tyDraftThietChan.includes(x.ten_thiet_chan)).slice(0, 15);
-        if (all.length > 0) {
-            html = all.map(x => `
-                <div class="tayy-suggest-item" 
-                     onmouseover="this.style.background='#F5F0E8'"
-                     onmouseout="this.style.background='transparent'"
-                     onclick="tySelectThietChan('${escHtml(x.ten_thiet_chan)}')">
-                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_thiet_chan)}</div>
-                </div>`).join('');
-        }
-    }
-
-    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.style.display = 'block';
     suggestEl.innerHTML = html;
-}
-async function tySoftCreateThietChan(ten) {
-    const res = await apiCreateThietChan({ ten_thiet_chan: ten });
-    if (res.success) {
-        _tayyData.thietChan.push(res.data);
-        tySelectThietChan(res.data.ten_thiet_chan);
-    } else alert('Lỗi: ' + res.error);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -713,57 +685,41 @@ function tySelectMachChan(ten) {
 }
 function tyOnMachChanSearchInput(val) {
     const suggestEl = document.getElementById('tayy-machchan-suggest');
-    if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
+    if (!suggestEl) return;
+    if (!query) { suggestEl.style.display = 'none'; return; }
 
-    const matches = (_tayyData.machChan || [])
-        .filter(x => (x.ten_mach_chan || '').toLowerCase().includes(query))
-        .filter(x => !_tyDraftMachChan.includes(x.ten_mach_chan))
-        .slice(0, 15);
-
-    const exactMatch = matches.find(x => x.ten_mach_chan.toLowerCase() === query);
+    const allNames = (_tayyData.machChan || []).map(x => x.ten_mach_chan || x.name || '');
+    const filtered = allNames.filter(n => n.toLowerCase().includes(query) && !_tyDraftMachChan.includes(n)).slice(0, 10);
+    const hasExact = allNames.some(n => n.toLowerCase() === query);
 
     let html = '';
-    if (matches.length > 0) {
-        html = matches.map(x => `
+    if (filtered.length > 0) {
+        html = filtered.map(m => `
             <div class="tayy-suggest-item" 
                  onmouseover="this.style.background='#F5F0E8'"
                  onmouseout="this.style.background='transparent'"
-                 onclick="tySelectMachChan('${escHtml(x.ten_mach_chan)}')">
-                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_mach_chan)}</div>
+                 onclick="tySelectMachChan('${escHtml(m)}')">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
             </div>
         `).join('');
-    } else if (query) {
-        html = `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+    } else {
+        html = `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy kết quả</div>`;
     }
 
-    if (!exactMatch && query) {
+    if (!hasExact && query) {
         html += `
             <div class="tayy-suggest-item" style="background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
                  onmouseover="this.style.background='#EFE8D8'"
                  onmouseout="this.style.background='#FAF6EE'"
-                 onclick="tySoftCreateMachChan('${escHtml(val.trim())}')">
+                 onclick="tySelectMachChan('${escHtml(query)}')">
                 <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(query)}"
                 </div>
             </div>
         `;
     }
-
-    if (!html && !query) {
-        const all = (_tayyData.machChan || []).filter(x => !_tyDraftMachChan.includes(x.ten_mach_chan)).slice(0, 15);
-        if (all.length > 0) {
-            html = all.map(x => `
-                <div class="tayy-suggest-item" 
-                     onmouseover="this.style.background='#F5F0E8'"
-                     onmouseout="this.style.background='transparent'"
-                     onclick="tySelectMachChan('${escHtml(x.ten_mach_chan)}')">
-                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_mach_chan)}</div>
-                </div>`).join('');
-        }
-    }
-
-    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.style.display = 'block';
     suggestEl.innerHTML = html;
 }
 async function tySoftCreateMachChan(ten) {

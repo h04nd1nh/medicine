@@ -353,6 +353,25 @@ async function deleteViThuoc(id) {
     }
 }
 
+// Helper tính preview gram
+function btGetGramPreviewText(lieu) {
+    if (lieu === '*') return '1.5g - 3g';
+    if (lieu === '#') return '15g - 30g';
+    if (!lieu) return '4.5g - 9g';
+    
+    const lower = lieu.toLowerCase();
+    if (lower.includes('tiền') || lower.includes('lượng') || lower.includes('chỉ') || lower.includes('lạng')) {
+        return lower.replace(/([\d.,]+)\s*(lượng|lạng)/gi, (match, p1) => {
+            const val = parseFloat(p1.replace(',', '.'));
+            return isNaN(val) ? match : `${Math.round(val * 30 * 100) / 100}g`;
+        }).replace(/([\d.,]+)\s*(tiền|chỉ)/gi, (match, p1) => {
+            const val = parseFloat(p1.replace(',', '.'));
+            return isNaN(val) ? match : `${Math.round(val * 3 * 100) / 100}g`;
+        });
+    }
+    return lieu;
+}
+
 // ═══════════════════════════════════════════════════════════
 // TAB: BÀI THUỐC
 // ═══════════════════════════════════════════════════════════
@@ -361,26 +380,7 @@ function renderBaiThuocTab(el) {
         const ingredients = (item.chiTietViThuoc || []).map(d => {
             const ten = d?.viThuoc?.ten_vi_thuoc || '';
             const lieu = (d?.lieu_luong || '').trim();
-            let displayLieu = lieu;
-            
-            if (lieu === '*') {
-                displayLieu = '1.5g - 3g';
-            } else if (lieu === '#') {
-                displayLieu = '15g - 30g';
-            } else if (!lieu) {
-                displayLieu = '4.5g - 9g';
-            } else {
-                const lower = lieu.toLowerCase();
-                if (lower.includes('tiền') || lower.includes('lượng') || lower.includes('chỉ') || lower.includes('lạng')) {
-                    displayLieu = lower.replace(/([\d.,]+)\s*(lượng|lạng)/gi, (match, p1) => {
-                        const val = parseFloat(p1.replace(',', '.'));
-                        return isNaN(val) ? match : `${Math.round(val * 30 * 100) / 100}g`;
-                    }).replace(/([\d.,]+)\s*(tiền|chỉ)/gi, (match, p1) => {
-                        const val = parseFloat(p1.replace(',', '.'));
-                        return isNaN(val) ? match : `${Math.round(val * 3 * 100) / 100}g`;
-                    });
-                }
-            }
+            const displayLieu = btGetGramPreviewText(lieu);
             return `${ten} (${displayLieu})`;
         }).filter(Boolean).join(', ');
         const bienChungStr = escHtml(item.bien_chung || '—');
@@ -643,6 +643,9 @@ function btRenderBaiThuocChiTietRowsHtml() {
                             <option value="lượng" ${unit === 'lượng' ? 'selected' : ''}>lượng</option>
                         </select>
                     </div>
+                    <div id="bt-lieu-preview-${d.idViThuoc}" style="margin-top:4px; font-size:0.75rem; color:#8B7355; font-style:italic;">
+                        ≈ ${escHtml(btGetGramPreviewText(rawLieu))}
+                    </div>
                 </td>
                 <td style="border:1px solid #E2D4B8; padding:8px;">
                     <input type="text"
@@ -802,16 +805,25 @@ function btUpdateBaiThuocChipVaiTro(viThuocId, vaiTro) {
 
 function btUpdateBaiThuocChipLieuCompound(viThuocId, val, unit) {
     const target = (_btDraftChiTiet || []).find(d => d.idViThuoc == viThuocId);
-    if (target) {
-        const v = (val || '').trim();
-        const u = (unit || '').trim();
-        if (!v) {
-            target.lieu_luong = '';
-        } else if (v === '*' || v === '#') {
-            target.lieu_luong = v;
-        } else {
-            target.lieu_luong = u ? `${v} ${u}` : v;
-        }
+    if (!target) return;
+
+    const v = (val || '').trim();
+    const u = (unit || '').trim();
+    let finalLieu = '';
+    
+    if (!v) {
+        finalLieu = '';
+    } else if (v === '*' || v === '#') {
+        finalLieu = v;
+    } else {
+        finalLieu = u ? `${v} ${u}` : v;
+    }
+    
+    target.lieu_luong = finalLieu;
+    
+    const previewEl = document.getElementById(`bt-lieu-preview-${viThuocId}`);
+    if (previewEl) {
+        previewEl.innerText = '≈ ' + btGetGramPreviewText(finalLieu);
     }
 }
 

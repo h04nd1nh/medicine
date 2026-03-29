@@ -261,7 +261,7 @@ function openBenhTayYForm(id) {
                         oninput="tyOnBaiThuocSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
-                <div id="tayy-bt-suggest" class="tayy-suggest-box"></div>
+                <div id="tayy-bt-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
         </label>
 
@@ -274,7 +274,7 @@ function openBenhTayYForm(id) {
                         oninput="tyOnThietChanSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
-                <div id="tayy-thietchan-suggest" class="tayy-suggest-box"></div>
+                <div id="tayy-thietchan-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
         </label>
 
@@ -287,7 +287,7 @@ function openBenhTayYForm(id) {
                         oninput="tyOnMachChanSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
-                <div id="tayy-machchan-suggest" class="tayy-suggest-box"></div>
+                <div id="tayy-machchan-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
         </label>
 
@@ -375,8 +375,8 @@ function tyRenderChungBenhChip() {
         const cb = _tayyData.chungBenh.find(x => x.id == _tyDraftChungBenhId);
         if (cb) {
             const chip = document.createElement('div');
-            chip.className = 'chip';
-            chip.innerHTML = `${escHtml(cb.ten_chung_benh)} <span class="chip-remove" onclick="tyRemoveChungBenh(); event.stopPropagation();">×</span>`;
+            chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
+            chip.innerHTML = `${escHtml(cb.ten_chung_benh || cb.name)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveChungBenh(); event.stopPropagation();">×</span>`;
             container.insertBefore(chip, input);
             input.placeholder = "";
         }
@@ -456,8 +456,8 @@ function tyRenderBaiThuocChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftBaiThuoc.forEach(bt => {
         const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(bt.ten_bai_thuoc)} <span class="chip-remove" onclick="tyRemoveBaiThuocChip(${bt.id}); event.stopPropagation();">×</span>`;
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
+        chip.innerHTML = `${escHtml(bt.ten_bai_thuoc)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveBaiThuocChip(${bt.id}); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
     });
 }
@@ -602,8 +602,8 @@ function tyRenderThietChanChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftThietChan.forEach(ten => {
         const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" onclick="tyRemoveThietChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
+        chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveThietChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
     });
 }
@@ -693,8 +693,8 @@ function tyRenderMachChanChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftMachChan.forEach(ten => {
         const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" onclick="tyRemoveMachChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
+        chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveMachChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
     });
 }
@@ -787,25 +787,7 @@ function showTayyModal(title, bodyHtml, widthClass) {
     modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1400;align-items:center;justify-content:center;';
     const maxW = widthClass === 'wide' ? '780px' : '480px';
     modal.innerHTML = `
-        <style>
-            .tayy-suggest-box {
-                position:absolute; left:0; right:0; top:calc(100% + 4px);
-                background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                box-shadow:0 10px 30px rgba(0,0,0,0.12);
-                max-height:220px; overflow-y:auto; z-index:2500; display:none;
-            }
-            .tayy-suggest-item {
-                padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;
-                color:#5B3A1A; font-weight:600; font-size:0.85rem; transition: background 0.2s;
-            }
-            .tayy-suggest-item:hover { background:#F5F0E8; }
-            .tayy-suggest-item-add {
-                padding:8px 10px; cursor:pointer; background:#FAF6EE; margin-top:4px;
-                font-weight:700; color:#CA6222; font-size:0.85rem; display:flex; align-items:center; gap:6px; transition: background 0.2s;
-            }
-            .tayy-suggest-item-add:hover { background:#EFE8D8; }
-        </style>
-        <div style="background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;" onclick="tyCloseAllSuggests(event)">
+        <div style="background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;position:relative;" onclick="tyCloseAllSuggests(event)" onscroll="document.querySelectorAll('div[id$=-suggest]').forEach(el => el.style.display = 'none')">
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #5B3A1A;padding-bottom:8px;margin-bottom:14px;">
                 <div style="font-weight:900;color:#5B3A1A;font-size:1rem;">${title}</div>
                 <button class="btn" onclick="closeTayyModal()" style="padding:2px 10px;">✕</button>

@@ -14,6 +14,7 @@ let _tayyData = {
 let _tyDraftBaiThuoc = []; // array of { id, ten_bai_thuoc }
 let _tyDraftThietChan = [];
 let _tyDraftMachChan = [];
+let _tyDraftChungBenhId = null; 
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initTayyManagement() {
@@ -225,8 +226,6 @@ function openBenhTayYForm(id) {
     const item = id ? _tayyData.benhTayY.find(x => x.id === id) : null;
     const title = item ? 'Sửa bệnh tây y' : 'Thêm bệnh tây y mới';
 
-    const cbOptions = _tayyData.chungBenh.map(c => `<option value="${c.id}" ${item && item.idChungBenh === c.id ? 'selected' : ''}>${escHtml(c.ten_chung_benh)}</option>`).join('');
-
     // Khởi tạo draft bài thuốc từ dữ liệu hiện có
     _tyDraftBaiThuoc = (item?.baiThuocList || []).map(bt => ({
         id: bt.id,
@@ -237,11 +236,18 @@ function openBenhTayYForm(id) {
         <label class="tayy-form-label">Tên bệnh<br>
             <input id="tayy-inp-tenbenh" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_benh) : ''}" placeholder="Nhập tên bệnh...">
         </label>
-        <label class="tayy-form-label">Chủng bệnh<br>
-            <select id="tayy-inp-chungbenh-select" class="tayy-form-input">
-                <option value="">-- Chọn chủng bệnh --</option>
-                ${cbOptions}
-            </select>
+
+        <label class="tayy-form-label">Chủng bệnh
+            <div style="position:relative; margin-top:6px;">
+                <div id="tayy-cb-chips" class="chips-container" onclick="document.getElementById('tayy-inp-cb-search').focus()">
+                    <!-- Selected Chủng bệnh Chip -->
+                    <input id="tayy-inp-cb-search" type="text" class="chip-input" 
+                        placeholder="Tìm chủng bệnh..." 
+                        onfocus="tyOnChungBenhSearchInput(this.value)"
+                        oninput="tyOnChungBenhSearchInput(this.value)">
+                </div>
+                <div id="tayy-cb-suggest" class="tayy-suggest-box"></div>
+            </div>
         </label>
 
         <!-- Bài thuốc liên quan — chip-based with soft create -->
@@ -302,7 +308,10 @@ function openBenhTayYForm(id) {
     _tyDraftMachChan = (item?.mach_chan || '').split(',').map(s => s.trim()).filter(Boolean);
 
     // Render chips sau khi modal đã mở
+    _tyDraftChungBenhId = item ? (item.idChungBenh || (item.chungBenh ? (item.chungBenh.id || item.chungBenh.idChungBenh) : null)) : null;
+
     setTimeout(() => {
+        tyRenderChungBenhChip();
         tyRenderBaiThuocChips();
         tyRenderThietChanChips();
         tyRenderMachChanChips();
@@ -315,8 +324,7 @@ function editBenhTayY(id) { openBenhTayYForm(id); }
 
 async function saveBenhTayY(id) {
     const tenBenh = document.getElementById('tayy-inp-tenbenh')?.value.trim();
-    const cbSelect = document.getElementById('tayy-inp-chungbenh-select');
-    const idChungBenh = cbSelect ? parseInt(cbSelect.value) : 0;
+    const idChungBenh = _tyDraftChungBenhId;
 
     if (!tenBenh) return alert('Vui lòng nhập tên bệnh');
     if (!idChungBenh) return alert('Vui lòng chọn chủng bệnh');
@@ -354,6 +362,91 @@ async function deleteBenhTayY(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// CHỦNG BỆNH CHIPS (Single select mode)
+// ═══════════════════════════════════════════════════════════
+function tyRenderChungBenhChip() {
+    const container = document.getElementById('tayy-cb-chips');
+    const input = document.getElementById('tayy-inp-cb-search');
+    if (!container || !input) return;
+
+    container.querySelectorAll('.chip').forEach(c => c.remove());
+    
+    if (_tyDraftChungBenhId) {
+        const cb = _tayyData.chungBenh.find(x => x.id == _tyDraftChungBenhId);
+        if (cb) {
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+            chip.innerHTML = `${escHtml(cb.ten_chung_benh)} <span class="chip-remove" onclick="tyRemoveChungBenh(); event.stopPropagation();">×</span>`;
+            container.insertBefore(chip, input);
+            input.placeholder = "";
+        }
+    } else {
+        input.placeholder = "Tìm chủng bệnh...";
+    }
+}
+
+function tyRemoveChungBenh() {
+    _tyDraftChungBenhId = null;
+    tyRenderChungBenhChip();
+}
+
+function tyOnChungBenhSearchInput(val) {
+    const suggestEl = document.getElementById('tayy-cb-suggest');
+    const query = (val || '').trim().toLowerCase();
+    if (!suggestEl) return;
+
+    if (_tyDraftChungBenhId && !query && val !== '') {
+        suggestEl.style.display = 'none';
+        return;
+    }
+
+    const matches = (_tayyData.chungBenh || [])
+        .filter(cb => (cb.ten_chung_benh || cb.name || '').toLowerCase().includes(query))
+        .slice(0, 15);
+
+    let html = '';
+    if (matches.length > 0) {
+        html = matches.map(cb => `
+            <div class="tayy-suggest-item" 
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="tySelectChungBenh(${cb.id})">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(cb.ten_chung_benh || cb.name)}</div>
+            </div>
+        `).join('');
+    } else if (query) {
+        html = `<div style="padding:10px; color:#A09580; font-size:0.85rem;">Không tìm thấy chủng bệnh</div>`;
+    }
+
+    // Nếu query rỗng và không có matches, thử hiện toàn bộ danh sách (dropdown behavior)
+    if (!html && !query) {
+        const all = (_tayyData.chungBenh || []).slice(0, 20);
+        if (all.length > 0) {
+            html = all.map(cb => `
+                <div class="tayy-suggest-item" 
+                     onmouseover="this.style.background='#F5F0E8'"
+                     onmouseout="this.style.background='transparent'"
+                     onclick="tySelectChungBenh(${cb.id})">
+                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(cb.ten_chung_benh || cb.name)}</div>
+                </div>
+            `).join('');
+        }
+    }
+
+    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.innerHTML = html;
+}
+
+function tySelectChungBenh(id) {
+    _tyDraftChungBenhId = id;
+    tyRenderChungBenhChip();
+    const suggestEl = document.getElementById('tayy-cb-suggest');
+    if (suggestEl) suggestEl.style.display = 'none';
+    const inp = document.getElementById('tayy-inp-cb-search');
+    if (inp) inp.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
 // BÀI THUỐC CHIPS — search, select, soft create, remove
 // ═══════════════════════════════════════════════════════════
 function tyRenderBaiThuocChips() {
@@ -373,7 +466,6 @@ function tyRemoveBaiThuocChip(btId) {
     _tyDraftBaiThuoc = _tyDraftBaiThuoc.filter(x => x.id !== btId);
     tyRenderBaiThuocChips();
     tyUpdateTrieuChungPreview();
-    // Re-render suggestions nếu đang mở
     const inp = document.getElementById('tayy-inp-bt-search');
     if (inp && inp.value) tyOnBaiThuocSearchInput(inp.value);
 }
@@ -382,13 +474,16 @@ function tySelectBaiThuoc(btId) {
     if (_tyDraftBaiThuoc.some(x => x.id === btId)) return;
     const bt = _tayyData.baiThuoc.find(x => x.id === btId);
     if (!bt) return;
-    _tyDraftBaiThuoc.push({ id: bt.id, ten_bai_thuoc: bt.ten_bai_thuoc });
+    _tyDraftBaiThuoc.push({ id: bt.id, ten_bai_thuoc: bt.ten_bai_thuoc || bt.name });
     const inp = document.getElementById('tayy-inp-bt-search');
     if (inp) { inp.value = ''; inp.focus(); }
     tyRenderBaiThuocChips();
     tyUpdateTrieuChungPreview();
     const suggestEl = document.getElementById('tayy-bt-suggest');
-    if (suggestEl) suggestEl.style.display = 'none';
+    if (suggestEl) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+    }
 }
 
 function tyOnBaiThuocSearchInput(val) {
@@ -398,37 +493,55 @@ function tyOnBaiThuocSearchInput(val) {
 
     const selectedIds = new Set(_tyDraftBaiThuoc.map(bt => bt.id));
     const matches = (_tayyData.baiThuoc || [])
-        .filter(bt => (bt.ten_bai_thuoc || '').toLowerCase().includes(query))
+        .filter(bt => (bt.ten_bai_thuoc || bt.name || '').toLowerCase().includes(query))
         .filter(bt => !selectedIds.has(bt.id))
         .slice(0, 15);
 
-    const hasExactMatch = (_tayyData.baiThuoc || []).some(bt => (bt.ten_bai_thuoc || '').toLowerCase() === query);
+    const hasExactMatch = (_tayyData.baiThuoc || []).some(bt => (bt.ten_bai_thuoc || bt.name || '').toLowerCase() === query);
 
     let html = '';
     if (matches.length > 0) {
         html += matches.map(bt => `
-            <div class="tayy-suggest-item" onclick="tySelectBaiThuoc(${bt.id})">
-                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(bt.ten_bai_thuoc)}</div>
-                ${bt.trieu_chung ? `<div style="font-size:0.75rem; color:#A09580; margin-top:2px;">TC: ${escHtml(bt.trieu_chung)}</div>` : ''}
+            <div class="tayy-suggest-item" 
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="tySelectBaiThuoc(${bt.id})">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(bt.ten_bai_thuoc || bt.name)}</div>
+                ${(bt.trieu_chung || bt.trieuchung) ? `<div style="font-size:0.75rem; color:#A09580; margin-top:2px;">TC: ${escHtml(bt.trieu_chung || bt.trieuchung)}</div>` : ''}
             </div>
         `).join('');
-    } else {
-        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy bài thuốc có sẵn</div>`;
+    } else if (query) {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.85rem;">Không tìm thấy bài thuốc có sẵn</div>`;
     }
 
-    if (!hasExactMatch && val.trim()) {
+    if (!hasExactMatch && query) {
         html += `
-            <div class="tayy-suggest-item-add" onclick="tySoftCreateBaiThuoc('${escHtml(val.trim())}')">
-                <span style="font-size:1.2rem; line-height:1;">+</span> Thêm bài thuốc "${escHtml(val.trim())}"
+            <div class="tayy-suggest-item" style="background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="tySoftCreateBaiThuoc('${escHtml(query)}')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm bài thuốc "${escHtml(query)}"
+                </div>
             </div>
         `;
     }
 
-    if (!html) {
-        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy bài thuốc</div>`;
+    // Nếu query rỗng và không có bài thuốc nào đang hiện, hiện top 15 bài thuốc chưa chọn
+    if (!html && !query) {
+       const all = (_tayyData.baiThuoc || []).filter(bt => !selectedIds.has(bt.id)).slice(0, 15);
+       if (all.length > 0) {
+           html = all.map(bt => `
+                <div class="tayy-suggest-item" 
+                     onmouseover="this.style.background='#F5F0E8'"
+                     onmouseout="this.style.background='transparent'"
+                     onclick="tySelectBaiThuoc(${bt.id})">
+                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(bt.ten_bai_thuoc || bt.name)}</div>
+                </div>`).join('');
+       }
     }
 
-    suggestEl.style.display = 'block';
+    suggestEl.style.display = html ? 'block' : 'none';
     suggestEl.innerHTML = html;
 }
 
@@ -519,21 +632,48 @@ function tyOnThietChanSearchInput(val) {
 
     const exactMatch = matches.find(x => x.ten_thiet_chan.toLowerCase() === query);
 
-    let html = matches.map(x => `
-        <div class="tayy-suggest-item" onclick="tySelectThietChan('${escHtml(x.ten_thiet_chan)}')">
-            ${escHtml(x.ten_thiet_chan)}
-        </div>
-    `).join('');
+    let html = '';
+    if (matches.length > 0) {
+        html = matches.map(x => `
+            <div class="tayy-suggest-item" 
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="tySelectThietChan('${escHtml(x.ten_thiet_chan)}')">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_thiet_chan)}</div>
+            </div>
+        `).join('');
+    } else if (query) {
+        html = `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+    }
 
-    if (!exactMatch && val.trim()) {
+    if (!exactMatch && query) {
         html += `
-            <div class="tayy-suggest-item-add" onclick="tySoftCreateThietChan('${escHtml(val.trim())}')">
-                <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+            <div class="tayy-suggest-item" style="background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="tySoftCreateThietChan('${escHtml(val.trim())}')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+                </div>
             </div>
         `;
     }
-    suggestEl.style.display = 'block';
-    suggestEl.innerHTML = html || `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+
+    if (!html && !query) {
+        const all = (_tayyData.thietChan || []).filter(x => !_tyDraftThietChan.includes(x.ten_thiet_chan)).slice(0, 15);
+        if (all.length > 0) {
+            html = all.map(x => `
+                <div class="tayy-suggest-item" 
+                     onmouseover="this.style.background='#F5F0E8'"
+                     onmouseout="this.style.background='transparent'"
+                     onclick="tySelectThietChan('${escHtml(x.ten_thiet_chan)}')">
+                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_thiet_chan)}</div>
+                </div>`).join('');
+        }
+    }
+
+    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.innerHTML = html;
 }
 async function tySoftCreateThietChan(ten) {
     const res = await apiCreateThietChan({ ten_thiet_chan: ten });
@@ -583,21 +723,48 @@ function tyOnMachChanSearchInput(val) {
 
     const exactMatch = matches.find(x => x.ten_mach_chan.toLowerCase() === query);
 
-    let html = matches.map(x => `
-        <div class="tayy-suggest-item" onclick="tySelectMachChan('${escHtml(x.ten_mach_chan)}')">
-            ${escHtml(x.ten_mach_chan)}
-        </div>
-    `).join('');
+    let html = '';
+    if (matches.length > 0) {
+        html = matches.map(x => `
+            <div class="tayy-suggest-item" 
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="tySelectMachChan('${escHtml(x.ten_mach_chan)}')">
+                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_mach_chan)}</div>
+            </div>
+        `).join('');
+    } else if (query) {
+        html = `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+    }
 
-    if (!exactMatch && val.trim()) {
+    if (!exactMatch && query) {
         html += `
-            <div class="tayy-suggest-item-add" onclick="tySoftCreateMachChan('${escHtml(val.trim())}')">
-                <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+            <div class="tayy-suggest-item" style="background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
+                 onmouseover="this.style.background='#EFE8D8'"
+                 onmouseout="this.style.background='#FAF6EE'"
+                 onclick="tySoftCreateMachChan('${escHtml(val.trim())}')">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
+                </div>
             </div>
         `;
     }
-    suggestEl.style.display = 'block';
-    suggestEl.innerHTML = html || `<div style="padding:10px;color:#A09580;font-size:0.85rem;">Không có kết quả</div>`;
+
+    if (!html && !query) {
+        const all = (_tayyData.machChan || []).filter(x => !_tyDraftMachChan.includes(x.ten_mach_chan)).slice(0, 15);
+        if (all.length > 0) {
+            html = all.map(x => `
+                <div class="tayy-suggest-item" 
+                     onmouseover="this.style.background='#F5F0E8'"
+                     onmouseout="this.style.background='transparent'"
+                     onclick="tySelectMachChan('${escHtml(x.ten_mach_chan)}')">
+                    <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(x.ten_mach_chan)}</div>
+                </div>`).join('');
+        }
+    }
+
+    suggestEl.style.display = html ? 'block' : 'none';
+    suggestEl.innerHTML = html;
 }
 async function tySoftCreateMachChan(ten) {
     const res = await apiCreateMachChan({ ten_mach_chan: ten });

@@ -22,6 +22,12 @@ export class BenhTayY {
   @Column({ type: 'varchar', length: 255 })
   ten_benh: string;
 
+  @Column({ type: 'text', nullable: true })
+  thiet_chan: string;
+
+  @Column({ type: 'text', nullable: true })
+  mach_chan: string;
+
   @ManyToOne(() => ChungBenh, (c) => c.benhTayYList, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_chung_benh' })
   chungBenh: ChungBenh;

@@ -39,6 +39,8 @@ export class BenhTayYService {
     const entity = this.repo.create({
       ten_benh: dto.ten_benh,
       idChungBenh: dto.id_chung_benh,
+      thiet_chan: dto.thiet_chan,
+      mach_chan: dto.mach_chan,
     });
 
     if (dto.bai_thuoc_ids && dto.bai_thuoc_ids.length > 0) {
@@ -61,6 +63,8 @@ export class BenhTayYService {
 
     if (dto.ten_benh !== undefined) item.ten_benh = dto.ten_benh;
     if (dto.id_chung_benh !== undefined) item.idChungBenh = dto.id_chung_benh;
+    if (dto.thiet_chan !== undefined) item.thiet_chan = dto.thiet_chan;
+    if (dto.mach_chan !== undefined) item.mach_chan = dto.mach_chan;
 
     if (dto.bai_thuoc_ids !== undefined) {
       item.baiThuocList = dto.bai_thuoc_ids.length > 0

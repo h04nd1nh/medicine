@@ -768,6 +768,69 @@ async function apiDeletePhapTri(id) {
     return { success: true };
 }
 
+// ---- THIET CHAN ----
+async function apiGetThietChan() {
+    const res = await fetch(_base() + '/thiet-chan');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateThietChan(payload) {
+    const res = await fetch(_base() + '/thiet-chan', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo thiệt chẩn thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateThietChan(id, payload) {
+    const res = await fetch(_base() + '/thiet-chan/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật thiệt chẩn thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteThietChan(id) {
+    const res = await fetch(_base() + '/thiet-chan/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa thiệt chẩn thất bại') };
+    return { success: true };
+}
+
+// ---- MACH CHAN ----
+async function apiGetMachChan() {
+    const res = await fetch(_base() + '/mach-chan');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateMachChan(payload) {
+    const res = await fetch(_base() + '/mach-chan', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo mạch chẩn thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateMachChan(id, payload) {
+    const res = await fetch(_base() + '/mach-chan/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật mạch chẩn thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteMachChan(id) {
+    const res = await fetch(_base() + '/mach-chan/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa mạch chẩn thất bại') };
+    return { success: true };
+}
 // ---- BAI THUOC ----
 async function apiGetBaiThuoc() {
     const res = await fetch(_base() + '/bai-thuoc');

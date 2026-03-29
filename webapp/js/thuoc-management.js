@@ -372,9 +372,6 @@ function vtSelectQuyKinh(name) {
     document.getElementById('vt-quykinh-suggest').style.display = 'none';
 }
 
-    document.getElementById('vt-quykinh-suggest').style.display = 'none';
-}
-
 let _vtCurrentCongDung = [];
 function vtRenderCongDungList() {
     const container = document.getElementById('vt-congdung-list');

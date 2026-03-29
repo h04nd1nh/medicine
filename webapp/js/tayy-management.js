@@ -251,13 +251,11 @@ function openBenhTayYForm(id) {
                 <div id="tayy-bt-chips" class="chips-container" onclick="document.getElementById('tayy-inp-bt-search').focus()">
                     <input id="tayy-inp-bt-search" type="text" class="chip-input"
                         placeholder="Gõ tên bài thuốc để thêm..."
+                        onfocus="tyOnBaiThuocSearchInput(this.value)"
                         oninput="tyOnBaiThuocSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
-                <div id="tayy-bt-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px);
-                    background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                    box-shadow:0 10px 30px rgba(0,0,0,0.12);
-                    max-height:220px; overflow-y:auto; z-index:2500; display:none;"></div>
+                <div id="tayy-bt-suggest" class="tayy-suggest-box"></div>
             </div>
         </label>
 
@@ -266,6 +264,7 @@ function openBenhTayYForm(id) {
                 <div id="tayy-thietchan-chips" class="chips-container" onclick="document.getElementById('tayy-inp-thietchan-search').focus()">
                     <input id="tayy-inp-thietchan-search" type="text" class="chip-input"
                         placeholder="Gõ tên thiệt chẩn để thêm..."
+                        onfocus="tyOnThietChanSearchInput(this.value)"
                         oninput="tyOnThietChanSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
@@ -278,6 +277,7 @@ function openBenhTayYForm(id) {
                 <div id="tayy-machchan-chips" class="chips-container" onclick="document.getElementById('tayy-inp-machchan-search').focus()">
                     <input id="tayy-inp-machchan-search" type="text" class="chip-input"
                         placeholder="Gõ tên mạch chẩn để thêm..."
+                        onfocus="tyOnMachChanSearchInput(this.value)"
                         oninput="tyOnMachChanSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter' && this.value.trim()){event.preventDefault();}">
                 </div>
@@ -395,23 +395,19 @@ function tyOnBaiThuocSearchInput(val) {
     const suggestEl = document.getElementById('tayy-bt-suggest');
     if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
-    if (!query) { suggestEl.style.display = 'none'; return; }
 
     const selectedIds = new Set(_tyDraftBaiThuoc.map(bt => bt.id));
     const matches = (_tayyData.baiThuoc || [])
         .filter(bt => (bt.ten_bai_thuoc || '').toLowerCase().includes(query))
         .filter(bt => !selectedIds.has(bt.id))
-        .slice(0, 10);
+        .slice(0, 15);
 
     const hasExactMatch = (_tayyData.baiThuoc || []).some(bt => (bt.ten_bai_thuoc || '').toLowerCase() === query);
 
     let html = '';
     if (matches.length > 0) {
         html += matches.map(bt => `
-            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-                 onmouseover="this.style.background='#F5F0E8'"
-                 onmouseout="this.style.background='transparent'"
-                 onclick="tySelectBaiThuoc(${bt.id})">
+            <div class="tayy-suggest-item" onclick="tySelectBaiThuoc(${bt.id})">
                 <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(bt.ten_bai_thuoc)}</div>
                 ${bt.trieu_chung ? `<div style="font-size:0.75rem; color:#A09580; margin-top:2px;">TC: ${escHtml(bt.trieu_chung)}</div>` : ''}
             </div>
@@ -420,18 +416,16 @@ function tyOnBaiThuocSearchInput(val) {
         html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy bài thuốc có sẵn</div>`;
     }
 
-    // Soft-create option
     if (!hasExactMatch && val.trim()) {
         html += `
-            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
-                 onmouseover="this.style.background='#EFE8D8'"
-                 onmouseout="this.style.background='#FAF6EE'"
-                 onclick="tySoftCreateBaiThuoc('${escHtml(val.trim())}')">
-                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm bài thuốc "${escHtml(val.trim())}"
-                </div>
+            <div class="tayy-suggest-item-add" onclick="tySoftCreateBaiThuoc('${escHtml(val.trim())}')">
+                <span style="font-size:1.2rem; line-height:1;">+</span> Thêm bài thuốc "${escHtml(val.trim())}"
             </div>
         `;
+    }
+
+    if (!html) {
+        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy bài thuốc</div>`;
     }
 
     suggestEl.style.display = 'block';
@@ -517,12 +511,11 @@ function tyOnThietChanSearchInput(val) {
     const suggestEl = document.getElementById('tayy-thietchan-suggest');
     if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
-    if (!query) { suggestEl.style.display = 'none'; return; }
 
     const matches = (_tayyData.thietChan || [])
         .filter(x => (x.ten_thiet_chan || '').toLowerCase().includes(query))
         .filter(x => !_tyDraftThietChan.includes(x.ten_thiet_chan))
-        .slice(0, 8);
+        .slice(0, 15);
 
     const exactMatch = matches.find(x => x.ten_thiet_chan.toLowerCase() === query);
 
@@ -534,7 +527,7 @@ function tyOnThietChanSearchInput(val) {
 
     if (!exactMatch && val.trim()) {
         html += `
-            <div class="tayy-suggest-item" style="color:#CA6222;" onclick="tySoftCreateThietChan('${escHtml(val.trim())}')">
+            <div class="tayy-suggest-item-add" onclick="tySoftCreateThietChan('${escHtml(val.trim())}')">
                 <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
             </div>
         `;
@@ -582,12 +575,11 @@ function tyOnMachChanSearchInput(val) {
     const suggestEl = document.getElementById('tayy-machchan-suggest');
     if (!suggestEl) return;
     const query = (val || '').trim().toLowerCase();
-    if (!query) { suggestEl.style.display = 'none'; return; }
 
     const matches = (_tayyData.machChan || [])
         .filter(x => (x.ten_mach_chan || '').toLowerCase().includes(query))
         .filter(x => !_tyDraftMachChan.includes(x.ten_mach_chan))
-        .slice(0, 8);
+        .slice(0, 15);
 
     const exactMatch = matches.find(x => x.ten_mach_chan.toLowerCase() === query);
 
@@ -599,7 +591,7 @@ function tyOnMachChanSearchInput(val) {
 
     if (!exactMatch && val.trim()) {
         html += `
-            <div class="tayy-suggest-item" style="color:#CA6222;" onclick="tySoftCreateMachChan('${escHtml(val.trim())}')">
+            <div class="tayy-suggest-item-add" onclick="tySoftCreateMachChan('${escHtml(val.trim())}')">
                 <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
             </div>
         `;
@@ -628,7 +620,25 @@ function showTayyModal(title, bodyHtml, widthClass) {
     modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1400;align-items:center;justify-content:center;';
     const maxW = widthClass === 'wide' ? '780px' : '480px';
     modal.innerHTML = `
-        <div style="background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;">
+        <style>
+            .tayy-suggest-box {
+                position:absolute; left:0; right:0; top:calc(100% + 4px);
+                background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
+                box-shadow:0 10px 30px rgba(0,0,0,0.12);
+                max-height:220px; overflow-y:auto; z-index:2500; display:none;
+            }
+            .tayy-suggest-item {
+                padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;
+                color:#5B3A1A; font-weight:600; font-size:0.85rem; transition: background 0.2s;
+            }
+            .tayy-suggest-item:hover { background:#F5F0E8; }
+            .tayy-suggest-item-add {
+                padding:8px 10px; cursor:pointer; background:#FAF6EE; margin-top:4px;
+                font-weight:700; color:#CA6222; font-size:0.85rem; display:flex; align-items:center; gap:6px; transition: background 0.2s;
+            }
+            .tayy-suggest-item-add:hover { background:#EFE8D8; }
+        </style>
+        <div style="background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;" onclick="tyCloseAllSuggests(event)">
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #5B3A1A;padding-bottom:8px;margin-bottom:14px;">
                 <div style="font-weight:900;color:#5B3A1A;font-size:1rem;">${title}</div>
                 <button class="btn" onclick="closeTayyModal()" style="padding:2px 10px;">✕</button>
@@ -636,11 +646,27 @@ function showTayyModal(title, bodyHtml, widthClass) {
             ${bodyHtml}
         </div>
     `;
+
+    // Khởi tạo phím thoát và click outside
+    document.addEventListener('click', tyGlobalSuggestCloser);
+}
+
+function tyGlobalSuggestCloser(e) {
+    if (!e.target.closest('.chips-container') && !e.target.closest('.tayy-suggest-box') && !e.target.closest('.tayy-suggest-item')) {
+        document.querySelectorAll('.tayy-suggest-box').forEach(el => el.style.display = 'none');
+    }
+}
+
+function tyCloseAllSuggests(e) {
+    if (!e.target.closest('.chips-container') && !e.target.closest('.tayy-suggest-box') && !e.target.closest('.tayy-suggest-item')) {
+        document.querySelectorAll('.tayy-suggest-box').forEach(el => el.style.display = 'none');
+    }
 }
 
 function closeTayyModal() {
     const modal = document.getElementById('tayy-modal');
     if (modal) modal.style.display = 'none';
+    document.removeEventListener('click', tyGlobalSuggestCloser);
 }
 
 // ═══════════════════════════════════════════════════════════

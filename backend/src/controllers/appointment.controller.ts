@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Appointment } from '../models/appointment.model';
 import { CreateAppointmentDto, UpdateAppointmentDto } from '../models/appointment.dto';
+import { FirebaseService } from './firebase.controller';
+import { PatientsService } from './patient.controller';
 
 export interface PaginatedAppointments {
   data: Appointment[];
@@ -17,6 +19,8 @@ export class AppointmentsService {
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
+    private readonly firebaseService: FirebaseService,
+    private readonly patientsService: PatientsService,
   ) {}
 
   findAll(): Promise<Appointment[]> {
@@ -86,8 +90,16 @@ export class AppointmentsService {
 
   async update(id: number, dto: UpdateAppointmentDto): Promise<Appointment> {
     const appointment = await this.findOne(id);
+    const oldStatus = appointment.status;
+    
     Object.assign(appointment, dto);
-    return this.appointmentRepository.save(appointment);
+    const saved = await this.appointmentRepository.save(appointment);
+
+    if (dto.status && dto.status !== oldStatus) {
+      await this.notifyStatusChange(saved);
+    }
+
+    return saved;
   }
 
   async cancelMy(id: number, patientId: number): Promise<Appointment> {
@@ -96,11 +108,42 @@ export class AppointmentsService {
       throw new ForbiddenException('Bạn không có quyền thao tác trên lịch hẹn này');
     }
     appointment.status = 'CANCELLED';
-    return this.appointmentRepository.save(appointment);
+    const saved = await this.appointmentRepository.save(appointment);
+    
+    await this.notifyStatusChange(saved);
+    
+    return saved;
   }
 
   async remove(id: number): Promise<void> {
     const appointment = await this.findOne(id);
     await this.appointmentRepository.remove(appointment);
+  }
+
+  private async notifyStatusChange(appointment: Appointment) {
+    try {
+      const patient = await this.patientsService.findOne(appointment.patientId);
+      if (patient && patient.fcmToken) {
+        let title = 'Cập nhật lịch hẹn';
+        let body = `Lịch hẹn ngày ${appointment.appointmentDate} lúc ${appointment.appointmentTime} của bạn đã thay đổi trạng thái thành: ${this.getStatusText(appointment.status)}`;
+        
+        await this.firebaseService.sendNotification(patient.fcmToken, title, body, {
+          appointmentId: appointment.id.toString(),
+          type: 'APPOINTMENT_UPDATE',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+    }
+  }
+
+  private getStatusText(status: string): string {
+    switch (status) {
+      case 'PENDING': return 'Đang chờ';
+      case 'CONFIRMED': return 'Đã xác nhận';
+      case 'CANCELLED': return 'Đã hủy';
+      case 'COMPLETED': return 'Đã hoàn thành';
+      default: return status;
+    }
   }
 }

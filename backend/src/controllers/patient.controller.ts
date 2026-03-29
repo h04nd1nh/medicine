@@ -72,6 +72,12 @@ export class PatientsService {
     return this.patientRepository.save(patient);
   }
 
+  async updateFcmToken(id: number, fcmToken: string): Promise<Patient> {
+    const patient = await this.findOne(id);
+    patient.fcmToken = fcmToken;
+    return this.patientRepository.save(patient);
+  }
+
   async remove(id: number): Promise<void> {
     const patient = await this.findOne(id);
     await this.patientRepository.remove(patient);

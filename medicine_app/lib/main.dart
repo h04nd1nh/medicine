@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/app_shell.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 1. Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 2. Initialize Date Formatting
   await initializeDateFormatting('vi', null);
+  
+  // 3. Initialize Notification Service
+  await NotificationService.initialize();
+
   runApp(const MyApp());
 }
 
@@ -70,6 +84,9 @@ class _InitialScreenState extends State<InitialScreen> {
     final isLoggedIn = await AuthService.isLoggedIn();
     if (mounted) {
       if (isLoggedIn) {
+        // Sync FCM token upon login session restoration
+        NotificationService.syncToken();
+        
         Navigator.of(
           context,
         ).pushReplacement(MaterialPageRoute(builder: (context) => AppShell()));

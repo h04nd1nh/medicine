@@ -50,6 +50,15 @@ export class PatientsRouter {
     return { success: true, id, data: item };
   }
 
+  @Put(':id/fcm-token')
+  async updateFcmToken(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('fcmToken') fcmToken: string
+  ) {
+    await this.patientsService.updateFcmToken(id, fcmToken);
+    return { success: true };
+  }
+
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     await this.patientsService.remove(id);

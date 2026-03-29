@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../dashboard/home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -24,6 +25,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (patient != null) {
       if (mounted) {
+        // Sync FCM token with backend
+        await NotificationService.syncToken();
+
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => HomeScreen()),
           (Route<dynamic> route) => false,

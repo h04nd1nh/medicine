@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../dashboard/home_screen.dart';
 import 'register_screen.dart';
 
@@ -23,6 +24,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (patient != null) {
       if (mounted) {
+        // Sync FCM token with backend
+        await NotificationService.syncToken();
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => HomeScreen()),

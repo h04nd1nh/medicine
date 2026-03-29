@@ -39,6 +39,9 @@ export class Patient {
   passwordHash: string | null;
 
   @Column({ type: 'text', nullable: true })
+  fcmToken: string | null;
+
+  @Column({ type: 'text', nullable: true })
   notes: string | null;
 
   @CreateDateColumn()

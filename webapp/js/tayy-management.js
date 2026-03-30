@@ -308,7 +308,7 @@ function openBenhTayYForm(id) {
     _tyDraftMachChan = (item?.machChanList || []).map(x => ({ id: x.id, name: x.ten_mach_chan || x.name }));
 
     // Render chips sau khi modal đã mở
-    _tyDraftChungBenhId = item ? (item.idChungBenh || (item.chungBenh ? (item.chungBenh.id || item.chungBenh.idChungBenh) : null)) : null;
+    _tyDraftChungBenhId = item ? (item.idChungBenh || item.chungBenh?.id) : null;
 
     setTimeout(() => {
         tyRenderChungBenhChip();
@@ -836,3 +836,4 @@ function escHtml(str) {
     d.textContent = str;
     return d.innerHTML;
 }
+

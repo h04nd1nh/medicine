@@ -78,7 +78,11 @@ export class BenhTayYService {
     const item = await this.findOne(id);
 
     if (dto.ten_benh !== undefined) item.ten_benh = dto.ten_benh;
-    if (dto.id_chung_benh !== undefined) item.idChungBenh = dto.id_chung_benh;
+    if (dto.id_chung_benh !== undefined) {
+      item.idChungBenh = dto.id_chung_benh;
+      // Trích xuất entity liên quan để TypeORM cập nhật đúng quan hệ
+      delete item.chungBenh; 
+    }
 
     if (dto.bai_thuoc_ids !== undefined) {
       item.baiThuocList = dto.bai_thuoc_ids.length > 0

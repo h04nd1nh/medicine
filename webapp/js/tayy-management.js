@@ -304,8 +304,8 @@ function openBenhTayYForm(id) {
         </div>
     `, 'wide');
 
-    _tyDraftThietChan = (item?.thiet_chan || '').split(',').map(s => s.trim()).filter(Boolean);
-    _tyDraftMachChan = (item?.mach_chan || '').split(',').map(s => s.trim()).filter(Boolean);
+    _tyDraftThietChan = [...new Set((item?.thiet_chan || '').split(',').map(s => s.trim()).filter(Boolean))];
+    _tyDraftMachChan = [...new Set((item?.mach_chan || '').split(',').map(s => s.trim()).filter(Boolean))];
 
     // Render chips sau khi modal đã mở
     _tyDraftChungBenhId = item ? (item.idChungBenh || (item.chungBenh ? (item.chungBenh.id || item.chungBenh.idChungBenh) : null)) : null;
@@ -375,6 +375,7 @@ function tyRenderChungBenhChip() {
         const cb = _tayyData.chungBenh.find(x => x.id == _tyDraftChungBenhId);
         if (cb) {
             const chip = document.createElement('div');
+            chip.className = 'chip';
             chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
             chip.innerHTML = `${escHtml(cb.ten_chung_benh || cb.name)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveChungBenh(); event.stopPropagation();">×</span>`;
             container.insertBefore(chip, input);
@@ -457,6 +458,7 @@ function tyRenderBaiThuocChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftBaiThuoc.forEach(bt => {
         const chip = document.createElement('div');
+        chip.className = 'chip';
         chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
         chip.innerHTML = `${escHtml(bt.ten_bai_thuoc)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveBaiThuocChip(${bt.id}); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
@@ -596,6 +598,7 @@ function tyRenderThietChanChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftThietChan.forEach(ten => {
         const chip = document.createElement('div');
+        chip.className = 'chip';
         chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
         chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveThietChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
@@ -665,6 +668,7 @@ function tyRenderMachChanChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     _tyDraftMachChan.forEach(ten => {
         const chip = document.createElement('div');
+        chip.className = 'chip';
         chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:#F5F0E8; color:#5B3A1A; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; border:1px solid #D4C5A0; transition:all 0.2s; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.02); margin:2px;';
         chip.innerHTML = `${escHtml(ten)} <span class="chip-remove" style="cursor:pointer; font-size:1rem; line-height:1; color:#A64444; display:flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; transition:all 0.2s; margin-right:-2px;" onclick="tyRemoveMachChanChip('${escHtml(ten)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);

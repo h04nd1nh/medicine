@@ -13,6 +13,9 @@ export class ViThuoc {
   ten_khoa_hoc: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
+  ten_goi_khac: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   bo_phan_dung: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

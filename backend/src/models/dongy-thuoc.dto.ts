@@ -2,6 +2,7 @@
 export class CreateViThuocDto {
   ten_vi_thuoc: string;
   ten_khoa_hoc?: string;
+  ten_goi_khac?: string;
   bo_phan_dung?: string;
   tinh_vi?: string;
   tinh?: string;

@@ -36,20 +36,7 @@ function openViThuocForm(id) {
     const LBL  = 'font-size:0.8rem;font-weight:600;color:#5B3A1A;margin-bottom:6px;display:block;';
     const HINT = 'font-size:0.7rem;color:#A09580;margin-bottom:6px;';
 
-    const tuKhiOpts = [
-        { val:-2, sub:'-2', label:'Đại Hàn' },
-        { val:-1, sub:'-1', label:'Hàn'     },
-        { val: 0, sub: '0', label:'Bình'    },
-        { val: 1, sub:'+1', label:'Ôn'      },
-        { val: 2, sub:'+2', label:'Nhiệt'   },
-    ];
-    const huongOpts = [
-        { val:1, label:'Giáng\nMạnh' },
-        { val:2, label:'Giáng\nNhẹ'  },
-        { val:3, label:'Bình'        },
-        { val:4, label:'Thăng\nNhẹ'  },
-        { val:5, label:'Thăng\nMạnh' },
-    ];
+    const INP = `border:1px solid #D4C5A0;border-radius:6px;padding:5px 8px;font-size:0.9rem;font-weight:700;color:#5B3A1A;background:#fff;outline:none;width:80px;text-align:center;`;
     const nguViFields = [
         { key:'vi_toan', label:'Chua (Toan)' },
         { key:'vi_khu',  label:'Đắng (Khổ)'  },
@@ -58,30 +45,16 @@ function openViThuocForm(id) {
         { key:'vi_ham',  label:'Mặn (Hàm)'   },
     ];
 
-    const mkRadio = (name, opts, sel, attr) => opts.map(o => {
-        const active = parseFloat(sel) === o.val;
-        return `<label style="flex:1;text-align:center;cursor:pointer;">
-            <input type="radio" name="${name}" value="${o.val}" ${active?'checked':''} style="display:none;"
-                onchange="yhctRadioStyle('${name}','${attr}')">
-            <div class="yhct-rb" data-${attr}="${o.val}" data-color="${ACC}"
-                style="border:1px solid ${active?ACC:'#D4C5A0'};border-radius:6px;padding:5px 3px;
-                       background:${active?ACC:'transparent'};color:${active?'#fff':'#5B3A1A'};
-                       font-size:0.7rem;line-height:1.3;transition:all 0.15s;white-space:pre-line;">
-                <div style="font-weight:700;font-size:0.8rem;">${o.sub||o.val}</div>
-                <div style="font-size:0.63rem;margin-top:1px;">${o.label}</div>
-            </div></label>`;
-    }).join('');
-
-    const nguViSliders = nguViFields.map(f => {
-        const v = item?.[f.key] ?? 0;
-        return `<div style="display:grid;grid-template-columns:90px 1fr 26px;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:0.8rem;color:#5B3A1A;">${f.label}</span>
-            <input type="range" id="vt-nv-${f.key}" min="0" max="5" step="0.5" value="${v}"
-                style="cursor:pointer;accent-color:${ACC};"
-                oninput="document.getElementById('vt-nv-${f.key}-val').textContent=parseFloat(this.value)%1===0?parseInt(this.value):parseFloat(this.value).toFixed(1)">
-            <span id="vt-nv-${f.key}-val" style="font-size:0.82rem;font-weight:700;color:${ACC};text-align:right;">${v}</span>
-        </div>`;
-    }).join('');
+    const nguViHtml = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">`
+        + nguViFields.map(f => {
+            const v = item?.[f.key] ?? 0;
+            return `<div style="text-align:center;">
+                <div style="font-size:0.72rem;color:#8B7355;margin-bottom:4px;">${f.label}</div>
+                <input id="vt-nv-${f.key}" type="number" min="0" max="5" step="0.5" value="${v}"
+                    style="${INP}width:100%;"
+                    onfocus="this.style.borderColor='${ACC}'" onblur="this.style.borderColor='#D4C5A0'">
+            </div>`;
+        }).join('') + `</div>`;
 
     showTayyModal('Vị thuốc', `
         <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:10px;margin-bottom:10px;">
@@ -109,21 +82,25 @@ function openViThuocForm(id) {
                     placeholder="VD: Tiêu thịt mỡ, Hoạt huyết"></label>
         </div>
 
-        <div style="${SEC}">
-            <span style="${LBL}">Tứ Khí — tính chất nhiệt (chọn 1)</span>
-            <div style="${HINT}">← Lạnh &nbsp;·&nbsp; Bình &nbsp;·&nbsp; Nóng →</div>
-            <div style="display:flex;gap:5px;">${mkRadio('vt-tu-khi',tuKhiOpts,tuKhiVal,'tukhi')}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px;align-items:end;">
+            <label class="tayy-form-label">Tứ Khí
+                <span style="font-weight:400;color:#A09580;font-size:0.72rem;"> (−2 Hàn · 0 Bình · +2 Nhiệt)</span><br>
+                <input id="vt-inp-tukhi" type="number" min="-2" max="2" step="1" value="${tuKhiVal}"
+                    style="${INP}"
+                    onfocus="this.style.borderColor='${ACC}'" onblur="this.style.borderColor='#D4C5A0'">
+            </label>
+            <label class="tayy-form-label">Hướng Thăng–Giáng
+                <span style="font-weight:400;color:#A09580;font-size:0.72rem;"> (1 Giáng · 3 Bình · 5 Thăng)</span><br>
+                <input id="vt-inp-huong" type="number" min="1" max="5" step="1" value="${huongVal}"
+                    style="${INP}"
+                    onfocus="this.style.borderColor='${ACC}'" onblur="this.style.borderColor='#D4C5A0'">
+            </label>
+            <div></div>
         </div>
 
         <div style="${SEC}">
-            <span style="${LBL}">Ngũ Vị — cường độ vị khẩu (0 = không có, 5 = rất mạnh)</span>
-            ${nguViSliders}
-        </div>
-
-        <div style="${SEC}">
-            <span style="${LBL}">Hướng vận động Thăng–Giáng (chọn 1)</span>
-            <div style="${HINT}">1 = Giáng mạnh &nbsp;·&nbsp; 3 = Bình &nbsp;·&nbsp; 5 = Thăng mạnh</div>
-            <div style="display:flex;gap:5px;">${mkRadio('vt-huong',huongOpts,huongVal,'huong')}</div>
+            <span style="${LBL}">Ngũ Vị <span style="font-weight:400;color:#A09580;font-size:0.74rem;">(0 = không có · 5 = rất mạnh)</span></span>
+            ${nguViHtml}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -221,8 +198,6 @@ function yhctNhomInput(val) {
 // OVERRIDE: saveViThuoc
 // ═══════════════════════════════════════════════════════════════════════════
 async function saveViThuoc(id) {
-    const tuKhiRaw = document.querySelector('input[name="vt-tu-khi"]:checked')?.value;
-    const huongRaw = document.querySelector('input[name="vt-huong"]:checked')?.value;
     const gf = elId => { const e = document.getElementById(elId); return e ? parseFloat(e.value)||0 : 0; };
     const payload = {
         ten_vi_thuoc:   (document.getElementById('vt-inp-ten')?.value||'').trim(),
@@ -233,8 +208,8 @@ async function saveViThuoc(id) {
         cong_dung:      _vtCurrentCongDung.map(s=>s.trim()).filter(Boolean).join('; '),
         nhom_duoc_ly:   (document.getElementById('vt-inp-nhomduocly')?.value||'').trim(),
         tac_dung_chinh: (document.getElementById('vt-inp-tacdungchinh')?.value||'').trim(),
-        tu_khi:    tuKhiRaw !== undefined ? parseFloat(tuKhiRaw) : 0,
-        huong_tgpt: huongRaw !== undefined ? parseFloat(huongRaw) : 3,
+        tu_khi:    (() => { const e = document.getElementById('vt-inp-tukhi');  return e ? parseFloat(e.value)||0 : 0; })(),
+        huong_tgpt: (() => { const e = document.getElementById('vt-inp-huong'); return e ? parseFloat(e.value)||3 : 3; })(),
         vi_toan: gf('vt-nv-vi_toan'),
         vi_khu:  gf('vt-nv-vi_khu'),
         vi_cam:  gf('vt-nv-vi_cam'),
@@ -534,10 +509,20 @@ function renderViThuocTab(el) {
         const alias = item.ten_goi_khac ? `<div style="font-size:0.72rem;color:#9CA3AF;font-style:italic;">(${escHtml(item.ten_goi_khac)})</div>` : '';
         const nhom  = item.nhom_duoc_ly ? `<div style="font-size:0.68rem;color:#15803D;margin-top:2px;">${escHtml(item.nhom_duoc_ly)}</div>` : '';
         const cd    = (item.cong_dung||'').split('; ').filter(Boolean).map(c=>`• ${escHtml(c)}`).join('<br>');
-        const tk    = item.tu_khi??null;
-        const tkBadge = tk!==null
-            ? `<span style="background:${tkColor(tk)};color:#fff;border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">${tkLabel(tk)} (${tk>0?'+':''}${tk})</span>`
-            : '<span style="color:#D1D5DB;font-size:0.72rem;">—</span>';
+        const tk = item.tu_khi ?? null;
+        const tkText = tk !== null
+            ? `<span style="font-size:0.82rem;color:#5B3A1A;font-weight:600;">${tk > 0 ? '+' + tk : tk}</span>`
+            : '<span style="color:#D1D5DB;">—</span>';
+        // Quy kinh: ưu tiên tên viết tắt từ bảng KinhMach
+        const qkRaw = item.quy_kinh || '';
+        const kinhMachList = (typeof _dongyData !== 'undefined' && _dongyData.kinhMach) ? _dongyData.kinhMach : [];
+        const qkDisplay = qkRaw.split(/[,;]/).map(s => s.trim()).filter(Boolean).map(s => {
+            const found = kinhMachList.find(k =>
+                (k.ten_kinh_mach||'').toLowerCase() === s.toLowerCase() ||
+                (k.ten_viet_tat||'').toLowerCase() === s.toLowerCase()
+            );
+            return found ? (found.ten_viet_tat || found.ten_kinh_mach || s) : s;
+        }).join(', ') || '—';
         const nv = [
             item.vi_toan>0?`Chua:${item.vi_toan}`:'',
             item.vi_khu >0?`Đắng:${item.vi_khu}`:'',
@@ -548,9 +533,9 @@ function renderViThuocTab(el) {
 
         return `<tr>
             <td><div style="font-weight:700;color:#5B3A1A;">${escHtml(item.ten_vi_thuoc)}</div>${alias}${nhom}</td>
-            <td style="text-align:center;">${tkBadge}</td>
+            <td style="text-align:center;">${tkText}</td>
             <td style="font-size:0.74rem;color:#5B3A1A;">${nv}</td>
-            <td style="font-size:0.74rem;color:#6B7280;">${escHtml(item.quy_kinh||'—')}</td>
+            <td style="font-size:0.74rem;color:#6B7280;">${qkDisplay}</td>
             <td style="font-size:0.76rem;line-height:1.4;">${cd||'—'}</td>
             <td style="text-align:center;width:120px;">
                 <div class="table-actions" style="justify-content:center;">

@@ -15,6 +15,9 @@ export class KinhMach {
   ten_kinh_mach: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
+  ten_viet_tat: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
   ky_hieu_quoc_te: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })

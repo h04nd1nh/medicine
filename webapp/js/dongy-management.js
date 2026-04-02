@@ -408,9 +408,12 @@ function renderKinhMachTab(el) {
         const id = item.idKinhMach || item.id;
         return `
             <tr>
-                <td><strong>${escHtml(item.ten_kinh_mach)}</strong></td>
-                <td style="text-align:center;">${escHtml(item.ky_hieu_quoc_te)}</td>
-                <td style="text-align:center;">${escHtml(item.ngu_hanh)}</td>
+                <td><strong>${escHtml(item.ten_kinh_mach)}</strong>
+                    ${item.ten_viet_tat ? `<span style="font-size:0.75rem;color:#8B7355;margin-left:6px;">(${escHtml(item.ten_viet_tat)})</span>` : ''}
+                </td>
+                <td style="text-align:center;">${escHtml(item.ten_viet_tat||'—')}</td>
+                <td style="text-align:center;">${escHtml(item.ky_hieu_quoc_te||'—')}</td>
+                <td style="text-align:center;">${escHtml(item.ngu_hanh||'—')}</td>
                 <td style="text-align:center;">${item.tong_so_huyet || 0}</td>
                 <td style="text-align:center;width:130px;">
                     <div class="table-actions" style="justify-content:center;">
@@ -429,12 +432,13 @@ function renderKinhMachTab(el) {
             <table>
                 <thead><tr>
                     <th>Tên kinh mạch</th>
+                    <th style="text-align:center;">Viết tắt</th>
                     <th style="text-align:center;">Ký hiệu</th>
                     <th style="text-align:center;">Ngũ hành</th>
                     <th style="text-align:center;">Số huyệt</th>
                     <th style="width:130px; text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -443,9 +447,10 @@ function openKinhMachForm(id) {
     const item = id ? _dongyData.kinhMach.find(x => (x.idKinhMach == id || x.id == id)) : null;
     showTayyModal(item ? 'Sửa kinh mạch' : 'Thêm kinh mạch', `
         <label class="tayy-form-label">Tên kinh mạch<br><input id="km-inp-ten" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_kinh_mach) : ''}"></label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <label class="tayy-form-label">Ký hiệu<br><input id="km-inp-code" type="text" class="tayy-form-input" value="${item ? escHtml(item.ky_hieu_quoc_te) : ''}"></label>
-            <label class="tayy-form-label">Ngũ hành<br><input id="km-inp-element" type="text" class="tayy-form-input" value="${item ? escHtml(item.ngu_hanh) : ''}"></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <label class="tayy-form-label">Tên viết tắt<br><input id="km-inp-viettat" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_viet_tat||'') : ''}" placeholder="VD: Tâm, Can..."></label>
+            <label class="tayy-form-label">Ký hiệu<br><input id="km-inp-code" type="text" class="tayy-form-input" value="${item ? escHtml(item.ky_hieu_quoc_te||'') : ''}"></label>
+            <label class="tayy-form-label">Ngũ hành<br><input id="km-inp-element" type="text" class="tayy-form-input" value="${item ? escHtml(item.ngu_hanh||'') : ''}"></label>
         </div>
         <div class="tayy-form-actions"><button class="btn" onclick="closeTayyModal()">Hủy</button>
         <button class="btn btn-primary" onclick="saveKinhMach(${id || 0})">Lưu</button></div>
@@ -454,6 +459,7 @@ function openKinhMachForm(id) {
 async function saveKinhMach(id) {
     const payload = {
         ten_kinh_mach: document.getElementById('km-inp-ten').value.trim(),
+        ten_viet_tat: document.getElementById('km-inp-viettat').value.trim(),
         ky_hieu_quoc_te: document.getElementById('km-inp-code').value.trim(),
         ngu_hanh: document.getElementById('km-inp-element').value.trim(),
     };

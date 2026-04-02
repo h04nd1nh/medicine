@@ -63,6 +63,8 @@ function renderThuocSection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border); overflow-x:auto; white-space:nowrap;">
                 <button class="tayy-tab ${tab === 'vi-thuoc' ? 'active' : ''}" onclick="switchThuocTab('vi-thuoc')">Danh mục Vị thuốc</button>
                 <button class="tayy-tab ${tab === 'bai-thuoc' ? 'active' : ''}" onclick="switchThuocTab('bai-thuoc')">Danh mục Bài thuốc</button>
+                <button class="tayy-tab ${tab === 'bien-chung' ? 'active' : ''}" onclick="switchThuocTab('bien-chung')">Biện chứng</button>
+                <button class="tayy-tab ${tab === 'phap-tri' ? 'active' : ''}" onclick="switchThuocTab('phap-tri')">Pháp trị</button>
             </div>
 
             <div id="thuoc-tab-content"></div>
@@ -84,7 +86,165 @@ function renderThuocTabContent() {
     switch (_thuocData.activeTab) {
         case 'vi-thuoc': renderViThuocTab(el); break;
         case 'bai-thuoc': renderBaiThuocTab(el); break;
+        case 'bien-chung': renderBienChungTab(el); break;
+        case 'phap-tri': renderPhapTriTab(el); break;
     }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: BIỆN CHỨNG
+// ═══════════════════════════════════════════════════════════
+function renderBienChungTab(el) {
+    const rows = (_thuocData.bienChung || []).map(item => {
+        const id = item.id;
+        const usageCount = (_thuocData.baiThuoc || []).filter(bt =>
+            (bt.bien_chung || '').split(',').map(s => s.trim()).includes(item.ten_bien_chung)
+        ).length;
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_bien_chung)}</td>
+            <td style="text-align:center;">
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} bài thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
+            </td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openBienChungForm(${id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBienChung(${id})">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.bienChung||[]).length}</strong> biện chứng
+            </div>
+            <button class="btn btn-primary" onclick="openBienChungForm()">+ Thêm biện chứng</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên biện chứng</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có biện chứng nào</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+
+function openBienChungForm(id) {
+    const item = id ? (_thuocData.bienChung || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa biện chứng' : 'Thêm biện chứng', `
+        <label class="tayy-form-label">Tên biện chứng *<br>
+            <input id="bc-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_bien_chung) : ''}"
+                placeholder="VD: Can đảm thấp nhiệt, Thận dương hư...">
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveBienChung(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('bc-inp-ten')?.focus(), 50);
+}
+
+async function saveBienChung(id) {
+    const ten = (document.getElementById('bc-inp-ten')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên biện chứng!');
+    const payload = { ten_bien_chung: ten };
+    const res = id ? await apiUpdateBienChung(id, payload) : await apiCreateBienChung(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteBienChung(id) {
+    if (!confirm('Xóa biện chứng này?')) return;
+    await apiDeleteBienChung(id);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: PHÁP TRị
+// ═══════════════════════════════════════════════════════════
+function renderPhapTriTab(el) {
+    const rows = (_thuocData.phapTri || []).map(item => {
+        const id = item.id;
+        const usageCount = (_thuocData.baiThuoc || []).filter(bt =>
+            (bt.phap_tri || '').split(',').map(s => s.trim()).includes(item.ten_phap_tri)
+        ).length;
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_phap_tri)}</td>
+            <td style="text-align:center;">
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} bài thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
+            </td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openPhapTriForm(${id})">&#9999; Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePhapTri(${id})">&#128465;</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.phapTri||[]).length}</strong> pháp trị
+            </div>
+            <button class="btn btn-primary" onclick="openPhapTriForm()">+ Thêm pháp trị</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên pháp trị</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có pháp trị nào</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+
+function openPhapTriForm(id) {
+    const item = id ? (_thuocData.phapTri || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa pháp trị' : 'Thêm pháp trị', `
+        <label class="tayy-form-label">Tên pháp trị *<br>
+            <input id="pt-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_phap_tri) : ''}"
+                placeholder="VD: Bổ thận dưỡng, Thanh can tả hỏa...">
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="savePhapTri(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('pt-inp-ten')?.focus(), 50);
+}
+
+async function savePhapTri(id) {
+    const ten = (document.getElementById('pt-inp-ten')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên pháp trị!');
+    const payload = { ten_phap_tri: ten };
+    const res = id ? await apiUpdatePhapTri(id, payload) : await apiCreatePhapTri(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deletePhapTri(id) {
+    if (!confirm('Xóa pháp trị này?')) return;
+    await apiDeletePhapTri(id);
+    await loadAllThuocData();
+    renderThuocSection();
 }
 
 // ═══════════════════════════════════════════════════════════

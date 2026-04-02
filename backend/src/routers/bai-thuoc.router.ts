@@ -33,4 +33,9 @@ export class BaiThuocRouter {
     await this.service.remove(+id);
     return { success: true };
   }
+
+  @Post(':id/analyze')
+  async analyze(@Param('id') id: string) {
+    return this.service.analyzeBaiThuoc(+id);
+  }
 }

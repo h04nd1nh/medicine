@@ -861,7 +861,16 @@ async function apiDeleteBaiThuoc(id) {
     const res = await fetch(_base() + '/bai-thuoc/' + id, { method: 'DELETE', headers: _authHeaders() });
     if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa bài thuốc thất bại') };
     return { success: true };
-}// ---- THỂ BỆNH ----
+}
+async function apiAnalyzeBaiThuoc(id) {
+    const res = await fetch(_base() + '/bai-thuoc/' + id + '/analyze', {
+        method: 'POST',
+        headers: _authHeaders(),
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Phân tích bài thuốc thất bại') };
+    return res.json();
+}
+
 async function apiGetTheBenh(benhId) {
     const res = await fetch(_base() + '/the-benh?benh=' + benhId);
     if (!res.ok) return [];

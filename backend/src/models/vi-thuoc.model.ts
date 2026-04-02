@@ -39,6 +39,35 @@ export class ViThuoc {
   @Column({ type: 'text', nullable: true })
   luu_y: string;
 
+  // ── YHCT Pharmacology Fields (for radar chart analysis) ──
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  nhom_duoc_ly: string; // Nhóm dược lý: Tiêu thực, Bổ khí, Thanh nhiệt...
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  tu_khi: number; // Tứ khí: -2 (Đại hàn) → 0 (Bình) → 2 (Nhiệt)
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  vi_toan: number; // Ngũ vị – Chua (0–5)
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  vi_khu: number; // Ngũ vị – Đắng (0–5)
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  vi_cam: number; // Ngũ vị – Ngọt (0–5)
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  vi_tan: number; // Ngũ vị – Cay (0–5)
+
+  @Column({ type: 'float', nullable: true, default: 0 })
+  vi_ham: number; // Ngũ vị – Mặn (0–5)
+
+  @Column({ type: 'float', nullable: true, default: 3 })
+  huong_tgpt: number; // Hướng vận động: 1 (Giáng mạnh) → 3 (Bình) → 5 (Thăng mạnh)
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  tac_dung_chinh: string; // Tác dụng chính (dùng để xác định Quân-Thần-Tá-Sứ)
+
   @OneToMany(() => BaiThuocChiTiet, (detail) => detail.viThuoc)
   baiThuocDetails: BaiThuocChiTiet[];
 }

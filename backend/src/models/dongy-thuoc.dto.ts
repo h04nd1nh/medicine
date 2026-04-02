@@ -11,8 +11,19 @@ export class CreateViThuocDto {
   cong_dung?: string;
   lieu_dung?: string;
   luu_y?: string;
+  // YHCT Pharmacology Fields
+  nhom_duoc_ly?: string;
+  tu_khi?: number;
+  vi_toan?: number;
+  vi_khu?: number;
+  vi_cam?: number;
+  vi_tan?: number;
+  vi_ham?: number;
+  huong_tgpt?: number;
+  tac_dung_chinh?: string;
 }
 export class UpdateViThuocDto extends CreateViThuocDto {}
+
 
 // BaiThuoc DTOs
 export class CreateBaiThuocDto {

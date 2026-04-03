@@ -9,6 +9,7 @@ let _thuocData = {
     bienChung: [],
     phapTri: [],
     trieuChung: [],
+    nhomDuocLy: [],
     activeTab: 'vi-thuoc',
 };
 
@@ -27,7 +28,7 @@ async function initThuocManagement() {
 
 async function loadAllThuocData() {
     try {
-        const [vt, bt, km, hv, bc, pt, tc] = await Promise.all([
+        const [vt, bt, km, hv, bc, pt, tc, ndl] = await Promise.all([
             apiGetViThuoc(),
             apiGetBaiThuoc(),
             apiGetKinhMach(),
@@ -35,6 +36,7 @@ async function loadAllThuocData() {
             apiGetBienChung(),
             apiGetPhapTri(),
             apiGetTrieuChung(),
+            apiGetNhomDuocLy(),
         ]);
         _thuocData.viThuoc = vt || [];
         _thuocData.baiThuoc = bt || [];
@@ -43,10 +45,12 @@ async function loadAllThuocData() {
         _thuocData.bienChung = bc || [];
         _thuocData.phapTri = pt || [];
         _thuocData.trieuChung = tc || [];
+        _thuocData.nhomDuocLy = ndl || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Thuốc:', e);
     }
 }
+
 
 // ─── Render section chính ─────────────────────────────────
 function renderThuocSection() {
@@ -65,6 +69,8 @@ function renderThuocSection() {
                 <button class="tayy-tab ${tab === 'bai-thuoc' ? 'active' : ''}" onclick="switchThuocTab('bai-thuoc')">Danh mục Bài thuốc</button>
                 <button class="tayy-tab ${tab === 'bien-chung' ? 'active' : ''}" onclick="switchThuocTab('bien-chung')">Biện chứng</button>
                 <button class="tayy-tab ${tab === 'phap-tri' ? 'active' : ''}" onclick="switchThuocTab('phap-tri')">Pháp trị</button>
+                <button class="tayy-tab ${tab === 'nhom-duoc-ly' ? 'active' : ''}" onclick="switchThuocTab('nhom-duoc-ly')">Nhóm dược lý</button>
+                <button class="tayy-tab ${tab === 'cong-dung' ? 'active' : ''}" onclick="switchThuocTab('cong-dung')">Công dụng</button>
             </div>
 
             <div id="thuoc-tab-content"></div>
@@ -88,6 +94,8 @@ function renderThuocTabContent() {
         case 'bai-thuoc': renderBaiThuocTab(el); break;
         case 'bien-chung': renderBienChungTab(el); break;
         case 'phap-tri': renderPhapTriTab(el); break;
+        case 'nhom-duoc-ly': renderNhomDuocLyTab(el); break;
+        case 'cong-dung': renderCongDungTab(el); break;
     }
 }
 
@@ -250,22 +258,73 @@ async function deletePhapTri(id) {
 // ═══════════════════════════════════════════════════════════
 // TAB: VỊ THUỐC
 // ═══════════════════════════════════════════════════════════
+
+// Mapping Tính (Tứ Khí): tên hiển thị → số
+const _TINH_OPTIONS = [
+    { label: 'Đại Hàn', value: -2 },
+    { label: 'Hàn',     value: -1 },
+    { label: 'Bình',    value:  0 },
+    { label: 'Ôn',      value:  1 },
+    { label: 'Nhiệt',   value:  2 },
+];
+
+// Mapping Hướng (Thăng/Giáng): tên hiển thị → số
+const _HUONG_OPTIONS = [
+    { label: 'Giáng mạnh', value: 1 },
+    { label: 'Giáng nhẹ',  value: 2 },
+    { label: 'Bình',       value: 3 },
+    { label: 'Thăng nhẹ',  value: 4 },
+    { label: 'Thăng mạnh', value: 5 },
+];
+
+function _tinhLabel(num) {
+    const opt = _TINH_OPTIONS.find(o => o.value === Number(num));
+    return opt ? opt.label : (num != null ? String(num) : '—');
+}
+function _huongLabel(num) {
+    const opt = _HUONG_OPTIONS.find(o => o.value === Number(num));
+    return opt ? opt.label : (num != null ? String(num) : '—');
+}
+
 function renderViThuocTab(el) {
     const rows = _thuocData.viThuoc.map(item => {
         const aliasStr = item.ten_goi_khac ? `<div style="font-size:0.75rem; color:#A09580; font-style:italic;">(${escHtml(item.ten_goi_khac)})</div>` : '';
-        const congDungHtml = (item.cong_dung || '').split('; ').filter(Boolean).map(cd => `• ${escHtml(cd)}`).join('<br>');
-        
+        // Công dụng: format "cd||ghi chú" or plain "cd"
+        const congDungHtml = (item.cong_dung || '').split('; ').filter(Boolean).map(entry => {
+            const parts = entry.split('||');
+            const cd = escHtml(parts[0] || '');
+            const note = parts[1] ? `<span style="color:#A09580; font-style:italic;"> — ${escHtml(parts[1])}</span>` : '';
+            return `• ${cd}${note}`;
+        }).join('<br>');
+
+        // Ngũ vị summary
+        const viParts = [];
+        if (Number(item.vi_toan) > 0) viParts.push(`Chua(${item.vi_toan})`);
+        if (Number(item.vi_khu)  > 0) viParts.push(`Đắng(${item.vi_khu})`);
+        if (Number(item.vi_cam)  > 0) viParts.push(`Ngọt(${item.vi_cam})`);
+        if (Number(item.vi_tan)  > 0) viParts.push(`Cay(${item.vi_tan})`);
+        if (Number(item.vi_ham)  > 0) viParts.push(`Mặn(${item.vi_ham})`);
+
+        // Quy kinh: stored as full names, display shortened
+        const quyKinhShort = (item.quy_kinh || '').split(',').map(s => {
+            const s2 = s.trim();
+            const km = (_thuocData.kinhMach || []).find(k => k.ten_kinh_mach === s2);
+            return km ? (km.ten_viet_tat || s2) : s2;
+        }).filter(Boolean).join(', ');
+
         return `
             <tr>
                 <td>
                     <div style="font-weight:700; color:#5B3A1A;">${escHtml(item.ten_vi_thuoc)}</div>
                     ${aliasStr}
+                    ${item.nhom_duoc_ly ? `<div style="font-size:0.72rem;color:#8B7355;margin-top:2px;">📂 ${escHtml(item.nhom_duoc_ly)}</div>` : ''}
                 </td>
-                <td style="text-align:center;">${escHtml(item.tinh || '')}</td>
-                <td style="text-align:center;">${escHtml(item.vi || '')}</td>
-                <td style="text-align:center;">${escHtml(item.quy_kinh || '')}</td>
-                <td style="font-size:0.78rem; line-height:1.4;">${congDungHtml}</td>
-                <td style="text-align:center;width:130px;">
+                <td style="text-align:center;">${_tinhLabel(item.tu_khi)}</td>
+                <td style="font-size:0.78rem;text-align:center;">${escHtml(viParts.join(', ') || '—')}</td>
+                <td style="text-align:center; font-size:0.8rem;">${_huongLabel(item.huong_tgpt)}</td>
+                <td style="text-align:center; font-size:0.78rem;">${escHtml(quyKinhShort || '—')}</td>
+                <td style="font-size:0.78rem; line-height:1.4;">${congDungHtml || '—'}</td>
+                <td style="text-align:center;width:120px;">
                     <div class="table-actions" style="justify-content:center;">
                         <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏ Sửa</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑 Xóa</button>
@@ -280,195 +339,220 @@ function renderViThuocTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th>Tên vị thuốc</th><th style="text-align:center;">Tính</th><th style="text-align:center;">Vị</th><th style="text-align:center;">Quy kinh</th><th>Công dụng</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr>
+                    <th>Tên vị thuốc</th>
+                    <th style="text-align:center;">Tính</th>
+                    <th style="text-align:center;">Vị</th>
+                    <th style="text-align:center;">Hướng</th>
+                    <th style="text-align:center;">Quy kinh</th>
+                    <th>Công dụng</th>
+                    <th style="width:120px; text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
 
+// State cho form vị thuốc
+let _vtCurrentQuyKinh = [];
+let _vtCurrentCongDung = [];   // [{text, note}]
+let _vtTuKhi = 0;
+let _vtHuong = 3;
+
 function openViThuocForm(id) {
     const item = id ? _thuocData.viThuoc.find(x => x.id == id) : null;
+
+    // Pre-init state
+    _vtCurrentQuyKinh = (item?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
+    _vtTuKhi = item?.tu_khi != null ? Number(item.tu_khi) : 0;
+    _vtHuong = item?.huong_tgpt != null ? Number(item.huong_tgpt) : 3;
+
+    // Parse công dụng with notes: "cd||note"
+    const rawCD = (item?.cong_dung || '').split('; ').filter(Boolean);
+    _vtCurrentCongDung = rawCD.length > 0
+        ? rawCD.map(e => { const p = e.split('||'); return { text: p[0]||'', note: p[1]||'' }; })
+        : [{ text: '', note: '' }];
+
+    // Nhóm dược lý options
+    const nhomOptions = (_thuocData.nhomDuocLy || []).map(n => n.ten_nhom);
+
     showTayyModal('Vị thuốc', `
         <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px;">
-            <label class="tayy-form-label">Tên vị thuốc<br><input id="vt-inp-ten" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_vi_thuoc) : ''}"></label>
-            <label class="tayy-form-label">Tên gọi khác<br><input id="vt-inp-alias" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_goi_khac || '') : ''}" placeholder="VD: Sâm cao ly..."></label>
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <label class="tayy-form-label">Tính (khí)<br>
-                <div style="position:relative;">
-                    <input id="vt-inp-tinh" type="text" class="tayy-form-input" 
-                        value="${item ? escHtml(item.tinh || '') : ''}" 
-                        oninput="vtOnTinhSearchInput(this.value)"
-                        onfocus="vtOnTinhSearchInput(this.value)"
-                        placeholder="Chọn hoặc nhập tính...">
-                    <div id="vt-tinh-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:160px; overflow-y:auto; z-index:2500; display:none;"></div>
-                </div>
+            <label class="tayy-form-label">Tên vị thuốc *<br>
+                <input id="vt-inp-ten" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_vi_thuoc) : ''}">
             </label>
-            <label class="tayy-form-label">Vị (ngũ vị)<br>
-                <div style="position:relative;">
-                    <input id="vt-inp-vi" type="text" class="tayy-form-input" 
-                        value="${item ? escHtml(item.vi || '') : ''}" 
-                        oninput="vtOnViSearchInput(this.value)"
-                        onfocus="vtOnViSearchInput(this.value)"
-                        placeholder="Chọn hoặc nhập vị...">
-                    <div id="vt-vi-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:160px; overflow-y:auto; z-index:2500; display:none;"></div>
-                </div>
+            <label class="tayy-form-label">Tên gọi khác<br>
+                <input id="vt-inp-alias" type="text" class="tayy-form-input" value="${item ? escHtml(item.ten_goi_khac || '') : ''}" placeholder="VD: Sâm cao ly...">
             </label>
         </div>
 
-        <label class="tayy-form-label">Quy kinh (chọn nhiều)<br>
+        <!-- Nhóm dược lý -->
+        <label class="tayy-form-label">Nhóm dược lý<br>
+            <div style="position:relative;">
+                <input id="vt-inp-nhom" type="text" class="tayy-form-input"
+                    value="${item ? escHtml(item.nhom_duoc_ly || '') : ''}"
+                    oninput="vtOnNhomSearchInput(this.value)"
+                    onfocus="vtOnNhomSearchInput(this.value)"
+                    placeholder="Chọn hoặc nhập nhóm dược lý...">
+                <div id="vt-nhom-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:160px; overflow-y:auto; z-index:2500; display:none;"></div>
+            </div>
+        </label>
+
+        <!-- Tính (Tứ Khí) -->
+        <label class="tayy-form-label">Tính — Tứ Khí<br>
+            <div id="vt-tinh-btns" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                ${_TINH_OPTIONS.map(o => `
+                    <button type="button"
+                        id="vt-tinh-btn-${o.value}"
+                        onclick="vtSelectTinhVal(${o.value})"
+                        style="padding:6px 14px; border-radius:20px; border:2px solid #D4C5A0; background:${_vtTuKhi === o.value ? '#5B3A1A' : '#FBF8F1'}; color:${_vtTuKhi === o.value ? '#fff' : '#5B3A1A'}; font-weight:600; cursor:pointer; font-size:0.82rem; transition:all 0.15s;">
+                        ${escHtml(o.label)}
+                    </button>
+                `).join('')}
+            </div>
+            <input type="hidden" id="vt-inp-tukhi" value="${_vtTuKhi}">
+        </label>
+
+        <!-- Vị (Ngũ Vị) 0-5 -->
+        <label class="tayy-form-label">Vị — Ngũ Vị (0 = không có, 5 = rất mạnh)<br>
+            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:6px;">
+                ${[
+                    { key:'vi_toan', label:'🍋 Chua' },
+                    { key:'vi_khu',  label:'☕ Đắng' },
+                    { key:'vi_cam',  label:'🍯 Ngọt' },
+                    { key:'vi_tan',  label:'🌶 Cay' },
+                    { key:'vi_ham',  label:'🧂 Mặn' },
+                ].map(v => `
+                    <div style="text-align:center;">
+                        <div style="font-size:0.78rem; color:#5B3A1A; font-weight:600; margin-bottom:4px;">${v.label}</div>
+                        <input id="vt-inp-${v.key}" type="number" min="0" max="5" step="0.5"
+                            value="${item ? (item[v.key] ?? 0) : 0}"
+                            style="width:100%; padding:6px; text-align:center; border:1px solid #D4C5A0; border-radius:8px; background:#FBF8F1; font-size:0.9rem; font-weight:700;">
+                    </div>
+                `).join('')}
+            </div>
+        </label>
+
+        <!-- Hướng vận động -->
+        <label class="tayy-form-label">Hướng vận động<br>
+            <div id="vt-huong-btns" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                ${_HUONG_OPTIONS.map(o => `
+                    <button type="button"
+                        id="vt-huong-btn-${o.value}"
+                        onclick="vtSelectHuongVal(${o.value})"
+                        style="padding:6px 14px; border-radius:20px; border:2px solid #D4C5A0; background:${_vtHuong === o.value ? '#2E6B4F' : '#FBF8F1'}; color:${_vtHuong === o.value ? '#fff' : '#5B3A1A'}; font-weight:600; cursor:pointer; font-size:0.82rem; transition:all 0.15s;">
+                        ${escHtml(o.label)}
+                    </button>
+                `).join('')}
+            </div>
+            <input type="hidden" id="vt-inp-huong" value="${_vtHuong}">
+        </label>
+
+        <!-- Quy kinh (chips) -->
+        <label class="tayy-form-label">Quy Kinh (chọn nhiều)<br>
             <div style="position:relative;">
                 <div id="vt-quykinh-chips" class="chips-container" onclick="document.getElementById('vt-inp-quykinh').focus()">
-                    <input id="vt-inp-quykinh" type="text" class="chip-input" 
-                        placeholder="Thêm kinh mạch..." 
+                    <input id="vt-inp-quykinh" type="text" class="chip-input"
+                        placeholder="Tìm kinh mạch..."
                         oninput="vtOnQuyKinhSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value){vtSelectQuyKinh(this.value); event.preventDefault();} if(event.key==='Backspace' && !this.value) vtRemoveLastQuyKinhChip()">
+                        onkeydown="if(event.key==='Enter' && this.value){vtSelectQuyKinhByLabel(this.value); event.preventDefault();} if(event.key==='Backspace' && !this.value) vtRemoveLastQuyKinhChip()">
                 </div>
                 <div id="vt-quykinh-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px); background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.12); max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
         </label>
 
-        <label class="tayy-form-label">Công dụng (mỗi dòng một công dụng)<br>
-            <div id="vt-congdung-list" style="display:flex; flex-direction:column; gap:8px;">
+        <!-- Công dụng với ghi chú -->
+        <label class="tayy-form-label">Công dụng (kèm ghi chú)<br>
+            <div id="vt-congdung-list" style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
                 <!-- Inputs added here -->
             </div>
             <button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="vtAddCongDungInput()">+ Thêm công dụng</button>
         </label>
+
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
             <button class="btn btn-primary" onclick="saveViThuoc(${id || 0})">Lưu</button>
         </div>
     `);
 
-    // Khởi tạo chips & lists
-    _vtCurrentQuyKinh = (item?.quy_kinh || '').split(',').map(s => s.trim()).filter(Boolean);
-    _vtCurrentCongDung = (item?.cong_dung || '').split('; ').map(s => s.trim()).filter(Boolean);
-    if (_vtCurrentCongDung.length === 0) _vtCurrentCongDung = [''];
-
     vtRenderQuyKinhChips();
     vtRenderCongDungList();
-
-    // Đóng gợi ý khi click ra ngoài
-    const closeModalSuggestions = (e) => {
-        if (!e.target.closest('.tayy-form-label')) {
-            ['vt-tinh-suggest', 'vt-vi-suggest', 'vt-quykinh-suggest'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-        }
-    };
-    document.addEventListener('click', closeModalSuggestions, { once: true });
 }
 
-// gợi ý Tính/Vị
-const _TINH_DEFAULTS = ['Hàn', 'Nhiệt', 'Ôn', 'Lương', 'Bình'];
-const _VI_DEFAULTS = ['Chua', 'Đắng', 'Ngọt', 'Cay', 'Mặn', 'Nhạt'];
+// ── Tính selector ─────────────────────────────────────────
+function vtSelectTinhVal(val) {
+    _vtTuKhi = val;
+    document.getElementById('vt-inp-tukhi').value = val;
+    _TINH_OPTIONS.forEach(o => {
+        const btn = document.getElementById(`vt-tinh-btn-${o.value}`);
+        if (!btn) return;
+        const active = (o.value === val);
+        btn.style.background = active ? '#5B3A1A' : '#FBF8F1';
+        btn.style.color = active ? '#fff' : '#5B3A1A';
+        btn.style.borderColor = active ? '#5B3A1A' : '#D4C5A0';
+    });
+}
 
-function vtOnTinhSearchInput(val) {
-    const suggestEl = document.getElementById('vt-tinh-suggest');
-    const query = (val || '').trim().toLowerCase();
+// ── Hướng selector ────────────────────────────────────────
+function vtSelectHuongVal(val) {
+    _vtHuong = val;
+    document.getElementById('vt-inp-huong').value = val;
+    _HUONG_OPTIONS.forEach(o => {
+        const btn = document.getElementById(`vt-huong-btn-${o.value}`);
+        if (!btn) return;
+        const active = (o.value === val);
+        btn.style.background = active ? '#2E6B4F' : '#FBF8F1';
+        btn.style.color = active ? '#fff' : '#5B3A1A';
+        btn.style.borderColor = active ? '#2E6B4F' : '#D4C5A0';
+    });
+}
+
+// ── Nhóm dược lý autocomplete ─────────────────────────────
+function vtOnNhomSearchInput(val) {
+    const suggestEl = document.getElementById('vt-nhom-suggest');
     if (!suggestEl) return;
+    const query = (val || '').trim().toLowerCase();
 
-    // Lấy từ dữ liệu thuốc hiện có ( deduplicate )
-    const existingValues = [...new Set(_thuocData.viThuoc.map(v => v.tinh).filter(Boolean).flatMap(s => s.split(',').map(x => x.trim())))];
-    const all = [...new Set([..._TINH_DEFAULTS, ...existingValues])];
-    
-    const filtered = all.filter(x => (x || '').toLowerCase().includes(query)).slice(0, 10);
-    const hasExact = all.some(x => (x || '').toLowerCase() === query);
+    const allNames = (_thuocData.nhomDuocLy || []).map(n => n.ten_nhom);
+    const filtered = allNames.filter(n => n.toLowerCase().includes(query)).slice(0, 10);
+    const hasExact = allNames.some(n => n.toLowerCase() === query);
 
     let html = '';
     if (filtered.length > 0) {
         html = filtered.map(m => `
-            <div style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #F0E8D8; transition:background 0.2s;"
-                 onmouseover="this.style.background='#F5F0E8'"
-                 onmouseout="this.style.background='transparent'"
-                 onclick="vtSelectTinh('${escHtml(m)}')">
-                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
+            <div style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+                 onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background='transparent'"
+                 onclick="document.getElementById('vt-inp-nhom').value='${escHtml(m)}'; document.getElementById('vt-nhom-suggest').style.display='none';">
+                <div style="font-weight:600; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
             </div>
         `).join('');
     }
-
     if (!hasExact && query) {
         html += `
-            <div style="padding:8px 12px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
-                 onmouseover="this.style.background='#EFE8D8'"
-                 onmouseout="this.style.background='#FAF6EE'"
-                 onclick="vtSelectTinh('${escHtml(val.trim())}')">
-                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
-                </div>
-            </div>
-        `;
+            <div style="padding:8px 12px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0;"
+                 onmouseover="this.style.background='#EFE8D8'" onmouseout="this.style.background='#FAF6EE'"
+                 onclick="document.getElementById('vt-inp-nhom').value='${escHtml(val.trim())}'; document.getElementById('vt-nhom-suggest').style.display='none';">
+                <div style="font-weight:700; color:#CA6222; font-size:0.82rem;">+ Dùng "${escHtml(val.trim())}"</div>
+            </div>`;
     }
     suggestEl.style.display = html ? 'block' : 'none';
     suggestEl.innerHTML = html;
 }
-function vtSelectTinh(val) {
-    const inp = document.getElementById('vt-inp-tinh');
-    if (inp) inp.value = val;
-    document.getElementById('vt-tinh-suggest').style.display = 'none';
-}
 
-function vtOnViSearchInput(val) {
-    const suggestEl = document.getElementById('vt-vi-suggest');
-    const query = (val || '').trim().toLowerCase();
-    if (!suggestEl) return;
-
-    // Lấy từ dữ liệu thuốc hiện có ( deduplicate )
-    const existingValues = [...new Set(_thuocData.viThuoc.map(v => v.vi).filter(Boolean).flatMap(s => s.split(',').map(x => x.trim())))];
-    const all = [...new Set([..._VI_DEFAULTS, ...existingValues])];
-    
-    const filtered = all.filter(x => (x || '').toLowerCase().includes(query)).slice(0, 10);
-    const hasExact = all.some(x => (x || '').toLowerCase() === query);
-
-    let html = '';
-    if (filtered.length > 0) {
-        html = filtered.map(m => `
-            <div style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #F0E8D8; transition:background 0.2s;"
-                 onmouseover="this.style.background='#F5F0E8'"
-                 onmouseout="this.style.background='transparent'"
-                 onclick="vtSelectVi('${escHtml(m)}')">
-                <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
-            </div>
-        `).join('');
-    }
-
-    if (!hasExact && query) {
-        html += `
-            <div style="padding:8px 12px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
-                 onmouseover="this.style.background='#EFE8D8'"
-                 onmouseout="this.style.background='#FAF6EE'"
-                 onclick="vtSelectVi('${escHtml(val.trim())}')">
-                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm "${escHtml(val.trim())}"
-                </div>
-            </div>
-        `;
-    }
-    suggestEl.style.display = html ? 'block' : 'none';
-    suggestEl.innerHTML = html;
-}
-function vtSelectVi(val) {
-    const inp = document.getElementById('vt-inp-vi');
-    if (inp) inp.value = val;
-    document.getElementById('vt-vi-suggest').style.display = 'none';
-}
-
-let _vtCurrentQuyKinh = [];
-
+// ── Quy kinh chips — dùng tên viết tắt để hiển thị, lưu tên đầy đủ ──
 function vtRenderQuyKinhChips() {
     const container = document.getElementById('vt-quykinh-chips');
     const input = document.getElementById('vt-inp-quykinh');
     if (!container || !input) return;
-
-    // Remove old chips
     container.querySelectorAll('.chip').forEach(c => c.remove());
-
-    _vtCurrentQuyKinh.forEach(name => {
+    _vtCurrentQuyKinh.forEach(fullName => {
+        // Display as abbreviated name if available
+        const km = (_thuocData.kinhMach || []).find(k => k.ten_kinh_mach === fullName);
+        const displayName = km ? (km.ten_viet_tat || fullName) : fullName;
         const chip = document.createElement('div');
         chip.className = 'chip';
-        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="vtRemoveQuyKinhChip('${escHtml(name)}'); event.stopPropagation();">×</span>`;
+        chip.title = fullName; // Full name on hover
+        chip.innerHTML = `${escHtml(displayName)} <span class="chip-remove" onclick="vtRemoveQuyKinhChip('${escHtml(fullName)}'); event.stopPropagation();">×</span>`;
         container.insertBefore(chip, input);
     });
 }
@@ -488,84 +572,101 @@ function vtRemoveLastQuyKinhChip() {
 function vtOnQuyKinhSearchInput(val) {
     const suggestEl = document.getElementById('vt-quykinh-suggest');
     if (!suggestEl) return;
+    const query = (val || '').trim().toLowerCase();
+    if (!query) { suggestEl.style.display = 'none'; return; }
 
-    const lastPart = val.trim().toLowerCase();
+    // Match by abbreviated name or full name
+    const allKM = (_thuocData.kinhMach || []).filter(k =>
+        (k.ten_viet_tat || '').toLowerCase().includes(query) ||
+        (k.ten_kinh_mach || '').toLowerCase().includes(query)
+    );
+    const filtered = allKM.filter(k => !_vtCurrentQuyKinh.includes(k.ten_kinh_mach)).slice(0, 10);
 
-    if (!lastPart) {
-        suggestEl.style.display = 'none';
-        return;
-    }
-
-    const matchesKM = (_thuocData.kinhMach || []).filter(k => (k.ten_kinh_mach || '').toLowerCase().includes(lastPart));
-    const matchesHV = (_thuocData.huyetVi || []).filter(h => (h.ten_huyet || '').toLowerCase().includes(lastPart));
-    const allMatches = [...matchesKM.map(k => k.ten_kinh_mach), ...matchesHV.map(h => h.ten_huyet)].slice(0, 10);
-
-    // Lọc bỏ những cái đã chọn
-    const filteredMatches = allMatches.filter(m => !_vtCurrentQuyKinh.includes(m));
-
-    if (filteredMatches.length === 0) {
-        suggestEl.style.display = 'none';
-        return;
-    }
+    if (filtered.length === 0) { suggestEl.style.display = 'none'; return; }
 
     suggestEl.style.display = 'block';
-    suggestEl.innerHTML = filteredMatches.map(m => `
-        <div style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #F0E8D8; transition:background 0.2s;"
-             onmouseover="this.style.background='#F5F0E8'"
-             onmouseout="this.style.background='transparent'"
-             onclick="vtSelectQuyKinh('${escHtml(m)}')">
-            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">${escHtml(m)}</div>
+    suggestEl.innerHTML = filtered.map(k => `
+        <div style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
+             onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background='transparent'"
+             onclick="vtSelectQuyKinh('${escHtml(k.ten_kinh_mach)}')">
+            <div style="font-weight:700; color:#5B3A1A; font-size:0.82rem;">
+                ${k.ten_viet_tat ? `<span style="background:#E8DCCB; border-radius:4px; padding:1px 6px; margin-right:6px;">${escHtml(k.ten_viet_tat)}</span>` : ''}
+                ${escHtml(k.ten_kinh_mach)}
+            </div>
         </div>
     `).join('');
 }
 
-function vtSelectQuyKinh(name) {
-    if (!_vtCurrentQuyKinh.includes(name)) {
-        _vtCurrentQuyKinh.push(name);
+function vtSelectQuyKinh(fullName) {
+    if (!_vtCurrentQuyKinh.includes(fullName)) {
+        _vtCurrentQuyKinh.push(fullName);
     }
     const inp = document.getElementById('vt-inp-quykinh');
-    if (inp) {
-        inp.value = '';
-        inp.focus();
-    }
+    if (inp) { inp.value = ''; inp.focus(); }
     vtRenderQuyKinhChips();
-    document.getElementById('vt-quykinh-suggest').style.display = 'none';
+    const s = document.getElementById('vt-quykinh-suggest');
+    if (s) s.style.display = 'none';
 }
 
-let _vtCurrentCongDung = [];
+function vtSelectQuyKinhByLabel(label) {
+    // Try to find by abbreviated name
+    const km = (_thuocData.kinhMach || []).find(k =>
+        (k.ten_viet_tat || '').toLowerCase() === label.toLowerCase() ||
+        (k.ten_kinh_mach || '').toLowerCase() === label.toLowerCase()
+    );
+    vtSelectQuyKinh(km ? km.ten_kinh_mach : label);
+}
+
+// ── Công dụng với ghi chú ─────────────────────────────────
 function vtRenderCongDungList() {
     const container = document.getElementById('vt-congdung-list');
     if (!container) return;
-    container.innerHTML = _vtCurrentCongDung.map((txt, idx) => `
-        <div style="display:flex; gap:6px;">
-            <input type="text" class="tayy-form-input" style="margin-top:0;" value="${escHtml(txt)}" 
-                oninput="_vtCurrentCongDung[${idx}] = this.value" placeholder="Nhập công dụng...">
-            <button class="btn btn-sm" style="background:#FDECEA; color:#B03A2E; padding:0 10px;" onclick="vtRemoveCongDungInput(${idx})">×</button>
+    container.innerHTML = _vtCurrentCongDung.map((entry, idx) => `
+        <div style="display:flex; gap:6px; align-items:center;">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:2;"
+                value="${escHtml(entry.text || '')}"
+                oninput="_vtCurrentCongDung[${idx}].text = this.value"
+                placeholder="Nhập công dụng...">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:1; font-style:italic; color:#8B7355;"
+                value="${escHtml(entry.note || '')}"
+                oninput="_vtCurrentCongDung[${idx}].note = this.value"
+                placeholder="Ghi chú...">
+            <button class="btn btn-sm" style="background:#FDECEA; color:#B03A2E; padding:0 10px; flex-shrink:0;" onclick="vtRemoveCongDungInput(${idx})">×</button>
         </div>
     `).join('');
 }
 function vtAddCongDungInput() {
-    _vtCurrentCongDung.push('');
+    _vtCurrentCongDung.push({ text: '', note: '' });
     vtRenderCongDungList();
 }
 function vtRemoveCongDungInput(idx) {
     if (_vtCurrentCongDung.length > 1) {
         _vtCurrentCongDung.splice(idx, 1);
-        vtRenderCongDungList();
     } else {
-        _vtCurrentCongDung[0] = '';
-        vtRenderCongDungList();
+        _vtCurrentCongDung[0] = { text: '', note: '' };
     }
+    vtRenderCongDungList();
 }
 
 async function saveViThuoc(id) {
+    const congDungStr = _vtCurrentCongDung
+        .filter(e => (e.text || '').trim())
+        .map(e => e.note.trim() ? `${e.text.trim()}||${e.note.trim()}` : e.text.trim())
+        .join('; ');
+
     const payload = {
         ten_vi_thuoc: document.getElementById('vt-inp-ten').value.trim(),
         ten_goi_khac: document.getElementById('vt-inp-alias').value.trim(),
-        tinh: document.getElementById('vt-inp-tinh').value.trim(),
-        vi: document.getElementById('vt-inp-vi').value.trim(),
+        nhom_duoc_ly: document.getElementById('vt-inp-nhom').value.trim(),
+        tu_khi:   Number(document.getElementById('vt-inp-tukhi').value),
+        vi_toan:  Number(document.getElementById('vt-inp-vi_toan').value || 0),
+        vi_khu:   Number(document.getElementById('vt-inp-vi_khu').value  || 0),
+        vi_cam:   Number(document.getElementById('vt-inp-vi_cam').value  || 0),
+        vi_tan:   Number(document.getElementById('vt-inp-vi_tan').value  || 0),
+        vi_ham:   Number(document.getElementById('vt-inp-vi_ham').value  || 0),
+        huong_tgpt: Number(document.getElementById('vt-inp-huong').value),
         quy_kinh: _vtCurrentQuyKinh.join(', '),
-        cong_dung: _vtCurrentCongDung.map(s => s.trim()).filter(Boolean).join('; ')
+        cong_dung: congDungStr,
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc');
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
@@ -580,6 +681,8 @@ async function deleteViThuoc(id) {
         renderThuocSection();
     }
 }
+
+
 
 // Helper tính preview gram
 function btGetGramPreviewText(lieu) {
@@ -1313,3 +1416,129 @@ async function btSoftCreatePhapTri(name) {
     _thuocData.phapTri.push({ id: res.id, ten_phap_tri: name, ...(res.data || {}) });
     btSelectPhapTri(name);
 }
+
+// ═══════════════════════════════════════════════════════════
+// TAB: NHÓM DƯỢC LÝ
+// ═══════════════════════════════════════════════════════════
+function renderNhomDuocLyTab(el) {
+    const rows = (_thuocData.nhomDuocLy || []).map(item => {
+        const id = item.id;
+        // Count vi thuoc using this nhom
+        const usageCount = (_thuocData.viThuoc || []).filter(vt =>
+            (vt.nhom_duoc_ly || '') === item.ten_nhom
+        ).length;
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_nhom)}</td>
+            <td style="text-align:center;">
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} vị thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
+            </td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openNhomDuocLyForm(${id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteNhomDuocLy(${id})">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.nhomDuocLy||[]).length}</strong> nhóm dược lý
+            </div>
+            <button class="btn btn-primary" onclick="openNhomDuocLyForm()">+ Thêm nhóm dược lý</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên nhóm dược lý</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có nhóm dược lý nào</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+
+function openNhomDuocLyForm(id) {
+    const item = id ? (_thuocData.nhomDuocLy || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa nhóm dược lý' : 'Thêm nhóm dược lý', `
+        <label class="tayy-form-label">Tên nhóm dược lý *<br>
+            <input id="ndl-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_nhom) : ''}"
+                placeholder="VD: Bổ khí, Thanh nhiệt, Tiêu thực...">
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveNhomDuocLy(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('ndl-inp-ten')?.focus(), 50);
+}
+
+async function saveNhomDuocLy(id) {
+    const ten = (document.getElementById('ndl-inp-ten')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên nhóm dược lý!');
+    const payload = { ten_nhom: ten };
+    const res = id ? await apiUpdateNhomDuocLy(id, payload) : await apiCreateNhomDuocLy(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteNhomDuocLy(id) {
+    if (!confirm('Xóa nhóm dược lý này?')) return;
+    await apiDeleteNhomDuocLy(id);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: CÔNG DỤNG (quản lý danh mục công dụng chung)
+// ═══════════════════════════════════════════════════════════
+function renderCongDungTab(el) {
+    // Collect all unique công dụng (stripped of notes) across all vi thuoc
+    const allCD = new Map(); // text → { note, count }
+    (_thuocData.viThuoc || []).forEach(vt => {
+        (vt.cong_dung || '').split('; ').filter(Boolean).forEach(entry => {
+            const parts = entry.split('||');
+            const text = (parts[0] || '').trim();
+            const note = (parts[1] || '').trim();
+            if (!text) return;
+            if (!allCD.has(text)) allCD.set(text, { note, count: 0 });
+            allCD.get(text).count++;
+        });
+    });
+
+    const rows = [...allCD.entries()].sort((a, b) => b[1].count - a[1].count).map(([text, info]) => `
+        <tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(text)}</td>
+            <td style="color:#8B7355; font-style:italic;">${escHtml(info.note || '—')}</td>
+            <td style="text-align:center;">
+                <span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${info.count} vị thuốc</span>
+            </td>
+        </tr>
+    `).join('');
+
+    el.innerHTML = `
+        <div style="margin-bottom:12px; padding:10px 14px; background:#FBF8F1; border-radius:8px; border:1px solid #E2D4B8; color:#8B7355; font-size:0.82rem;">
+            📋 Danh sách tổng hợp công dụng từ tất cả vị thuốc. Để thêm/sửa/xóa công dụng, hãy vào tab <strong>Danh mục Vị thuốc</strong> và chỉnh sửa từng vị thuốc.
+        </div>
+        <div style="font-size:0.82rem;color:#A09580;margin-bottom:10px;">
+            Tổng: <strong>${allCD.size}</strong> công dụng khác nhau
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Công dụng</th>
+                    <th>Ghi chú thường gặp</th>
+                    <th style="text-align:center;">Số vị thuốc</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có công dụng nào được ghi nhận</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+

@@ -941,3 +941,36 @@ async function apiUpdateAppointmentStatus(id, newStatus) {
     return { success: true };
 }
 
+// ---- NHÓM DƯỢC LÝ ----
+async function apiGetNhomDuocLy() {
+    const res = await fetch(_base() + '/nhom-duoc-ly');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateNhomDuocLy(payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo nhóm dược lý thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateNhomDuocLy(id, payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật nhóm dược lý thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteNhomDuocLy(id) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa nhóm dược lý thất bại') };
+    return { success: true };
+}
+
+

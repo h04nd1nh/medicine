@@ -505,16 +505,17 @@ function yhctBuildAnalysisHtml(r) {
             </div>
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:8px;line-height:1.35;">5) Phân tích Tác dụng YHCT <span style="font-weight:600;color:#6B5A45;">— ${escHtml(r.ten || '—')}</span></div>
+            <div style="margin-bottom:10px;line-height:1.35;">
+                <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;">5) Phân tích Tác dụng YHCT</div>
+                <div style="margin-top:6px;font-weight:800;font-size:1.12rem;color:#1F1410;letter-spacing:-0.02em;">${escHtml(r.ten || '—')}</div>
+            </div>
             ${(r.tacDungYhctNhomNho && r.tacDungYhctNhomNho.length)
                 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;padding:2px 0;">${
                     r.tacDungYhctNhomNho.map(n => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(n)}</span>`).join('')
                 }</div>`
                 : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có nhóm nhỏ nào được gán. Gán vị thuốc trong tab «Nhóm dược lý».</div>'}
-            <div style="margin-top:14px;font-weight:700;color:#5B3A1A;font-size:0.8rem;margin-bottom:8px;">Nhóm lớn (dược lý)</div>
-            ${yhctNhomLonChipsHtml(r.tacDungYhctNhomLon || [])}
-            <div style="margin-top:16px;font-weight:700;color:#5B3A1A;font-size:0.8rem;margin-bottom:8px;">Pháp trị (bài thuốc)</div>
-            ${yhctPhapTriChipsHtml(r.phapTriBaiThuoc)}
+            <div style="margin-top:14px;">${yhctNhomLonChipsHtml(r.tacDungYhctNhomLon || [])}</div>
+            <div style="margin-top:14px;">${yhctPhapTriChipsHtml(r.phapTriBaiThuoc)}</div>
         </div>
     </div>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">

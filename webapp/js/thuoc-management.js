@@ -684,24 +684,41 @@ async function deleteViThuoc(id) {
 
 
 
-// Helper tính preview gram
+// Helper tính preview gram — mọi liều lượng đều hiển thị ra g
 function btGetGramPreviewText(lieu) {
     if (lieu === '*') return '1.5g - 3g';
     if (lieu === '#') return '15g - 30g';
     if (!lieu) return '4.5g - 9g';
-    
-    const lower = lieu.toLowerCase();
-    if (lower.includes('tiền') || lower.includes('lượng') || lower.includes('chỉ') || lower.includes('lạng')) {
-        return lower.replace(/([\d.,]+)\s*(lượng|lạng)/gi, (match, p1) => {
-            const val = parseFloat(p1.replace(',', '.'));
-            return isNaN(val) ? match : `${Math.round(val * 30 * 100) / 100}g`;
-        }).replace(/([\d.,]+)\s*(tiền|chỉ)/gi, (match, p1) => {
-            const val = parseFloat(p1.replace(',', '.'));
-            return isNaN(val) ? match : `${Math.round(val * 3 * 100) / 100}g`;
-        });
+
+    const lower = lieu.toLowerCase().trim();
+
+    // Đã có đơn vị g rồi → giữ nguyên
+    if (/^\d+(\.\d+)?g$/.test(lower)) return lower;
+
+    // Số thuần (không có đơn vị) → thêm g
+    if (/^\d+([.,]\d+)?$/.test(lower)) {
+        const val = parseFloat(lower.replace(',', '.'));
+        return isNaN(val) ? lieu : `${val}g`;
     }
+
+    // Chuyển đổi tiền / chỉ → g (1 tiền = 3g)
+    // Chuyển đổi lượng / lạng → g (1 lượng = 30g)
+    if (lower.includes('tiền') || lower.includes('lượng') || lower.includes('chỉ') || lower.includes('lạng')) {
+        return lower
+            .replace(/([\d.,]+)\s*(lượng|lạng)/gi, (match, p1) => {
+                const val = parseFloat(p1.replace(',', '.'));
+                return isNaN(val) ? match : `${Math.round(val * 30 * 100) / 100}g`;
+            })
+            .replace(/([\d.,]+)\s*(tiền|chỉ)/gi, (match, p1) => {
+                const val = parseFloat(p1.replace(',', '.'));
+                return isNaN(val) ? match : `${Math.round(val * 3 * 100) / 100}g`;
+            });
+    }
+
+    // Trường hợp khác (ký tự lạ, ghi chú...) → giữ nguyên
     return lieu;
 }
+
 
 // ═══════════════════════════════════════════════════════════
 // TAB: BÀI THUỐC

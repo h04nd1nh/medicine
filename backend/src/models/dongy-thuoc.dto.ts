@@ -1,29 +1,18 @@
-// ViThuoc DTOs
+// ViThuoc DTOs — khớp mẫu Excel
 export class CreateViThuocDto {
   ten_vi_thuoc: string;
-  ten_khoa_hoc?: string;
   ten_goi_khac?: string;
-  bo_phan_dung?: string;
-  tinh_vi?: string;
+  nhom_lon?: string;
+  nhom_duoc_ly?: string;
   tinh?: string;
   vi?: string;
-  quy_kinh?: string; // Supports multiple via comma
-  cong_dung?: string;
+  quy_kinh?: string;
   lieu_dung?: string;
-  luu_y?: string;
-  // YHCT Pharmacology Fields
-  nhom_duoc_ly?: string;
-  tu_khi?: number;
-  vi_toan?: number;
-  vi_khu?: number;
-  vi_cam?: number;
-  vi_tan?: number;
-  vi_ham?: number;
-  huong_tgpt?: number;
-  tac_dung_chinh?: string;
+  cong_dung?: string;
+  chu_tri?: string;
+  kieng_ky?: string;
 }
 export class UpdateViThuocDto extends CreateViThuocDto {}
-
 
 // BaiThuoc DTOs
 export class CreateBaiThuocDto {

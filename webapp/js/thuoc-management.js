@@ -1,6 +1,12 @@
 // thuoc-management.js — Quản lý Thuốc tập trung (Vị thuốc, Bài thuốc)
 // Dùng chung cho cả Tây y và Đông y
 
+// State quy kinh (đồng bộ với thuoc-yhct-analysis.js — file đó load sau và gán lại)
+var _vtCurrentQuyKinh = [];
+var _vtCurrentCongDung = [];
+var _vtCurrentChuTri = [];
+var _vtCurrentKiengKy = [];
+
 let _thuocData = {
     viThuoc: [],
     baiThuoc: [],
@@ -272,80 +278,22 @@ async function deletePhapTri(id) {
 // TAB: VỊ THUỐC
 // ═══════════════════════════════════════════════════════════
 
-// Mapping Tính (Tứ Khí): tên hiển thị → số
-const _TINH_OPTIONS = [
-    { label: 'Đại Hàn', value: -2 },
-    { label: 'Hàn',     value: -1 },
-    { label: 'Bình',    value:  0 },
-    { label: 'Ôn',      value:  1 },
-    { label: 'Nhiệt',   value:  2 },
-];
-
-// Mapping Hướng (Thăng/Giáng): tên hiển thị → số
-const _HUONG_OPTIONS = [
-    { label: 'Giáng mạnh', value: 1 },
-    { label: 'Giáng nhẹ',  value: 2 },
-    { label: 'Bình',       value: 3 },
-    { label: 'Thăng nhẹ',  value: 4 },
-    { label: 'Thăng mạnh', value: 5 },
-];
-
-function _tinhLabel(num) {
-    const opt = _TINH_OPTIONS.find(o => o.value === Number(num));
-    return opt ? opt.label : (num != null ? String(num) : '—');
-}
-function _huongLabel(num) {
-    const opt = _HUONG_OPTIONS.find(o => o.value === Number(num));
-    return opt ? opt.label : (num != null ? String(num) : '—');
-}
-
+/** Fallback nếu thuoc-yhct-analysis.js chưa ghi đè — schema Excel 11 cột */
 function renderViThuocTab(el) {
-    const rows = _thuocData.viThuoc.map(item => {
-        const aliasStr = item.ten_goi_khac ? `<div style="font-size:0.75rem; color:#A09580; font-style:italic;">(${escHtml(item.ten_goi_khac)})</div>` : '';
-        // Công dụng: format "cd||ghi chú" or plain "cd"
-        const congDungHtml = (item.cong_dung || '').split('; ').filter(Boolean).map(entry => {
-            const parts = entry.split('||');
-            const cd = escHtml(parts[0] || '');
-            const note = parts[1] ? `<span style="color:#A09580; font-style:italic;"> — ${escHtml(parts[1])}</span>` : '';
-            return `• ${cd}${note}`;
-        }).join('<br>');
-
-        // Ngũ vị summary
-        const viParts = [];
-        if (Number(item.vi_toan) > 0) viParts.push(`Chua(${item.vi_toan})`);
-        if (Number(item.vi_khu)  > 0) viParts.push(`Đắng(${item.vi_khu})`);
-        if (Number(item.vi_cam)  > 0) viParts.push(`Ngọt(${item.vi_cam})`);
-        if (Number(item.vi_tan)  > 0) viParts.push(`Cay(${item.vi_tan})`);
-        if (Number(item.vi_ham)  > 0) viParts.push(`Mặn(${item.vi_ham})`);
-
-        // Quy kinh: stored as full names, display shortened
-        const quyKinhShort = (item.quy_kinh || '').split(',').map(s => {
-            const s2 = s.trim();
-            const km = (_thuocData.kinhMach || []).find(k => k.ten_kinh_mach === s2);
-            return km ? (km.ten_viet_tat || s2) : s2;
-        }).filter(Boolean).join(', ');
-
-        return `
-            <tr>
-                <td>
-                    <div style="font-weight:700; color:#5B3A1A;">${escHtml(item.ten_vi_thuoc)}</div>
-                    ${aliasStr}
-                    ${item.nhom_duoc_ly ? `<div style="font-size:0.72rem;color:#8B7355;margin-top:2px;">📂 ${escHtml(item.nhom_duoc_ly)}</div>` : ''}
-                </td>
-                <td style="text-align:center;">${_tinhLabel(item.tu_khi)}</td>
-                <td style="font-size:0.78rem;text-align:center;">${escHtml(viParts.join(', ') || '—')}</td>
-                <td style="text-align:center; font-size:0.8rem;">${_huongLabel(item.huong_tgpt)}</td>
-                <td style="text-align:center; font-size:0.78rem;">${escHtml(quyKinhShort || '—')}</td>
-                <td style="font-size:0.78rem; line-height:1.4;">${congDungHtml || '—'}</td>
-                <td style="text-align:center;width:120px;">
-                    <div class="table-actions" style="justify-content:center;">
-                        <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏ Sửa</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑 Xóa</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    const rows = (_thuocData.viThuoc || []).map(item => `
+        <tr>
+            <td><strong>${escHtml(item.ten_vi_thuoc)}</strong></td>
+            <td style="font-size:0.78rem;">${escHtml(item.nhom_lon || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.nhom_duoc_ly || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.tinh || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.vi || '—')}</td>
+            <td style="text-align:center;width:120px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteViThuoc(${item.id})">🗑</button>
+                </div>
+            </td>
+        </tr>`).join('');
     el.innerHTML = `
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
             <button class="btn btn-primary" onclick="openViThuocForm()">+ Thêm vị thuốc</button>
@@ -353,15 +301,10 @@ function renderViThuocTab(el) {
         <div class="data-table-container">
             <table>
                 <thead><tr>
-                    <th>Tên vị thuốc</th>
-                    <th style="text-align:center;">Tính</th>
-                    <th style="text-align:center;">Vị</th>
-                    <th style="text-align:center;">Hướng</th>
-                    <th style="text-align:center;">Quy kinh</th>
-                    <th>Công dụng</th>
-                    <th style="width:120px; text-align:center;">Thao tác</th>
+                    <th>Tên vị thuốc</th><th>Nhóm lớn</th><th>Nhóm dược lý</th><th>Tính</th><th>Vị</th>
+                    <th style="width:120px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -538,25 +481,20 @@ function vtRemoveKiengKyInput(idx) {
     vtRenderKiengKyList();
 }
 
+/** Fallback — form đầy đủ nằm trong thuoc-yhct-analysis.js */
 async function saveViThuoc(id) {
-    const congDungStr = _vtCurrentCongDung
-        .filter(e => (e.text || '').trim())
-        .map(e => e.note.trim() ? `${e.text.trim()}||${e.note.trim()}` : e.text.trim())
-        .join('; ');
-
     const payload = {
-        ten_vi_thuoc: document.getElementById('vt-inp-ten').value.trim(),
-        ten_goi_khac: document.getElementById('vt-inp-alias').value.trim(),
-        nhom_duoc_ly: document.getElementById('vt-inp-nhom').value.trim(),
-        tu_khi:   Number(document.getElementById('vt-inp-tukhi').value),
-        vi_toan:  Number(document.getElementById('vt-inp-vi_toan').value || 0),
-        vi_khu:   Number(document.getElementById('vt-inp-vi_khu').value  || 0),
-        vi_cam:   Number(document.getElementById('vt-inp-vi_cam').value  || 0),
-        vi_tan:   Number(document.getElementById('vt-inp-vi_tan').value  || 0),
-        vi_ham:   Number(document.getElementById('vt-inp-vi_ham').value  || 0),
-        huong_tgpt: Number(document.getElementById('vt-inp-huong').value),
-        quy_kinh: _vtCurrentQuyKinh.join(', '),
-        cong_dung: congDungStr,
+        ten_vi_thuoc: (document.getElementById('vt-inp-ten')?.value || '').trim(),
+        ten_goi_khac: (document.getElementById('vt-inp-alias')?.value || '').trim(),
+        nhom_lon: (document.getElementById('vt-inp-nhomlon')?.value || '').trim(),
+        nhom_duoc_ly: (document.getElementById('vt-inp-nhomduocly')?.value || '').trim(),
+        tinh: (document.getElementById('vt-inp-tinh')?.value || '').trim(),
+        vi: (document.getElementById('vt-inp-vi')?.value || '').trim(),
+        lieu_dung: (document.getElementById('vt-inp-lieudung')?.value || '').trim(),
+        quy_kinh: (typeof _vtCurrentQuyKinh !== 'undefined' && _vtCurrentQuyKinh.length) ? _vtCurrentQuyKinh.join(', ') : '',
+        cong_dung: (document.getElementById('vt-ta-congdung')?.value || '').trim(),
+        chu_tri: (document.getElementById('vt-ta-chutri')?.value || '').trim(),
+        kieng_ky: (document.getElementById('vt-ta-kiengky')?.value || '').trim(),
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc');
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);

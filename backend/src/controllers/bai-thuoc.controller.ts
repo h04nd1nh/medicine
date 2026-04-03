@@ -6,12 +6,6 @@ import { BaiThuocChiTiet } from '../models/bai-thuoc-chi-tiet.model';
 import { ViThuoc } from '../models/vi-thuoc.model';
 import { CreateBaiThuocDto, UpdateBaiThuocDto } from '../models/dongy-thuoc.dto';
 
-// 12 kinh mạch chuẩn (dùng cho radar)
-const KINH_MACH_IDS = [
-  'Tỳ', 'Vị', 'Can', 'Đởm', 'Tâm', 'Tiểu Trường',
-  'Phế', 'Đại Trường', 'Thận', 'Bàng Quang', 'Tâm Bào', 'Tam Tiêu',
-];
-
 @Injectable()
 export class BaiThuocService {
   constructor(
@@ -125,22 +119,7 @@ export class BaiThuocService {
     const totalWeight = validItems.reduce((sum, x) => sum + x.gram, 0);
     if (totalWeight === 0) return { success: false, error: 'Tổng liều lượng = 0, không thể tính.' };
 
-    // Bước 2A: Tứ Khí tổng (Trung bình có trọng số)
-    const tuKhiScore = validItems.reduce((sum, x) => sum + (x.vt.tu_khi ?? 0) * x.gram, 0) / totalWeight;
-
-    // Bước 2B: Ngũ Vị tổng (Trung bình có trọng số)
-    const nguViRadar = {
-      Toan: validItems.reduce((s, x) => s + (x.vt.vi_toan ?? 0) * x.gram, 0) / totalWeight,
-      Khu:  validItems.reduce((s, x) => s + (x.vt.vi_khu ?? 0) * x.gram, 0) / totalWeight,
-      Cam:  validItems.reduce((s, x) => s + (x.vt.vi_cam ?? 0) * x.gram, 0) / totalWeight,
-      Tan:  validItems.reduce((s, x) => s + (x.vt.vi_tan ?? 0) * x.gram, 0) / totalWeight,
-      Ham:  validItems.reduce((s, x) => s + (x.vt.vi_ham ?? 0) * x.gram, 0) / totalWeight,
-    };
-
-    // Bước 2C: Hướng TGPT tổng
-    const huongScore = validItems.reduce((sum, x) => sum + (x.vt.huong_tgpt ?? 3) * x.gram, 0) / totalWeight;
-
-    // Bước 2D: Quy Kinh tổng (tích lũy liều lượng)
+    // Quy Kinh tổng (tích lũy liều lượng)
     const quyKinhRadar: Record<string, number> = {};
     for (const { d, vt, gram } of validItems) {
       // Ưu tiên quy_kinh của vị thuốc; nếu không có thì dùng quy_kinh trong chi tiết
@@ -187,36 +166,18 @@ export class BaiThuocService {
       ten: vt.ten_vi_thuoc,
       lieu_luong_text: d.lieu_luong,
       lieu_gram: gram,
-      tu_khi: vt.tu_khi ?? 0,
-      ngu_vi: { toan: vt.vi_toan ?? 0, khu: vt.vi_khu ?? 0, cam: vt.vi_cam ?? 0, tan: vt.vi_tan ?? 0, ham: vt.vi_ham ?? 0 },
-      huong_tgpt: vt.huong_tgpt ?? 3,
+      nhom_lon: vt.nhom_lon || '',
+      nhom_duoc_ly: vt.nhom_duoc_ly || '',
       quy_kinh: vt.quy_kinh || '',
-      tac_dung_chinh: vt.tac_dung_chinh || '',
       vai_tro_phan_tich: roleMap[vt.id] || 'Tá',
       vai_tro_nhap: d.vai_tro || '',
       phan_tram: Math.round((gram / totalWeight) * 100),
     }));
 
-    // Label tứ khí
-    let tuKhiLabel = 'Bình';
-    if (tuKhiScore >= 1.5) tuKhiLabel = 'Đại Nhiệt';
-    else if (tuKhiScore >= 0.5) tuKhiLabel = 'Ôn / Nhiệt';
-    else if (tuKhiScore <= -1.5) tuKhiLabel = 'Đại Hàn';
-    else if (tuKhiScore <= -0.5) tuKhiLabel = 'Hàn / Lương';
-
-    let huongLabel = 'Bình hòa';
-    if (huongScore >= 4.5) huongLabel = 'Thăng mạnh';
-    else if (huongScore >= 3.5) huongLabel = 'Thăng nhẹ';
-    else if (huongScore <= 1.5) huongLabel = 'Giáng mạnh';
-    else if (huongScore <= 2.5) huongLabel = 'Giáng nhẹ';
-
     return {
       success: true,
       ten_bai_thuoc: baiThuoc.ten_bai_thuoc,
       tong_lieu_luong: totalWeight,
-      tu_khi: { score: Math.round(tuKhiScore * 100) / 100, label: tuKhiLabel },
-      ngu_vi_radar: nguViRadar,
-      huong: { score: Math.round(huongScore * 100) / 100, label: huongLabel },
       quy_kinh_radar: quyKinhNormalized,
       quy_kinh_raw: quyKinhRadar,
       vi_thuoc_list: viThuocList,

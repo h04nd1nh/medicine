@@ -38,6 +38,17 @@ function yhctNhomLonTextFromVt(vt) {
     return [...lons].join(' ').toLowerCase();
 }
 
+/** Tên nhóm lớn (mỗi liên kết có thể có 0 hoặc 1 nhóm lớn — vị độc lập nhóm nhỏ thì không có). */
+function yhctNhomLonNamesFromVt(vt) {
+    const links = vt?.nhomLinks || [];
+    const lons = new Set();
+    for (const l of links) {
+        const t = (l.nhomNho?.nhomLon?.ten_nhom_lon || '').trim();
+        if (t) lons.add(t);
+    }
+    return [...lons];
+}
+
 /** Nhãn nhóm nhỏ cho bảng / xuất Excel (ưu tiên `vtNhomSubLabels` từ thuoc-management.js). */
 function yhctVtNhomSubDisplay(vt) {
     if (typeof vtNhomSubLabels === 'function') return vtNhomSubLabels(vt);
@@ -53,6 +64,46 @@ function yhctInlineChipsFromStrings(arr) {
     }
     return `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${
         list.map(t => `<span class="chip" style="cursor:default;font-size:0.72rem;">${escHtml(t)}</span>`).join('')
+    }</div>`;
+}
+
+/** Cùng cỡ chữ; chỉ khác màu nền/viền/chữ giữa nhóm nhỏ / nhóm lớn / pháp trị. */
+const YHCT_TACDUNG_CHIP = {
+    fs: '0.8rem',
+    pad: '2px 10px',
+    nho: 'border:1px solid #D4C5A0;background:#F5F0E8;color:#5B3A1A;',
+    lon: 'border:1px solid #C49A6C;background:#FAEBD8;color:#5B3A1A;',
+    phap: 'border:1px solid #7A9B8E;background:#E8F2EE;color:#2D4A3E;',
+};
+
+function yhctTacdungChipStyle(kind) {
+    const colors = YHCT_TACDUNG_CHIP[kind] || YHCT_TACDUNG_CHIP.nho;
+    return `cursor:default;font-size:${YHCT_TACDUNG_CHIP.fs};font-weight:600;padding:${YHCT_TACDUNG_CHIP.pad};border-radius:4px;${colors}`;
+}
+
+/** Chip nhóm lớn — cùng cỡ với nhóm nhỏ, khác màu. */
+function yhctNhomLonChipsHtml(arr) {
+    const list = [...new Set((arr || []).map(s => String(s).trim()).filter(Boolean))];
+    if (!list.length) {
+        return '<span style="color:#9CA3AF;font-size:0.8rem;">Không có nhóm lớn (chỉ nhóm nhỏ độc lập hoặc chưa gán).</span>';
+    }
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${
+        list.map(t => `<span class="chip" style="${yhctTacdungChipStyle('lon')}">${escHtml(t)}</span>`).join('')
+    }</div>`;
+}
+
+/** Pháp trị bài thuốc — tách theo dấu phẩy/chấm phẩy thành chip. */
+function yhctPhapTriChipsHtml(raw) {
+    const s = (raw || '').trim();
+    if (!s) {
+        return '<span style="color:#9CA3AF;font-size:0.8rem;">Chưa gán pháp trị.</span>';
+    }
+    const parts = s.split(/[,，;]/g).map(x => x.trim()).filter(Boolean);
+    if (!parts.length) {
+        return `<span class="chip" style="${yhctTacdungChipStyle('phap')}">${escHtml(s)}</span>`;
+    }
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${
+        parts.map(t => `<span class="chip" style="${yhctTacdungChipStyle('phap')}">${escHtml(t)}</span>`).join('')
     }</div>`;
 }
 
@@ -300,6 +351,18 @@ function yhctAnalyzeLocalSimple(bt) {
     }
     tacDungYhctNhomNho.sort((a, b) => a.localeCompare(b, 'vi'));
 
+    const seenLonTac = new Set();
+    const tacDungYhctNhomLon = [];
+    for (const { vt } of items) {
+        for (const raw of yhctNhomLonNamesFromVt(vt)) {
+            const t = (raw || '').trim();
+            if (!t || seenLonTac.has(t)) continue;
+            seenLonTac.add(t);
+            tacDungYhctNhomLon.push(t);
+        }
+    }
+    tacDungYhctNhomLon.sort((a, b) => a.localeCompare(b, 'vi'));
+
     const addTuKhi = (tinhRaw, wPct) => {
         const t = (tinhRaw || '').trim().toLowerCase();
         if (!t) return;
@@ -347,7 +410,18 @@ function yhctAnalyzeLocalSimple(bt) {
         addTgpt(v, wPct);
     });
 
-    return { ten:bt.ten_bai_thuoc, W, quyKinhNorm, viThuocList, tuKhi, nguVi, tgpt, tacDungYhctNhomNho };
+    return {
+        ten: bt.ten_bai_thuoc,
+        W,
+        quyKinhNorm,
+        viThuocList,
+        tuKhi,
+        nguVi,
+        tgpt,
+        tacDungYhctNhomNho,
+        tacDungYhctNhomLon,
+        phapTriBaiThuoc: (bt.phap_tri || '').trim(),
+    };
 }
 
 function yhctBuildAnalysisHtml(r) {
@@ -431,12 +505,16 @@ function yhctBuildAnalysisHtml(r) {
             </div>
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:8px;">5) Phân tích Tác dụng YHCT</div>
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:8px;line-height:1.35;">5) Phân tích Tác dụng YHCT <span style="font-weight:600;color:#6B5A45;">— ${escHtml(r.ten || '—')}</span></div>
             ${(r.tacDungYhctNhomNho && r.tacDungYhctNhomNho.length)
-                ? `<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:240px;overflow-y:auto;padding:2px 0;">${
-                    r.tacDungYhctNhomNho.map(n => `<span class="chip" style="cursor:default;font-size:0.8rem;">${escHtml(n)}</span>`).join('')
+                ? `<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;padding:2px 0;">${
+                    r.tacDungYhctNhomNho.map(n => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(n)}</span>`).join('')
                 }</div>`
-                : '<div style="color:#9CA3AF;font-size:0.82rem;">Chưa có nhóm nhỏ nào được gán. Gán vị thuốc trong tab «Nhóm dược lý».</div>'}
+                : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có nhóm nhỏ nào được gán. Gán vị thuốc trong tab «Nhóm dược lý».</div>'}
+            <div style="margin-top:14px;font-weight:700;color:#5B3A1A;font-size:0.8rem;margin-bottom:8px;">Nhóm lớn (dược lý)</div>
+            ${yhctNhomLonChipsHtml(r.tacDungYhctNhomLon || [])}
+            <div style="margin-top:16px;font-weight:700;color:#5B3A1A;font-size:0.8rem;margin-bottom:8px;">Pháp trị (bài thuốc)</div>
+            ${yhctPhapTriChipsHtml(r.phapTriBaiThuoc)}
         </div>
     </div>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">

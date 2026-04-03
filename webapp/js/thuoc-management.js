@@ -1418,7 +1418,8 @@ function renderNhomDuocLyTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-outline" onclick="exportNhomDuocLyXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" onclick="document.getElementById('ndl-import-file').click()">📤 Nhập Excel</button>
+                <button type="button" class="btn btn-outline" title="Cột: Nhóm lớn (có thể để trống), Nhóm nhỏ, Các vị thuốc (cách nhau bởi dấu phẩy). Tùy chọn: Mô tả."
+                    onclick="document.getElementById('ndl-import-file').click()">📤 Nhập Excel</button>
                 <input type="file" id="ndl-import-file" accept=".xlsx, .xls, .csv" style="display:none;" onchange="importNhomDuocLyXlsx(event)">
             </div>
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -1567,30 +1568,117 @@ async function saveNhomNhoMembersFromModal(idNho) {
     renderThuocSection();
 }
 
+function ndlNhomImportSetLoading(show, message) {
+    let el = document.getElementById('ndl-nhom-import-loading');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'ndl-nhom-import-loading';
+        el.style.cssText = [
+            'display:none', 'position:fixed', 'inset:0', 'z-index:99999',
+            'background:rgba(245,240,232,.88)', 'backdrop-filter:blur(3px)',
+            'align-items:center', 'justify-content:center', 'flex-direction:column', 'gap:14px',
+        ].join(';');
+        el.innerHTML = `
+            <div style="width:46px;height:46px;border:4px solid #E2D4B8;border-top-color:#5B3A1A;border-radius:50%;
+                animation:ndlNhomSpin .8s linear infinite;"></div>
+            <div id="ndl-nhom-import-loading-msg" style="font-weight:700;color:#5B3A1A;font-size:0.95rem;text-align:center;max-width:min(420px,92vw);line-height:1.45;"></div>`;
+        document.body.appendChild(el);
+        if (!document.getElementById('ndl-nhom-import-spin-style')) {
+            const st = document.createElement('style');
+            st.id = 'ndl-nhom-import-spin-style';
+            st.textContent = '@keyframes ndlNhomSpin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(st);
+        }
+    }
+    const msgEl = document.getElementById('ndl-nhom-import-loading-msg');
+    if (msgEl) msgEl.textContent = message || '';
+    el.style.display = show ? 'flex' : 'none';
+}
+
+function ndlNormalizeNhomExcelRow(row) {
+    const o = {};
+    if (!row || typeof row !== 'object') return o;
+    for (const [k, v] of Object.entries(row)) {
+        o[String(k).trim()] = v;
+    }
+    return o;
+}
+
+function ndlPickNhomCol(row, keys) {
+    for (const k of keys) {
+        if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
+        const v = row[k];
+        if (v == null) continue;
+        const s = String(v).trim();
+        if (s !== '') return s;
+    }
+    return '';
+}
+
+function ndlHerbsColumnPresentInRow(row) {
+    const herbsKeys = ['Các vị thuốc', 'Cac vi thuoc', 'Cac vi thuốc', 'Vi thuốc trong nhóm'];
+    return herbsKeys.some(k => Object.prototype.hasOwnProperty.call(row, k));
+}
+
+function ndlParseHerbNamesFromCell(raw) {
+    if (raw == null) return [];
+    return String(raw)
+        .split(/[,，、]/g)
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+async function ndlEnsureViThuocIdByName(ten, lookupLowerToId) {
+    const t = (ten || '').trim();
+    if (!t) return null;
+    const k = t.toLowerCase();
+    if (lookupLowerToId.has(k)) return lookupLowerToId.get(k);
+    const res = await apiCreateViThuoc({ ten_vi_thuoc: t });
+    if (!res.success) {
+        console.warn('Không tạo được vị thuốc:', t, res.error);
+        return null;
+    }
+    lookupLowerToId.set(k, res.id);
+    return res.id;
+}
+
 function exportNhomDuocLyXlsx() {
     if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
+    const vts = _thuocData.viThuoc || [];
+    const idToTen = new Map(vts.map(v => [v.id, (v.ten_vi_thuoc || '').trim()]));
     const data = [];
     for (const lon of _thuocData.nhomDuocLy || []) {
         if (lon.isOrphanBucket) {
             for (const n of lon.nhomNho || []) {
+                const herbPart = (n.id_vi_thuoc || [])
+                    .map(id => idToTen.get(id) || '')
+                    .filter(Boolean)
+                    .join(', ');
                 data.push({
                     'Nhóm lớn': '',
                     'Nhóm nhỏ': n.ten_nhom_nho || '',
+                    'Các vị thuốc': herbPart,
                     'Mô tả': n.mo_ta || '',
                 });
             }
             continue;
         }
         for (const n of lon.nhomNho || []) {
+            const herbPart = (n.id_vi_thuoc || [])
+                .map(id => idToTen.get(id) || '')
+                .filter(Boolean)
+                .join(', ');
             data.push({
                 'Nhóm lớn': lon.ten_nhom_lon || '',
                 'Nhóm nhỏ': n.ten_nhom_nho || '',
+                'Các vị thuốc': herbPart,
                 'Mô tả': n.mo_ta || '',
             });
         }
     }
+    const emptyRow = { 'Nhóm lớn': '', 'Nhóm nhỏ': '', 'Các vị thuốc': '', 'Mô tả': '' };
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.length ? data : [{ 'Nhóm lớn': '', 'Nhóm nhỏ': '', 'Mô tả': '' }]), 'NhomDuocLy');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.length ? data : [emptyRow]), 'NhomDuocLy');
     XLSX.writeFile(wb, 'Danh_Muc_Nhom_Duoc_Ly.xlsx');
 }
 
@@ -1598,87 +1686,143 @@ function importNhomDuocLyXlsx(e) {
     if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện');
     const file = e.target.files?.[0];
     if (!file) return;
+    const inputEl = e.target;
     const reader = new FileReader();
     reader.onload = async (evt) => {
-        const buf = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(buf, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-        if (!rows.length) {
-            alert('File Excel không có dữ liệu.');
-            e.target.value = '';
-            return;
-        }
-        if (!confirm(`Tìm thấy ${rows.length} dòng. Import nhóm lớn / nhóm nhỏ? (không gán vị thuốc)`)) {
-            e.target.value = '';
-            return;
-        }
+        try {
+            const buf = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(buf, { type: 'array' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rawRows = XLSX.utils.sheet_to_json(sheet);
+            const rows = rawRows.map(ndlNormalizeNhomExcelRow);
+            if (!rows.length) {
+                alert('File Excel không có dữ liệu.');
+                return;
+            }
+            if (!confirm(`Tìm thấy ${rows.length} dòng. Import nhóm lớn / nhóm nhỏ và gán vị thuốc (tạo vị mới nếu chưa có)?`)) {
+                return;
+            }
 
-        let catalog = JSON.parse(JSON.stringify(_thuocData.nhomDuocLy || []));
-        const findLonId = (name) => {
-            const x = catalog.find(l => (l.ten_nhom_lon || '').trim().toLowerCase() === name.toLowerCase());
-            return x?.id;
-        };
-        const findLon = (id) => catalog.find(l => l.id == id);
+            ndlNhomImportSetLoading(true, 'Đang nhập Excel nhóm dược lý…');
 
-        const findOrphanNho = (name) => {
-            const b = catalog.find(l => l.isOrphanBucket);
-            const list = b?.nhomNho || [];
-            return list.find(n => (n.ten_nhom_nho || '').trim().toLowerCase() === name.toLowerCase());
-        };
+            const headerProbe = rows.find(rr => rr && Object.keys(rr).length) || {};
+            const sheetHasHerbCol = ndlHerbsColumnPresentInRow(headerProbe);
 
-        for (const r of rows) {
-            const nhomLon = (r['Nhóm lớn'] || '').toString().trim();
-            const nhomNho = String(r['Nhóm nhỏ'] ?? r['Tên nhóm dược lý'] ?? r['Nhóm con'] ?? '').trim();
-            const moTa = (r['Mô tả'] || '').toString().trim();
-            if (!nhomNho) continue;
+            const viLookup = new Map();
+            for (const v of _thuocData.viThuoc || []) {
+                const tn = (v.ten_vi_thuoc || '').trim();
+                if (tn) viLookup.set(tn.toLowerCase(), v.id);
+            }
 
-            if (!nhomLon) {
-                const existedOr = findOrphanNho(nhomNho);
-                if (existedOr?.id) {
-                    if (moTa) await apiUpdateNhomDuocLyNho(existedOr.id, { mo_ta: moTa });
+            let catalog = JSON.parse(JSON.stringify(_thuocData.nhomDuocLy || []));
+            const findLonId = (name) => {
+                const x = catalog.find(l => !l.isOrphanBucket && (l.ten_nhom_lon || '').trim().toLowerCase() === name.toLowerCase());
+                return x?.id;
+            };
+            const findLon = (id) => catalog.find(l => !l.isOrphanBucket && l.id == id);
+
+            const findOrphanNho = (name) => {
+                const b = catalog.find(l => l.isOrphanBucket);
+                const list = b?.nhomNho || [];
+                return list.find(n => (n.ten_nhom_nho || '').trim().toLowerCase() === name.toLowerCase());
+            };
+
+            const colLon = ['Nhóm lớn', 'Nhom lon', 'Ten nhom lon'];
+            const colNho = ['Nhóm nhỏ', 'Nhom nho', 'Tên nhóm dược lý', 'Nhóm con', 'Ten nhom nho'];
+            const colMoTa = ['Mô tả', 'Mo ta'];
+            const colHerbs = ['Các vị thuốc', 'Cac vi thuoc', 'Cac vi thuốc', 'Vi thuốc trong nhóm'];
+
+            let rowIdx = 0;
+            for (const r of rows) {
+                rowIdx++;
+                ndlNhomImportSetLoading(true, `Đang nhập nhóm dược lý… (${rowIdx}/${rows.length})`);
+
+                const nhomLon = ndlPickNhomCol(r, colLon);
+                const nhomNho = ndlPickNhomCol(r, colNho);
+                const moTa = ndlPickNhomCol(r, colMoTa);
+                const herbsCell = ndlPickNhomCol(r, colHerbs);
+
+                if (!nhomNho) continue;
+
+                let idNho = null;
+
+                if (!nhomLon) {
+                    const existedOr = findOrphanNho(nhomNho);
+                    if (existedOr?.id) {
+                        idNho = existedOr.id;
+                        if (moTa) await apiUpdateNhomDuocLyNho(existedOr.id, { mo_ta: moTa });
+                    } else {
+                        const resN = await apiCreateNhomDuocLyNho({
+                            id_nhom_lon: null,
+                            ten_nhom_nho: nhomNho,
+                            mo_ta: moTa || undefined,
+                        });
+                        if (!resN.success) continue;
+                        idNho = resN.id;
+                        const b = catalog.find(l => l.isOrphanBucket);
+                        if (b) {
+                            if (!b.nhomNho) b.nhomNho = [];
+                            b.nhomNho.push({
+                                id: idNho,
+                                ten_nhom_nho: nhomNho,
+                                mo_ta: moTa || null,
+                                id_vi_thuoc: [],
+                            });
+                        }
+                    }
                 } else {
-                    await apiCreateNhomDuocLyNho({
-                        id_nhom_lon: null,
-                        ten_nhom_nho: nhomNho,
-                        mo_ta: moTa,
-                    });
+                    let idLon = findLonId(nhomLon);
+                    if (!idLon) {
+                        const resL = await apiCreateNhomDuocLyLon({ ten_nhom_lon: nhomLon });
+                        if (!resL.success) continue;
+                        idLon = resL.id;
+                        catalog.push({ id: idLon, ten_nhom_lon: nhomLon, nhomNho: [], isOrphanBucket: false });
+                    }
+                    const lon = findLon(idLon);
+                    if (!lon.nhomNho) lon.nhomNho = [];
+                    const existedNho = lon.nhomNho.find(n =>
+                        (n.ten_nhom_nho || '').trim().toLowerCase() === nhomNho.toLowerCase());
+                    if (existedNho?.id) {
+                        idNho = existedNho.id;
+                        if (moTa) await apiUpdateNhomDuocLyNho(existedNho.id, { mo_ta: moTa });
+                    } else {
+                        const resN = await apiCreateNhomDuocLyNho({
+                            id_nhom_lon: idLon,
+                            ten_nhom_nho: nhomNho,
+                            mo_ta: moTa || undefined,
+                        });
+                        if (!resN.success) continue;
+                        idNho = resN.id;
+                        lon.nhomNho.push({
+                            id: idNho,
+                            ten_nhom_nho: nhomNho,
+                            mo_ta: moTa || null,
+                            id_vi_thuoc: [],
+                        });
+                    }
                 }
-                continue;
+
+                if (idNho != null && sheetHasHerbCol) {
+                    const names = ndlParseHerbNamesFromCell(herbsCell);
+                    const ids = [];
+                    for (const hn of names) {
+                        const vid = await ndlEnsureViThuocIdByName(hn, viLookup);
+                        if (vid) ids.push(vid);
+                    }
+                    const memRes = await apiSetNhomNhoMembers(idNho, ids);
+                    if (!memRes.success) {
+                        console.warn('Gán vị thuốc nhóm', idNho, memRes.error);
+                    }
+                }
             }
 
-            let idLon = findLonId(nhomLon);
-            if (!idLon) {
-                const resL = await apiCreateNhomDuocLyLon({ ten_nhom_lon: nhomLon });
-                if (!resL.success) continue;
-                idLon = resL.id;
-                catalog.push({ id: idLon, ten_nhom_lon: nhomLon, nhomNho: [], isOrphanBucket: false });
-            }
-            const lon = findLon(idLon);
-            if (!lon.nhomNho) lon.nhomNho = [];
-            const existedNho = lon.nhomNho.find(n =>
-                (n.ten_nhom_nho || '').trim().toLowerCase() === nhomNho.toLowerCase());
-            if (existedNho?.id) {
-                if (moTa) await apiUpdateNhomDuocLyNho(existedNho.id, { mo_ta: moTa });
-            } else {
-                const resN = await apiCreateNhomDuocLyNho({
-                    id_nhom_lon: idLon,
-                    ten_nhom_nho: nhomNho,
-                    mo_ta: moTa,
-                });
-                if (resN.success)
-                    lon.nhomNho.push({
-                        id: resN.id,
-                        ten_nhom_nho: nhomNho,
-                        mo_ta: moTa || null,
-                        id_vi_thuoc: [],
-                    });
-            }
+            alert('Import nhóm dược lý xong.');
+            await loadAllThuocData();
+            renderThuocSection();
+        } finally {
+            ndlNhomImportSetLoading(false, '');
+            inputEl.value = '';
         }
-        alert('Import nhóm dược lý xong.');
-        await loadAllThuocData();
-        renderThuocSection();
-        e.target.value = '';
     };
     reader.readAsArrayBuffer(file);
 }

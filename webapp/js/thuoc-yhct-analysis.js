@@ -21,6 +21,70 @@ function normalizeKinh(raw) {
     return YHCT_KINH_ALIAS[s.toLowerCase()] || s;
 }
 
+/** Chuẩn hóa chuỗi so khớp danh mục (không đổi schema DB — phương án 1). */
+function yhctNormKey(s) {
+    return (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Nếu (nhom_lon + nhom_duoc_ly) trùng một dòng trong nhomDuocLy → gán đúng chữ trong danh mục.
+ * Nếu chỉ khớp duy nhất theo "nhóm nhỏ" hoặc duy nhất theo "nhóm lớn" → điền/ chuẩn hóa phần còn lại.
+ */
+function yhctNormalizeNhomFromCatalog(payload) {
+    const list = _thuocData.nhomDuocLy || [];
+    if (!list.length || !payload) return payload;
+
+    const lon = (payload.nhom_lon || '').trim();
+    const nho = (payload.nhom_duoc_ly || '').trim();
+    const out = { ...payload };
+
+    const rowNho = (item) => (item.nhom_nho || item.ten_nhom || '').trim();
+    const rowLon = (item) => (item.nhom_lon || '').trim();
+
+    if (lon && nho) {
+        for (const item of list) {
+            const cl = rowLon(item);
+            const cn = rowNho(item);
+            if (!cn) continue;
+            if (yhctNormKey(lon) === yhctNormKey(cl) && yhctNormKey(nho) === yhctNormKey(cn)) {
+                out.nhom_lon = cl;
+                out.nhom_duoc_ly = cn;
+                return out;
+            }
+        }
+    }
+
+    if (nho) {
+        const hits = list.filter(item => {
+            const cn = rowNho(item);
+            return cn && yhctNormKey(nho) === yhctNormKey(cn);
+        });
+        if (hits.length === 1) {
+            const item = hits[0];
+            out.nhom_duoc_ly = rowNho(item);
+            const cl = rowLon(item);
+            if (cl) out.nhom_lon = cl;
+            return out;
+        }
+    }
+
+    if (lon && !nho) {
+        const hits = list.filter(item => {
+            const cl = rowLon(item);
+            return cl && yhctNormKey(lon) === yhctNormKey(cl);
+        });
+        if (hits.length === 1) {
+            const item = hits[0];
+            out.nhom_lon = rowLon(item);
+            const cn = rowNho(item);
+            if (cn) out.nhom_duoc_ly = cn;
+            return out;
+        }
+    }
+
+    return out;
+}
+
 function openViThuocForm(id) {
     const item = id ? _thuocData.viThuoc.find(x => x.id == id) : null;
 
@@ -103,6 +167,7 @@ function openViThuocForm(id) {
 const _NHOM_LIST = ['Tiêu thực','Bổ khí','Bổ huyết','Bổ âm','Bổ dương','Thanh nhiệt',
     'Giải biểu','Lý khí','Hoạt huyết','Trừ thấp','Tả hạ','Ôn lý','Bình can tức phong',
     'An thần','Hóa đàm','Chỉ ho bình suyễn','Thu sáp','Lợi thủy thẩm thấp','Điều hòa'];
+
 function yhctNhomInput(val) {
     const el = document.getElementById('vt-nhom-suggest');
     if (!el) return;
@@ -112,24 +177,57 @@ function yhctNhomInput(val) {
     const all = [...new Set([..._NHOM_LIST, ...fromNhomDanhMuc, ...existing])];
     const filtered = all.filter(x=>x.toLowerCase().includes(q)).slice(0,10);
     const hasExact = all.some(x=>x.toLowerCase()===q);
-    let html = filtered.map(m=>`
+
+    const catalog = (_thuocData.nhomDuocLy||[]).filter(item => {
+        const lon = (item.nhom_lon||'').trim();
+        const nho = (item.nhom_nho || item.ten_nhom || '').trim();
+        if (!nho) return false;
+        return lon.toLowerCase().includes(q) || nho.toLowerCase().includes(q);
+    }).slice(0, 12);
+
+    let html = catalog.map(item => {
+        const lon = (item.nhom_lon||'').trim();
+        const nho = (item.nhom_nho || item.ten_nhom || '').trim();
+        const label = lon ? `${lon} → ${nho}` : nho;
+        const clickJs = `yhctApplyNhomCatalogPair(${JSON.stringify(lon)}, ${JSON.stringify(nho)})`;
+        const clickAttr = clickJs.replace(/"/g, '&quot;');
+        return `
+        <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
+            onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background=''"
+            onclick="${clickAttr}">
+            <div style="font-weight:600;color:#5B3A1A;font-size:0.82rem;">${escHtml(label)}</div>
+            <div style="font-size:0.7rem;color:#8B7355;">Danh mục nhóm dược lý</div>
+        </div>`;
+    }).join('');
+
+    html += filtered.map(m=>`
         <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
             onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background=''"
             onclick="document.getElementById('vt-inp-nhomduocly').value='${escHtml(m)}';document.getElementById('vt-nhom-suggest').style.display='none';">
             <div style="font-weight:600;color:#5B3A1A;font-size:0.82rem;">${escHtml(m)}</div>
         </div>`).join('');
-    if (!hasExact&&q) html+=`
+
+    if (!hasExact && q) html += `
         <div style="padding:8px 12px;cursor:pointer;background:#FAF6EE;border-top:1px dashed #D4C5A0;"
             onmouseover="this.style.background='#EFE8D8'" onmouseout="this.style.background='#FAF6EE'"
             onclick="document.getElementById('vt-inp-nhomduocly').value='${escHtml(val.trim())}';document.getElementById('vt-nhom-suggest').style.display='none';">
-            <div style="font-weight:700;color:#CA6222;font-size:0.82rem;">+ Thêm "${escHtml(val.trim())}"</div>
+            <div style="font-weight:700;color:#CA6222;font-size:0.82rem;">+ Nhập tự do "${escHtml(val.trim())}"</div>
         </div>`;
     el.style.display = html ? 'block' : 'none';
     el.innerHTML = html;
 }
 
+function yhctApplyNhomCatalogPair(lon, nho) {
+    const a = document.getElementById('vt-inp-nhomlon');
+    const b = document.getElementById('vt-inp-nhomduocly');
+    const s = document.getElementById('vt-nhom-suggest');
+    if (a) a.value = lon || '';
+    if (b) b.value = nho || '';
+    if (s) s.style.display = 'none';
+}
+
 async function saveViThuoc(id) {
-    const payload = {
+    let payload = {
         ten_vi_thuoc:   (document.getElementById('vt-inp-ten')?.value||'').trim(),
         ten_goi_khac:   (document.getElementById('vt-inp-alias')?.value||'').trim(),
         nhom_lon:       (document.getElementById('vt-inp-nhomlon')?.value||'').trim(),
@@ -143,6 +241,11 @@ async function saveViThuoc(id) {
         kieng_ky:       (document.getElementById('vt-ta-kiengky')?.value||'').trim(),
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc!');
+    payload = yhctNormalizeNhomFromCatalog(payload);
+    const a = document.getElementById('vt-inp-nhomlon');
+    const b = document.getElementById('vt-inp-nhomduocly');
+    if (a) a.value = payload.nhom_lon || '';
+    if (b) b.value = payload.nhom_duoc_ly || '';
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
     if (!res.success) return alert('Lỗi: ' + res.error);
     closeTayyModal();
@@ -383,7 +486,7 @@ function renderBaiThuocTab(el) {
 function yhctViThuocPayloadFromRow(r) {
     const nhomLon = yhctDevPick(r, ['Nhóm lớn', 'Nhom lon']);
     const nhomDL = yhctDevPick(r, ['Nhóm dược lý', 'Nhom duoc ly', 'Nhóm dược ly']);
-    return {
+    const raw = {
         ten_vi_thuoc: yhctDevPick(r, ['Tên vị thuốc', 'Ten vi thuoc']),
         ten_goi_khac: yhctDevPick(r, ['Tên gọi khác', 'Ten goi khac']),
         nhom_lon: nhomLon,
@@ -396,6 +499,7 @@ function yhctViThuocPayloadFromRow(r) {
         chu_tri: yhctDevPick(r, ['Chủ trị', 'Chu tri']),
         kieng_ky: yhctDevPick(r, ['Kiêng kỵ', 'Kieng ky']),
     };
+    return yhctNormalizeNhomFromCatalog(raw);
 }
 
 function yhctNormalizeExcelRowKeys(row) {

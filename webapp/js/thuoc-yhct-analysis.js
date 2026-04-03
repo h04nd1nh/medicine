@@ -307,6 +307,13 @@ async function openBaiThuocAnalysis(baiThuocId) {
     if (!bt) return alert('Không tìm thấy bài thuốc.');
     const result = yhctAnalyzeLocalSimple(bt);
     showTayyModal(`Phân tích: ${escHtml(bt.ten_bai_thuoc)}`, yhctBuildAnalysisHtml(result), 'wide');
+    setTimeout(() => yhctInitAnalysisCharts(result), 0);
+}
+
+let _yhctAnalysisCharts = [];
+function yhctDestroyAnalysisCharts() {
+    (_yhctAnalysisCharts || []).forEach(c => { try { c.destroy(); } catch (_) {} });
+    _yhctAnalysisCharts = [];
 }
 
 function yhctAnalyzeLocalSimple(bt) {
@@ -368,10 +375,70 @@ function yhctAnalyzeLocalSimple(bt) {
         color: roleColors[roleMap[vt.id]||'Tá'],
         nhom_lon: yhctDeriveNhomFromCatalog(vt.nhom_duoc_ly).nhom_lon || '',
         nhom_duoc_ly: vt.nhom_duoc_ly||'',
+        tinh: vt.tinh || '',
+        vi: vt.vi || '',
         quy_kinh: vt.quy_kinh||'',
     }));
 
-    return { ten:bt.ten_bai_thuoc, W, quyKinhNorm, viThuocList };
+    const tuKhi = { daiHan:0, han:0, luong:0, binh:0, on:0, nhiet:0, daiNhiet:0 };
+    const nguVi = { chua:0, dang:0, ngot:0, cay:0, man:0 };
+    const tgpt = { thang:0, giang:0, phu:0, tram:0 };
+    const tacDungMap = {};
+
+    const addTuKhi = (tinhRaw, wPct) => {
+        const t = (tinhRaw || '').trim().toLowerCase();
+        if (!t) return;
+        if (t.includes('đại hàn') || t.includes('dai han')) { tuKhi.daiHan += wPct; return; }
+        if (t.includes('hơi hàn') || t.includes('hoi han')) { tuKhi.han += wPct * 0.7; tuKhi.luong += wPct * 0.3; return; }
+        if (t.includes('hàn') || t.includes('han')) { tuKhi.han += wPct; return; }
+        if (t.includes('lương') || t.includes('luong')) { tuKhi.luong += wPct; return; }
+        if (t.includes('bình') || t.includes('binh')) { tuKhi.binh += wPct; return; }
+        if (t.includes('đại nhiệt') || t.includes('dai nhiet')) { tuKhi.daiNhiet += wPct; return; }
+        if (t.includes('nhiệt') || t.includes('nhiet') || t.includes('nóng') || t.includes('nong')) { tuKhi.nhiet += wPct; return; }
+        if (t.includes('hơi ôn') || t.includes('hoi on')) { tuKhi.on += wPct * 0.7; tuKhi.binh += wPct * 0.3; return; }
+        if (t.includes('ôn') || t.includes('on')) { tuKhi.on += wPct; return; }
+        tuKhi.binh += wPct;
+    };
+    const addNguVi = (viRaw, wPct) => {
+        const parts = String(viRaw || '').split(/[,;，、]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        if (!parts.length) return;
+        const uniq = [...new Set(parts)];
+        const each = wPct / uniq.length;
+        uniq.forEach(v => {
+            if (v.includes('chua')) nguVi.chua += each;
+            else if (v.includes('đắng') || v.includes('dang')) nguVi.dang += each;
+            else if (v.includes('ngọt') || v.includes('ngot')) nguVi.ngot += each;
+            else if (v.includes('cay')) nguVi.cay += each;
+            else if (v.includes('mặn') || v.includes('man')) nguVi.man += each;
+        });
+    };
+    const addTgpt = (item, wPct) => {
+        const tinh = (item.tinh || '').toLowerCase();
+        const nhom = (item.nhom_lon || '').toLowerCase();
+        const qk = (item.quy_kinh || '').toLowerCase();
+        if (tinh.includes('ôn') || tinh.includes('on') || tinh.includes('nóng') || tinh.includes('nong')) { tgpt.thang += wPct * 0.35; tgpt.phu += wPct * 0.35; }
+        if (tinh.includes('hàn') || tinh.includes('han') || tinh.includes('lương') || tinh.includes('luong')) { tgpt.giang += wPct * 0.35; tgpt.tram += wPct * 0.35; }
+        if (nhom.includes('giải biểu') || nhom.includes('thăng')) tgpt.phu += wPct * 0.35;
+        if (nhom.includes('tả hạ') || nhom.includes('giáng')) tgpt.giang += wPct * 0.35;
+        if (qk.includes('phế') || qk.includes('phe') || qk.includes('tâm')) tgpt.thang += wPct * 0.15;
+        if (qk.includes('thận') || qk.includes('than') || qk.includes('bàng quang') || qk.includes('bang quang')) tgpt.tram += wPct * 0.15;
+        const base = wPct * 0.15;
+        tgpt.thang += base; tgpt.giang += base; tgpt.phu += base; tgpt.tram += base;
+    };
+    const addTacDung = (item, wPct) => {
+        const key = (item.nhom_duoc_ly || item.nhom_lon || 'Khác').trim() || 'Khác';
+        tacDungMap[key] = (tacDungMap[key] || 0) + wPct;
+    };
+
+    viThuocList.forEach(v => {
+        const wPct = v.gram / W;
+        addTuKhi(v.tinh, wPct);
+        addNguVi(v.vi, wPct);
+        addTgpt(v, wPct);
+        addTacDung(v, wPct);
+    });
+
+    return { ten:bt.ten_bai_thuoc, W, quyKinhNorm, viThuocList, tuKhi, nguVi, tgpt, tacDungMap };
 }
 
 function yhctBuildAnalysisHtml(r) {
@@ -396,7 +463,49 @@ function yhctBuildAnalysisHtml(r) {
         .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:4px 8px;background:#F5F0E8;border-radius:6px;font-size:0.78rem;margin-bottom:4px;">
             <span>${escHtml(k)}</span><strong>${v}</strong></div>`).join('') || '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa gán quy kinh</div>';
 
+    const tk = r.tuKhi || {};
+    const tkMax = Math.max(tk.daiHan||0, tk.han||0, tk.luong||0, tk.binh||0, tk.on||0, tk.nhiet||0, tk.daiNhiet||0, 0.0001);
+    const tuKhiBar = [
+        { k:'Đại Hàn', v: tk.daiHan||0, c:'#1E88E5' },
+        { k:'Hàn', v: tk.han||0, c:'#29B6F6' },
+        { k:'Lương', v: tk.luong||0, c:'#26A69A' },
+        { k:'Bình', v: tk.binh||0, c:'#E6E38A' },
+        { k:'Ôn', v: tk.on||0, c:'#FFB74D' },
+        { k:'Nhiệt', v: tk.nhiet||0, c:'#FF7043' },
+        { k:'Đại Nhiệt', v: tk.daiNhiet||0, c:'#E53935' },
+    ].map(x => {
+        const pct = Math.round((x.v / tkMax) * 100);
+        return `<div style="flex:1;min-width:70px;">
+            <div style="height:20px;background:${x.c};border-radius:4px 4px 0 0;position:relative;">
+                <span style="position:absolute;right:4px;top:2px;font-size:0.68rem;color:#fff;font-weight:700;">${Math.round(x.v*100)}%</span>
+            </div>
+            <div style="border:1px solid #E5E7EB;border-top:none;padding:3px 4px;text-align:center;font-size:0.72rem;color:#5B3A1A;">${x.k}</div>
+        </div>`;
+    }).join('');
+
     return `
+    <div style="border:1px solid #E5E7EB;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px;">
+        <div style="font-weight:700;color:#374151;font-size:0.9rem;margin-bottom:8px;">1) Phân tích Tứ khí</div>
+        <div style="display:flex;gap:0;overflow-x:auto;">${tuKhiBar}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">2) Phân tích Ngũ vị</div>
+            <canvas id="yhct-radar-nguvi" height="220"></canvas>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">3) Phân tích Quy kinh</div>
+            <canvas id="yhct-radar-quykinh" height="220"></canvas>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">4) Phân tích Thăng – Giáng – Phù – Trầm</div>
+            <canvas id="yhct-radar-tgpt" height="220"></canvas>
+        </div>
+        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">5) Phân tích Tác dụng YHCT</div>
+            <canvas id="yhct-radar-tacdung" height="220"></canvas>
+        </div>
+    </div>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">
         <div style="font-weight:700;color:#374151;font-size:0.88rem;margin-bottom:8px;">Tổng hợp quy kinh (ước lượng theo liều)</div>
         ${qkRows}
@@ -422,6 +531,75 @@ function yhctBuildAnalysisHtml(r) {
     <div style="display:flex;justify-content:flex-end;">
         <button class="btn" onclick="closeTayyModal()">Đóng</button>
     </div>`;
+}
+
+function yhctInitAnalysisCharts(r) {
+    if (typeof Chart === 'undefined') return;
+    yhctDestroyAnalysisCharts();
+
+    const baseRadarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            r: {
+                beginAtZero: true,
+                suggestedMax: 1,
+                ticks: { stepSize: 0.2, backdropColor: 'transparent' },
+                grid: { color: '#E8E2D6' },
+                pointLabels: { color: '#6B7280', font: { size: 10 } },
+                angleLines: { color: '#ECE7DC' },
+            }
+        }
+    };
+    const mkRadar = (id, labels, data, color) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const chart = new Chart(el.getContext('2d'), {
+            type: 'radar',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    borderColor: color,
+                    backgroundColor: color.replace('1)', '0.12)'),
+                    borderWidth: 2,
+                    pointRadius: 2,
+                }]
+            },
+            options: baseRadarOptions,
+        });
+        _yhctAnalysisCharts.push(chart);
+    };
+
+    const nguVi = r.nguVi || {};
+    mkRadar('yhct-radar-nguvi',
+        ['Chua', 'Đắng', 'Ngọt', 'Cay', 'Mặn'],
+        [nguVi.chua||0, nguVi.dang||0, nguVi.ngot||0, nguVi.cay||0, nguVi.man||0],
+        'rgba(239, 68, 68, 1)'
+    );
+
+    mkRadar('yhct-radar-quykinh',
+        YHCT_KINH_ORDER,
+        YHCT_KINH_ORDER.map(k => r.quyKinhNorm?.[k] || 0),
+        'rgba(234, 179, 8, 1)'
+    );
+
+    const tgpt = r.tgpt || {};
+    mkRadar('yhct-radar-tgpt',
+        ['Thăng', 'Phù', 'Giáng', 'Trầm'],
+        [tgpt.thang||0, tgpt.phu||0, tgpt.giang||0, tgpt.tram||0],
+        'rgba(59, 130, 246, 1)'
+    );
+
+    const topTacDung = Object.entries(r.tacDungMap || {}).sort((a,b)=>b[1]-a[1]).slice(0, 6);
+    const labelsTd = topTacDung.map(([k]) => k);
+    const dataTd = topTacDung.map(([,v]) => v);
+    mkRadar('yhct-radar-tacdung',
+        labelsTd.length ? labelsTd : ['Khác'],
+        dataTd.length ? dataTd : [0],
+        'rgba(34, 197, 94, 1)'
+    );
 }
 
 function renderViThuocTab(el) {

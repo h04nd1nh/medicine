@@ -28,6 +28,7 @@ import { PhapTri } from './models/phap-tri.model';
 import { ThietChan } from './models/thiet-chan.model';
 import { MachChan } from './models/mach-chan.model';
 import { NhomDuocLy } from './models/nhom-duoc-ly.model';
+import { CongDung } from './models/cong-dung.model';
 
 // Routers (NestJS Controllers)
 import { AdminsRouter } from './routers/admin.router';
@@ -53,6 +54,7 @@ import { PhapTriRouter } from './routers/phap-tri.router';
 import { ThietChanRouter } from './routers/thiet-chan.router';
 import { MachChanRouter } from './routers/mach-chan.router';
 import { NhomDuocLyRouter } from './routers/nhom-duoc-ly.router';
+import { CongDungRouter } from './routers/cong-dung.router';
 
 // Controllers (NestJS Services)
 import { AdminsService } from './controllers/admin.controller';
@@ -78,6 +80,7 @@ import { PhapTriService } from './controllers/phap-tri.controller';
 import { ThietChanService } from './controllers/thiet-chan.controller';
 import { MachChanService } from './controllers/mach-chan.controller';
 import { NhomDuocLyService } from './controllers/nhom-duoc-ly.controller';
+import { CongDungService } from './controllers/cong-dung.controller';
 
 // Middlewares (Strategies/Guards)
 import { JwtStrategy } from './middlewares/auth/jwt.strategy';
@@ -105,7 +108,7 @@ import { JwtStrategy } from './middlewares/auth/jwt.strategy';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([Admin, MeridianSyndrome, Patient, Examination, ChungBenh, BenhTayY, TrieuChung, KinhMach, HuyetVi, PhacDoDieuTri, ViThuoc, BaiThuoc, BaiThuocChiTiet, TheBenh, TheBenhPhuongHuyet, Appointment, BienChung, PhapTri, ThietChan, MachChan, NhomDuocLy]),
+    TypeOrmModule.forFeature([Admin, MeridianSyndrome, Patient, Examination, ChungBenh, BenhTayY, TrieuChung, KinhMach, HuyetVi, PhacDoDieuTri, ViThuoc, BaiThuoc, BaiThuocChiTiet, TheBenh, TheBenhPhuongHuyet, Appointment, BienChung, PhapTri, ThietChan, MachChan, NhomDuocLy, CongDung]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -116,7 +119,7 @@ import { JwtStrategy } from './middlewares/auth/jwt.strategy';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter, ModelsRouter, RecordsRouter, ChungBenhRouter, BenhTayYRouter, TrieuChungRouter, KinhMachRouter, HuyetViRouter, PhacDoDieuTriRouter, ViThuocRouter, BaiThuocRouter, TheBenhRouter, TheBenhPhuongHuyetRouter, PatientAuthRouter, AppointmentsRouter, BienChungRouter, PhapTriRouter, ThietChanRouter, MachChanRouter, NhomDuocLyRouter],
-  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService, ModelsService, ChungBenhService, BenhTayYService, TrieuChungService, KinhMachService, HuyetViService, PhacDoDieuTriService, ViThuocService, BaiThuocService, TheBenhService, TheBenhPhuongHuyetService, PatientAuthService, AppointmentsService, FirebaseService, BienChungService, PhapTriService, ThietChanService, MachChanService, NhomDuocLyService],
+  controllers: [AppController, AdminsRouter, AuthRouter, MeridiansRouter, PatientsRouter, ExaminationsRouter, ModelsRouter, RecordsRouter, ChungBenhRouter, BenhTayYRouter, TrieuChungRouter, KinhMachRouter, HuyetViRouter, PhacDoDieuTriRouter, ViThuocRouter, BaiThuocRouter, TheBenhRouter, TheBenhPhuongHuyetRouter, PatientAuthRouter, AppointmentsRouter, BienChungRouter, PhapTriRouter, ThietChanRouter, MachChanRouter, NhomDuocLyRouter, CongDungRouter],
+  providers: [AppService, AdminsService, AuthService, JwtStrategy, MeridiansService, PatientsService, ExaminationsService, ModelsService, ChungBenhService, BenhTayYService, TrieuChungService, KinhMachService, HuyetViService, PhacDoDieuTriService, ViThuocService, BaiThuocService, TheBenhService, TheBenhPhuongHuyetService, PatientAuthService, AppointmentsService, FirebaseService, BienChungService, PhapTriService, ThietChanService, MachChanService, NhomDuocLyService, CongDungService],
 })
 export class AppModule {}

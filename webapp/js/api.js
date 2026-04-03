@@ -973,4 +973,35 @@ async function apiDeleteNhomDuocLy(id) {
     return { success: true };
 }
 
+// ---- CÔNG DỤNG ----
+async function apiGetCongDung() {
+    const res = await fetch(_base() + '/cong-dung');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateCongDung(payload) {
+    const res = await fetch(_base() + '/cong-dung', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo công dụng thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateCongDung(id, payload) {
+    const res = await fetch(_base() + '/cong-dung/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật công dụng thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteCongDung(id) {
+    const res = await fetch(_base() + '/cong-dung/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa công dụng thất bại') };
+    return { success: true };
+}
 

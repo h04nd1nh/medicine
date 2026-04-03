@@ -147,8 +147,11 @@ function openViThuocForm(id) {
     `, 'wide');
 
     _vtCurrentQuyKinh  = (item?.quy_kinh||'').split(',').map(s=>s.trim()).filter(Boolean);
-    _vtCurrentCongDung = (item?.cong_dung||'').split('; ').map(s=>s.trim()).filter(Boolean);
-    if (!_vtCurrentCongDung.length) _vtCurrentCongDung = [''];
+    // Parse công dụng dạng "text||note" sang [{text, note}]
+    const rawCD = (item?.cong_dung||'').split('; ').filter(Boolean);
+    _vtCurrentCongDung = rawCD.length > 0
+        ? rawCD.map(e => { const p = e.split('||'); return { text: (p[0]||'').trim(), note: (p[1]||'').trim() }; })
+        : [{ text: '', note: '' }];
     vtRenderQuyKinhChips();
     vtRenderCongDungList();
 }
@@ -215,6 +218,14 @@ async function saveViThuoc(id) {
         vi_cam:  gf('vt-nv-vi_cam'),
         vi_tan:  gf('vt-nv-vi_tan'),
         vi_ham:  gf('vt-nv-vi_ham'),
+        // Serialize {text, note} → "text||note" hoặc "text" nếu không có note
+        cong_dung: _vtCurrentCongDung
+            .filter(e => (e?.text || '').trim())
+            .map(e => {
+                const t = (e.text||'').trim();
+                const n = (e.note||'').trim();
+                return n ? `${t}||${n}` : t;
+            }).join('; '),
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc!');
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
@@ -508,7 +519,13 @@ function renderViThuocTab(el) {
     const rows = _thuocData.viThuoc.map(item => {
         const alias = item.ten_goi_khac ? `<div style="font-size:0.72rem;color:#9CA3AF;font-style:italic;">(${escHtml(item.ten_goi_khac)})</div>` : '';
         const nhom  = item.nhom_duoc_ly ? `<div style="font-size:0.68rem;color:#15803D;margin-top:2px;">${escHtml(item.nhom_duoc_ly)}</div>` : '';
-        const cd    = (item.cong_dung||'').split('; ').filter(Boolean).map(c=>`• ${escHtml(c)}`).join('<br>');
+        // Công dụng hiển thị tên + ghi chú nếu có
+        const cd = (item.cong_dung||'').split('; ').filter(Boolean).map(entry => {
+            const p = entry.split('||');
+            const t = escHtml((p[0]||'').trim());
+            const n = (p[1]||'').trim();
+            return n ? `• ${t} <span style="color:#A09580;font-style:italic;">— ${escHtml(n)}</span>` : `• ${t}`;
+        }).join('<br>');
         const tk = item.tu_khi ?? null;
         const tkText = tk !== null
             ? `<span style="font-size:0.82rem;color:#5B3A1A;font-weight:600;">${tk > 0 ? '+' + tk : tk}</span>`

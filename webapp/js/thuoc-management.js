@@ -10,6 +10,7 @@ let _thuocData = {
     phapTri: [],
     trieuChung: [],
     nhomDuocLy: [],
+    congDung: [],
     activeTab: 'vi-thuoc',
 };
 
@@ -28,7 +29,7 @@ async function initThuocManagement() {
 
 async function loadAllThuocData() {
     try {
-        const [vt, bt, km, hv, bc, pt, tc, ndl] = await Promise.all([
+        const [vt, bt, km, hv, bc, pt, tc, ndl, cd] = await Promise.all([
             apiGetViThuoc(),
             apiGetBaiThuoc(),
             apiGetKinhMach(),
@@ -37,6 +38,7 @@ async function loadAllThuocData() {
             apiGetPhapTri(),
             apiGetTrieuChung(),
             apiGetNhomDuocLy(),
+            apiGetCongDung(),
         ]);
         _thuocData.viThuoc = vt || [];
         _thuocData.baiThuoc = bt || [];
@@ -46,6 +48,7 @@ async function loadAllThuocData() {
         _thuocData.phapTri = pt || [];
         _thuocData.trieuChung = tc || [];
         _thuocData.nhomDuocLy = ndl || [];
+        _thuocData.congDung = cd || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Thuốc:', e);
     }
@@ -1517,45 +1520,86 @@ async function deleteNhomDuocLy(id) {
 // TAB: CÔNG DỤNG (quản lý danh mục công dụng chung)
 // ═══════════════════════════════════════════════════════════
 function renderCongDungTab(el) {
-    // Collect all unique công dụng (stripped of notes) across all vi thuoc
-    const allCD = new Map(); // text → { note, count }
-    (_thuocData.viThuoc || []).forEach(vt => {
-        (vt.cong_dung || '').split('; ').filter(Boolean).forEach(entry => {
-            const parts = entry.split('||');
-            const text = (parts[0] || '').trim();
-            const note = (parts[1] || '').trim();
-            if (!text) return;
-            if (!allCD.has(text)) allCD.set(text, { note, count: 0 });
-            allCD.get(text).count++;
-        });
-    });
+    const rows = (_thuocData.congDung || []).map(item => {
+        const id = item.id;
+        // Count vi thuoc using this cong dung
+        const usageCount = (_thuocData.viThuoc || []).filter(vt => {
+            const cdStr = vt.cong_dung || '';
+            const entries = cdStr.split('; ').filter(Boolean).map(e => e.split('||')[0].trim());
+            return entries.includes(item.ten_cong_dung);
+        }).length;
 
-    const rows = [...allCD.entries()].sort((a, b) => b[1].count - a[1].count).map(([text, info]) => `
-        <tr>
-            <td style="font-weight:600;color:#5B3A1A;">${escHtml(text)}</td>
-            <td style="color:#8B7355; font-style:italic;">${escHtml(info.note || '—')}</td>
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_cong_dung)}</td>
+            <td style="color:#8B7355; font-style:italic;">${escHtml(item.ghi_chu || '—')}</td>
             <td style="text-align:center;">
-                <span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${info.count} vị thuốc</span>
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} vị thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
             </td>
-        </tr>
-    `).join('');
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openCongDungForm(${id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCongDung(${id})">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
 
     el.innerHTML = `
-        <div style="margin-bottom:12px; padding:10px 14px; background:#FBF8F1; border-radius:8px; border:1px solid #E2D4B8; color:#8B7355; font-size:0.82rem;">
-            📋 Danh sách tổng hợp công dụng từ tất cả vị thuốc. Để thêm/sửa/xóa công dụng, hãy vào tab <strong>Danh mục Vị thuốc</strong> và chỉnh sửa từng vị thuốc.
-        </div>
-        <div style="font-size:0.82rem;color:#A09580;margin-bottom:10px;">
-            Tổng: <strong>${allCD.size}</strong> công dụng khác nhau
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.congDung||[]).length}</strong> công dụng
+            </div>
+            <button class="btn btn-primary" onclick="openCongDungForm()">+ Thêm công dụng</button>
         </div>
         <div class="data-table-container">
             <table>
                 <thead><tr>
-                    <th>Công dụng</th>
-                    <th>Ghi chú thường gặp</th>
-                    <th style="text-align:center;">Số vị thuốc</th>
+                    <th>Tên công dụng</th>
+                    <th>Ghi chú mặc định</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có công dụng nào được ghi nhận</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có công dụng nào</td></tr>'}</tbody>
             </table>
         </div>`;
 }
 
+function openCongDungForm(id) {
+    const item = id ? (_thuocData.congDung || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa công dụng' : 'Thêm công dụng', `
+        <label class="tayy-form-label">Tên công dụng *<br>
+            <input id="cd-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_cong_dung) : ''}"
+                placeholder="VD: Thanh nhiệt, Giải độc...">
+        </label>
+        <label class="tayy-form-label">Ghi chú mặc định<br>
+            <textarea id="cd-inp-ghichu" class="tayy-form-input" style="min-height:60px;" placeholder="Ghi chú thêm...">${item ? escHtml(item.ghi_chu || '') : ''}</textarea>
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveCongDung(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('cd-inp-ten')?.focus(), 50);
+}
+
+async function saveCongDung(id) {
+    const ten = (document.getElementById('cd-inp-ten')?.value || '').trim();
+    const ghichu = (document.getElementById('cd-inp-ghichu')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên công dụng!');
+    const payload = { ten_cong_dung: ten, ghi_chu: ghichu };
+    const res = id ? await apiUpdateCongDung(id, payload) : await apiCreateCongDung(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteCongDung(id) {
+    if (!confirm('Xóa công dụng này? Các vị thuốc đang có sẽ không bị ảnh hưởng.')) return;
+    await apiDeleteCongDung(id);
+    await loadAllThuocData();
+    renderThuocSection();
+}

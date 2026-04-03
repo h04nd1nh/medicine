@@ -491,19 +491,27 @@ function yhctBuildAnalysisHtml(r) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">2) Phân tích Ngũ vị</div>
-            <canvas id="yhct-radar-nguvi" height="220"></canvas>
+            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
+                <canvas id="yhct-radar-nguvi" style="display:block;"></canvas>
+            </div>
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">3) Phân tích Quy kinh</div>
-            <canvas id="yhct-radar-quykinh" height="220"></canvas>
+            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
+                <canvas id="yhct-radar-quykinh" style="display:block;"></canvas>
+            </div>
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">4) Phân tích Thăng – Giáng – Phù – Trầm</div>
-            <canvas id="yhct-radar-tgpt" height="220"></canvas>
+            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
+                <canvas id="yhct-radar-tgpt" style="display:block;"></canvas>
+            </div>
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">5) Phân tích Tác dụng YHCT</div>
-            <canvas id="yhct-radar-tacdung" height="220"></canvas>
+            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
+                <canvas id="yhct-radar-tacdung" style="display:block;"></canvas>
+            </div>
         </div>
     </div>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">

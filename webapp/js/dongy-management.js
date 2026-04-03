@@ -866,5 +866,9 @@ function showTayyModal(title, bodyHtml, widthClass) {
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #5B3A1A;padding-bottom:10px;margin-bottom:15px;"><span style="font-weight:900;color:#5B3A1A;font-size:1.1rem;">${title}</span><button class="btn" onclick="closeTayyModal()" style="padding:0 8px;">✕</button></div>
         ${bodyHtml}</div>`;
 }
-function closeTayyModal() { const m = document.getElementById('tayy-modal'); if (m) m.style.display = 'none'; }
+function closeTayyModal() {
+    if (typeof yhctDestroyAnalysisCharts === 'function') yhctDestroyAnalysisCharts();
+    const m = document.getElementById('tayy-modal');
+    if (m) m.style.display = 'none';
+}
 function escHtml(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }

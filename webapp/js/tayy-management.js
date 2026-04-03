@@ -822,6 +822,7 @@ function tyCloseAllSuggests(e) {
 }
 
 function closeTayyModal() {
+    if (typeof yhctDestroyAnalysisCharts === 'function') yhctDestroyAnalysisCharts();
     const modal = document.getElementById('tayy-modal');
     if (modal) modal.style.display = 'none';
     document.removeEventListener('click', tyGlobalSuggestCloser);

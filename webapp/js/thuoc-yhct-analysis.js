@@ -208,7 +208,6 @@ async function saveViThuoc(id) {
         tinh:           (document.getElementById('vt-inp-tinh')?.value||'').trim(),
         vi:             (document.getElementById('vt-inp-vi')?.value||'').trim(),
         quy_kinh:       _vtCurrentQuyKinh.join(', '),
-        cong_dung:      _vtCurrentCongDung.map(s=>s.trim()).filter(Boolean).join('; '),
         nhom_duoc_ly:   (document.getElementById('vt-inp-nhomduocly')?.value||'').trim(),
         tac_dung_chinh: (document.getElementById('vt-inp-tacdungchinh')?.value||'').trim(),
         tu_khi:    (() => { const e = document.getElementById('vt-inp-tukhi');  return e ? parseFloat(e.value)||0 : 0; })(),

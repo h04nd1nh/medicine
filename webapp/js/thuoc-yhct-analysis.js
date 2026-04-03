@@ -82,20 +82,25 @@ function openViThuocForm(id) {
                     placeholder="VD: Tiêu thịt mỡ, Hoạt huyết"></label>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px;align-items:end;">
-            <label class="tayy-form-label">Tứ Khí
-                <span style="font-weight:400;color:#A09580;font-size:0.72rem;"> (−2 Hàn · 0 Bình · +2 Nhiệt)</span><br>
-                <input id="vt-inp-tukhi" type="number" min="-2" max="2" step="1" value="${tuKhiVal}"
-                    style="${INP}"
-                    onfocus="this.style.borderColor='${ACC}'" onblur="this.style.borderColor='#D4C5A0'">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;align-items:end;">
+            <label class="tayy-form-label">Tứ Khí (Tính)<br>
+                <select id="vt-inp-tukhi" class="tayy-form-input">
+                    <option value="-2" ${tuKhiVal === -2 ? 'selected' : ''}>Đại Hàn (-2)</option>
+                    <option value="-1" ${tuKhiVal === -1 ? 'selected' : ''}>Hàn (-1)</option>
+                    <option value="0" ${tuKhiVal === 0 ? 'selected' : ''}>Bình (0)</option>
+                    <option value="1" ${tuKhiVal === 1 ? 'selected' : ''}>Ôn (1)</option>
+                    <option value="2" ${tuKhiVal === 2 ? 'selected' : ''}>Nhiệt (2)</option>
+                </select>
             </label>
-            <label class="tayy-form-label">Hướng Thăng–Giáng
-                <span style="font-weight:400;color:#A09580;font-size:0.72rem;"> (1 Giáng · 3 Bình · 5 Thăng)</span><br>
-                <input id="vt-inp-huong" type="number" min="1" max="5" step="1" value="${huongVal}"
-                    style="${INP}"
-                    onfocus="this.style.borderColor='${ACC}'" onblur="this.style.borderColor='#D4C5A0'">
+            <label class="tayy-form-label">Hướng Thăng–Giáng<br>
+                <select id="vt-inp-huong" class="tayy-form-input">
+                    <option value="1" ${huongVal === 1 ? 'selected' : ''}>Giáng mạnh (Trầm - 1)</option>
+                    <option value="2" ${huongVal === 2 ? 'selected' : ''}>Giáng nhẹ (Giáng - 2)</option>
+                    <option value="3" ${huongVal === 3 ? 'selected' : ''}>Bình (Hoà - 3)</option>
+                    <option value="4" ${huongVal === 4 ? 'selected' : ''}>Thăng nhẹ (Phù - 4)</option>
+                    <option value="5" ${huongVal === 5 ? 'selected' : ''}>Thăng mạnh (Thăng - 5)</option>
+                </select>
             </label>
-            <div></div>
         </div>
 
         <div style="${SEC}">

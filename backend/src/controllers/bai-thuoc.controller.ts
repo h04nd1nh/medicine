@@ -18,12 +18,26 @@ export class BaiThuocService {
     private dataSource: DataSource,
   ) {}
 
+  private static readonly BT_VI_RELATIONS = [
+    'chiTietViThuoc',
+    'chiTietViThuoc.viThuoc',
+    'chiTietViThuoc.viThuoc.nhomLinks',
+    'chiTietViThuoc.viThuoc.nhomLinks.nhomNho',
+    'chiTietViThuoc.viThuoc.nhomLinks.nhomNho.nhomLon',
+  ] as const;
+
   findAll(): Promise<BaiThuoc[]> {
-    return this.repo.find({ relations: ['chiTietViThuoc', 'chiTietViThuoc.viThuoc'], order: { ten_bai_thuoc: 'ASC' } });
+    return this.repo.find({
+      relations: [...BaiThuocService.BT_VI_RELATIONS],
+      order: { ten_bai_thuoc: 'ASC' },
+    });
   }
 
   findOne(id: number): Promise<BaiThuoc | null> {
-    return this.repo.findOne({ where: { id }, relations: ['chiTietViThuoc', 'chiTietViThuoc.viThuoc'] });
+    return this.repo.findOne({
+      where: { id },
+      relations: [...BaiThuocService.BT_VI_RELATIONS],
+    });
   }
 
   async create(dto: CreateBaiThuocDto): Promise<BaiThuoc> {
@@ -161,13 +175,18 @@ export class BaiThuocService {
     }
 
     // Danh sách vị thuốc đã phân tích
+    const subNhomFromVt = (vt: ViThuoc): string[] => {
+      const links = (vt as any).nhomLinks as { nhomNho?: { ten_nhom_nho?: string } }[] | undefined;
+      if (!links?.length) return [];
+      return [...new Set(links.map((l) => (l.nhomNho?.ten_nhom_nho || '').trim()).filter(Boolean))];
+    };
+
     const viThuocList = validItems.map(({ d, vt, gram }) => ({
       id: vt.id,
       ten: vt.ten_vi_thuoc,
       lieu_luong_text: d.lieu_luong,
       lieu_gram: gram,
-      nhom_lon: vt.nhom_lon || '',
-      nhom_duoc_ly: vt.nhom_duoc_ly || '',
+      nhom_sub: subNhomFromVt(vt),
       quy_kinh: vt.quy_kinh || '',
       vai_tro_phan_tich: roleMap[vt.id] || 'Tá',
       vai_tro_nhap: d.vai_tro || '',

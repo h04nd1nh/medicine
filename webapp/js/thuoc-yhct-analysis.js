@@ -1,6 +1,6 @@
 // thuoc-yhct-analysis.js — Load LAST trong index.html
 // Ghi đè openViThuocForm, saveViThuoc, renderViThuocTab, renderBaiThuocTab
-// Schema vị thuốc khớp mẫu Excel (11 cột nghiệp vụ).
+// Schema vị thuốc: nhóm dược lý (nhóm nhỏ) gán ở tab «Nhóm dược lý», không lưu trên vi_thuoc.
 // _vtCurrentQuyKinh, _vtCurrentVi, _VT_VI_OPTIONS khai báo trong thuoc-management.js
 
 const YHCT_KINH_ORDER = [
@@ -21,34 +21,28 @@ function normalizeKinh(raw) {
     return YHCT_KINH_ALIAS[s.toLowerCase()] || s;
 }
 
-/** Chuẩn hóa chuỗi so khớp danh mục (không đổi schema DB — phương án 1). */
-function yhctNormKey(s) {
-    return (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+/** Tên các nhóm nhỏ (sub) gán cho vị thuốc — dùng phân tích Tác dụng YHCT. */
+function yhctNhomSubNamesFromVt(vt) {
+    const links = vt?.nhomLinks || [];
+    return [...new Set(links.map(l => (l.nhomNho?.ten_nhom_nho || '').trim()).filter(Boolean))];
 }
 
-/**
- * Nhóm lớn trên vị thuốc bắt buộc trùng với `nhom_lon` trong bảng danh mục nhóm dược lý:
- * tra theo khóa "nhóm nhỏ" (nhom_nho / ten_nhom). Không khớp → nhom_lon rỗng.
- */
-function yhctDeriveNhomFromCatalog(nhomDuocLyRaw) {
-    const list = _thuocData.nhomDuocLy || [];
-    const nhoIn = (nhomDuocLyRaw || '').trim();
-    if (!nhoIn) return { nhom_lon: '', nhom_duoc_ly: '' };
-    const hits = list.filter(item => {
-        const cn = (item.nhom_nho || item.ten_nhom || '').trim();
-        return cn && yhctNormKey(nhoIn) === yhctNormKey(cn);
-    });
-    if (hits.length === 0) return { nhom_lon: '', nhom_duoc_ly: nhoIn };
-    const item = hits[0];
-    const cn = (item.nhom_nho || item.ten_nhom || '').trim() || nhoIn;
-    const cl = (item.nhom_lon || '').trim();
-    return { nhom_lon: cl, nhom_duoc_ly: cn };
+/** Chuỗi ghép tên nhóm lớn (để heuristic Thăng/Giáng...). */
+function yhctNhomLonTextFromVt(vt) {
+    const links = vt?.nhomLinks || [];
+    const lons = new Set();
+    for (const l of links) {
+        const t = l.nhomNho?.nhomLon?.ten_nhom_lon;
+        if (t) lons.add(t);
+    }
+    return [...lons].join(' ').toLowerCase();
 }
 
-function yhctDisplayNhomLon(item) {
-    if (!item) return '—';
-    const d = yhctDeriveNhomFromCatalog(item.nhom_duoc_ly);
-    return d.nhom_lon || '—';
+/** Nhãn nhóm nhỏ cho bảng / xuất Excel (ưu tiên `vtNhomSubLabels` từ thuoc-management.js). */
+function yhctVtNhomSubDisplay(vt) {
+    if (typeof vtNhomSubLabels === 'function') return vtNhomSubLabels(vt);
+    const names = yhctNhomSubNamesFromVt(vt);
+    return names.length ? names.join(', ') : '—';
 }
 
 /** Tính vị thuốc — chỉ các giá trị mặc định (dropdown). */
@@ -125,24 +119,9 @@ function openViThuocForm(id) {
                 <input id="vt-inp-alias" type="text" class="tayy-form-input"
                     value="${item?escHtml(item.ten_goi_khac||''):''}" placeholder="Cách nhau bởi dấu phẩy"></label>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <label class="tayy-form-label">Nhóm lớn <span style="font-weight:400;color:#A09580;font-size:0.72rem;">(theo danh mục)</span><br>
-                <input id="vt-inp-nhomlon" type="text" readonly tabindex="-1" class="tayy-form-input"
-                    style="background:#F3F0E8;color:#5B3A1A;cursor:default;"
-                    value="${item?escHtml(yhctDeriveNhomFromCatalog(item.nhom_duoc_ly).nhom_lon||''):''}"
-                    title="Tự động theo Nhóm dược lý đã chọn trong danh mục Nhóm dược lý"></label>
-            <label class="tayy-form-label">Nhóm dược lý<br>
-                <div style="position:relative;">
-                    <input id="vt-inp-nhomduocly" type="text" class="tayy-form-input"
-                        value="${item?escHtml(item.nhom_duoc_ly||''):''}"
-                        oninput="yhctNhomInput(this.value)" onfocus="yhctNhomInput(this.value)"
-                        onblur="yhctSyncNhomLonField()"
-                        placeholder="Chọn trong danh mục (tab Nhóm dược lý)">
-                    <div id="vt-nhom-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);
-                        background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;
-                        box-shadow:0 8px 24px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;z-index:2500;display:none;"></div>
-                </div></label>
-        </div>
+        <p style="margin:0 0 10px 0;font-size:0.78rem;color:#8B7355;background:#FAF6EE;border:1px dashed #D4C5A0;border-radius:8px;padding:8px 10px;">
+            Gán vị thuốc vào <strong>nhóm nhỏ</strong> tại tab «Nhóm dược lý» (nút «Vị thuốc» trên từng nhóm nhỏ).
+        </p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
             <label class="tayy-form-label">Tính<br>
                 <select id="vt-inp-tinh" class="tayy-form-input">${yhctVtTinhSelectOptionsHtml(item ? item.tinh : '')}</select></label>
@@ -188,85 +167,12 @@ function openViThuocForm(id) {
     vtRenderQuyKinhChips();
     _vtCurrentVi = yhctParseViToList(item?.vi || '');
     vtRenderViChips();
-    setTimeout(() => yhctSyncNhomLonField(), 0);
-}
-
-const _NHOM_LIST = ['Tiêu thực','Bổ khí','Bổ huyết','Bổ âm','Bổ dương','Thanh nhiệt',
-    'Giải biểu','Lý khí','Hoạt huyết','Trừ thấp','Tả hạ','Ôn lý','Bình can tức phong',
-    'An thần','Hóa đàm','Chỉ ho bình suyễn','Thu sáp','Lợi thủy thẩm thấp','Điều hòa'];
-
-function yhctNhomInput(val) {
-    const el = document.getElementById('vt-nhom-suggest');
-    if (!el) return;
-    const q = (val||'').trim().toLowerCase();
-    const existing = [...new Set((_thuocData.viThuoc||[]).map(v=>v.nhom_duoc_ly).filter(Boolean))];
-    const fromNhomDanhMuc = [...new Set((_thuocData.nhomDuocLy||[]).map(x => x.nhom_nho || x.ten_nhom).filter(Boolean))];
-    const all = [...new Set([..._NHOM_LIST, ...fromNhomDanhMuc, ...existing])];
-    const filtered = all.filter(x=>x.toLowerCase().includes(q)).slice(0,10);
-    const hasExact = all.some(x=>x.toLowerCase()===q);
-
-    const catalog = (_thuocData.nhomDuocLy||[]).filter(item => {
-        const lon = (item.nhom_lon||'').trim();
-        const nho = (item.nhom_nho || item.ten_nhom || '').trim();
-        if (!nho) return false;
-        return lon.toLowerCase().includes(q) || nho.toLowerCase().includes(q);
-    }).slice(0, 12);
-
-    let html = catalog.map(item => {
-        const lon = (item.nhom_lon||'').trim();
-        const nho = (item.nhom_nho || item.ten_nhom || '').trim();
-        const label = lon ? `${lon} → ${nho}` : nho;
-        const clickJs = `yhctApplyNhomCatalogPair(${JSON.stringify(lon)}, ${JSON.stringify(nho)})`;
-        const clickAttr = clickJs.replace(/"/g, '&quot;');
-        return `
-        <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
-            onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background=''"
-            onclick="${clickAttr}">
-            <div style="font-weight:600;color:#5B3A1A;font-size:0.82rem;">${escHtml(label)}</div>
-            <div style="font-size:0.7rem;color:#8B7355;">Danh mục nhóm dược lý</div>
-        </div>`;
-    }).join('');
-
-    html += filtered.map(m=>`
-        <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
-            onmouseover="this.style.background='#F5F0E8'" onmouseout="this.style.background=''"
-            onclick="document.getElementById('vt-inp-nhomduocly').value='${escHtml(m)}';document.getElementById('vt-nhom-suggest').style.display='none';yhctSyncNhomLonField();">
-            <div style="font-weight:600;color:#5B3A1A;font-size:0.82rem;">${escHtml(m)}</div>
-        </div>`).join('');
-
-    if (!hasExact && q) html += `
-        <div style="padding:8px 12px;cursor:pointer;background:#FAF6EE;border-top:1px dashed #D4C5A0;"
-            onmouseover="this.style.background='#EFE8D8'" onmouseout="this.style.background='#FAF6EE'"
-            onclick="document.getElementById('vt-inp-nhomduocly').value='${escHtml(val.trim())}';document.getElementById('vt-nhom-suggest').style.display='none';yhctSyncNhomLonField();">
-            <div style="font-weight:700;color:#CA6222;font-size:0.82rem;">+ Nhập tự do "${escHtml(val.trim())}"</div>
-        </div>`;
-    el.style.display = html ? 'block' : 'none';
-    el.innerHTML = html;
-}
-
-function yhctApplyNhomCatalogPair(lon, nho) {
-    const b = document.getElementById('vt-inp-nhomduocly');
-    const s = document.getElementById('vt-nhom-suggest');
-    if (b) b.value = nho || '';
-    if (s) s.style.display = 'none';
-    yhctSyncNhomLonField();
-}
-
-function yhctSyncNhomLonField() {
-    const b = document.getElementById('vt-inp-nhomduocly');
-    const a = document.getElementById('vt-inp-nhomlon');
-    if (!b || !a) return;
-    const d = yhctDeriveNhomFromCatalog(b.value);
-    b.value = d.nhom_duoc_ly || b.value.trim();
-    a.value = d.nhom_lon || '';
 }
 
 async function saveViThuoc(id) {
-    let payload = {
+    const payload = {
         ten_vi_thuoc:   (document.getElementById('vt-inp-ten')?.value||'').trim(),
         ten_goi_khac:   (document.getElementById('vt-inp-alias')?.value||'').trim(),
-        nhom_lon:       (document.getElementById('vt-inp-nhomlon')?.value||'').trim(),
-        nhom_duoc_ly:   (document.getElementById('vt-inp-nhomduocly')?.value||'').trim(),
         tinh:           yhctSanitizeVtTinh(document.getElementById('vt-inp-tinh')?.value),
         vi:             yhctNormalizeViString((typeof _vtCurrentVi !== 'undefined' && _vtCurrentVi.length) ? _vtCurrentVi.join(',') : ''),
         lieu_dung:      (document.getElementById('vt-inp-lieudung')?.value||'').trim(),
@@ -276,25 +182,6 @@ async function saveViThuoc(id) {
         kieng_ky:       (document.getElementById('vt-ta-kiengky')?.value||'').trim(),
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc!');
-    yhctSyncNhomLonField();
-    payload.nhom_duoc_ly = (document.getElementById('vt-inp-nhomduocly')?.value||'').trim();
-    payload.nhom_lon = (document.getElementById('vt-inp-nhomlon')?.value||'').trim();
-    const nhoTrim = (payload.nhom_duoc_ly || '').trim();
-    if (nhoTrim) {
-        const d = yhctDeriveNhomFromCatalog(nhoTrim);
-        if (!d.nhom_lon) {
-            return alert('Nhóm dược lý phải khớp một dòng trong danh mục (tab «Nhóm dược lý»). Nhóm lớn luôn lấy từ danh mục theo nhóm đó.');
-        }
-        payload.nhom_lon = d.nhom_lon;
-        payload.nhom_duoc_ly = d.nhom_duoc_ly;
-    } else {
-        payload.nhom_lon = '';
-        payload.nhom_duoc_ly = '';
-    }
-    const a = document.getElementById('vt-inp-nhomlon');
-    const b = document.getElementById('vt-inp-nhomduocly');
-    if (a) a.value = payload.nhom_lon || '';
-    if (b) b.value = payload.nhom_duoc_ly || '';
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
     if (!res.success) return alert('Lỗi: ' + res.error);
     closeTayyModal();
@@ -368,17 +255,22 @@ function yhctAnalyzeLocalSimple(bt) {
         else roleMap[x.vt.id]='Tá';
     });
 
-    const viThuocList = items.map(({d,vt,gram})=>({
-        ten: vt.ten_vi_thuoc||'—', gram,
-        pct: Math.round(gram/W*100),
-        vai_tro: roleMap[vt.id]||'Tá',
-        color: roleColors[roleMap[vt.id]||'Tá'],
-        nhom_lon: yhctDeriveNhomFromCatalog(vt.nhom_duoc_ly).nhom_lon || '',
-        nhom_duoc_ly: vt.nhom_duoc_ly||'',
-        tinh: vt.tinh || '',
-        vi: vt.vi || '',
-        quy_kinh: vt.quy_kinh||'',
-    }));
+    const viThuocList = items.map(({d,vt,gram}) => {
+        const nhomSubs = yhctNhomSubNamesFromVt(vt);
+        return {
+            id: vt.id,
+            ten: vt.ten_vi_thuoc || '—', gram,
+            pct: Math.round(gram / W * 100),
+            vai_tro: roleMap[vt.id] || 'Tá',
+            color: roleColors[roleMap[vt.id] || 'Tá'],
+            tinh: vt.tinh || '',
+            vi: vt.vi || '',
+            quy_kinh: vt.quy_kinh || '',
+            nhomSubs,
+            nhomSubDisplay: nhomSubs.length ? nhomSubs.join(', ') : '—',
+            _nhomLonText: yhctNhomLonTextFromVt(vt),
+        };
+    });
 
     const tuKhi = { daiHan:0, han:0, luong:0, binh:0, on:0, nhiet:0, daiNhiet:0 };
     const nguVi = { chua:0, dang:0, ngot:0, cay:0, man:0 };
@@ -414,7 +306,7 @@ function yhctAnalyzeLocalSimple(bt) {
     };
     const addTgpt = (item, wPct) => {
         const tinh = (item.tinh || '').toLowerCase();
-        const nhom = (item.nhom_lon || '').toLowerCase();
+        const nhom = (item._nhomLonText || '').toLowerCase();
         const qk = (item.quy_kinh || '').toLowerCase();
         if (tinh.includes('ôn') || tinh.includes('on') || tinh.includes('nóng') || tinh.includes('nong')) { tgpt.thang += wPct * 0.35; tgpt.phu += wPct * 0.35; }
         if (tinh.includes('hàn') || tinh.includes('han') || tinh.includes('lương') || tinh.includes('luong')) { tgpt.giang += wPct * 0.35; tgpt.tram += wPct * 0.35; }
@@ -426,8 +318,16 @@ function yhctAnalyzeLocalSimple(bt) {
         tgpt.thang += base; tgpt.giang += base; tgpt.phu += base; tgpt.tram += base;
     };
     const addTacDung = (item, wPct) => {
-        const key = (item.nhom_duoc_ly || item.nhom_lon || 'Khác').trim() || 'Khác';
-        tacDungMap[key] = (tacDungMap[key] || 0) + wPct;
+        const subs = item.nhomSubs || [];
+        if (!subs.length) {
+            tacDungMap['Khác'] = (tacDungMap['Khác'] || 0) + wPct;
+            return;
+        }
+        const each = wPct / subs.length;
+        subs.forEach(raw => {
+            const key = (raw || '').trim() || 'Khác';
+            tacDungMap[key] = (tacDungMap[key] || 0) + each;
+        });
     };
 
     viThuocList.forEach(v => {
@@ -455,7 +355,7 @@ function yhctBuildAnalysisHtml(r) {
             <td style="padding:5px 8px;text-align:center;">
                 <span style="background:${v.color};color:#fff;border-radius:10px;padding:2px 9px;font-size:0.75rem;font-weight:700;">${escHtml(v.vai_tro)}</span>
             </td>
-            <td style="padding:5px 8px;font-size:0.76rem;color:#5B3A1A;">${escHtml(v.nhom_lon || '—')}</td>
+            <td style="padding:5px 8px;font-size:0.76rem;color:#5B3A1A;">${escHtml(v.nhomSubDisplay || '—')}</td>
             <td style="padding:5px 8px;font-size:0.72rem;color:#8B7355;">${escHtml(v.quy_kinh||'—')}</td>
         </tr>`).join('');
 
@@ -543,7 +443,7 @@ function yhctBuildAnalysisHtml(r) {
                     <th style="padding:7px 8px;text-align:center;">Gram</th>
                     <th style="padding:7px 8px;text-align:center;">%</th>
                     <th style="padding:7px 8px;text-align:center;">Vai trò</th>
-                    <th style="padding:7px 8px;text-align:left;">Nhóm</th>
+                    <th style="padding:7px 8px;text-align:left;">Nhóm nhỏ (dược lý)</th>
                     <th style="padding:7px 8px;text-align:left;">Quy kinh</th>
                 </tr></thead>
                 <tbody>${vtRows}</tbody>
@@ -635,8 +535,7 @@ function renderViThuocTab(el) {
         const alias = item.ten_goi_khac ? `<div style="font-size:0.7rem;color:#9CA3AF;font-style:italic;">${escHtml(item.ten_goi_khac)}</div>` : '';
         return `<tr>
             <td><div style="font-weight:700;color:#5B3A1A;">${escHtml(item.ten_vi_thuoc)}</div>${alias}</td>
-            <td style="font-size:0.74rem;">${escHtml(yhctDisplayNhomLon(item))}</td>
-            <td style="font-size:0.74rem;">${escHtml(item.nhom_duoc_ly || '—')}</td>
+            <td style="font-size:0.74rem;">${escHtml(yhctVtNhomSubDisplay(item))}</td>
             <td style="font-size:0.74rem;">${escHtml(item.tinh || '—')}</td>
             <td style="font-size:0.74rem;">${escHtml(item.vi || '—')}</td>
             <td style="font-size:0.72rem;color:#6B7280;">${trunc(item.quy_kinh, 40)}</td>
@@ -660,7 +559,7 @@ function renderViThuocTab(el) {
                 <button class="btn btn-outline" onclick="document.getElementById('yhct-import-vt').click()">📤 Nhập Excel</button>
                 <input type="file" id="yhct-import-vt" accept=".xlsx, .xls, .csv" style="display:none;" onchange="yhctImportViThuocXlsx(event)">
                 <button type="button" class="btn btn-outline" style="border-style:dashed;opacity:0.92;"
-                    title="Import/cập nhật theo đúng 11 cột mẫu Excel."
+                    title="Import/cập nhật theo các cột mẫu (không gán nhóm dược lý qua file)."
                     onclick="document.getElementById('yhct-import-vt-dev').click()">📤 Nhập Excel (dev)</button>
                 <input type="file" id="yhct-import-vt-dev" accept=".xlsx, .xls, .csv" style="display:none;" onchange="yhctImportViThuocXlsxDev(event)">
             </div>
@@ -670,8 +569,7 @@ function renderViThuocTab(el) {
             <table>
                 <thead><tr>
                     <th>Tên vị thuốc</th>
-                    <th>Nhóm lớn</th>
-                    <th>Nhóm dược lý</th>
+                    <th>Nhóm nhỏ (dược lý)</th>
                     <th>Tính</th>
                     <th>Vị</th>
                     <th>Quy kinh</th>
@@ -681,7 +579,7 @@ function renderViThuocTab(el) {
                     <th>Kiêng kỵ</th>
                     <th style="width:110px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows||'<tr><td colspan="11" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows||'<tr><td colspan="10" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -733,11 +631,9 @@ function renderBaiThuocTab(el) {
 }
 
 function yhctViThuocPayloadFromRow(r) {
-    const nhomDL = yhctDevPick(r, ['Nhóm dược lý', 'Nhom duoc ly', 'Nhóm dược ly']);
-    const raw = {
+    return {
         ten_vi_thuoc: yhctDevPick(r, ['Tên vị thuốc', 'Ten vi thuoc']),
         ten_goi_khac: yhctDevPick(r, ['Tên gọi khác', 'Ten goi khac']),
-        nhom_duoc_ly: nhomDL,
         tinh: yhctCanonicalTinh(yhctDevPick(r, ['Tính', 'Tinh'])),
         vi: yhctNormalizeViString(yhctDevPick(r, ['Vị', 'Vi'])),
         quy_kinh: yhctDevPick(r, ['Quy kinh', 'Quy Kinh']),
@@ -745,12 +641,6 @@ function yhctViThuocPayloadFromRow(r) {
         cong_dung: yhctDevPick(r, ['Công dụng', 'Cong dung']),
         chu_tri: yhctDevPick(r, ['Chủ trị', 'Chu tri']),
         kieng_ky: yhctDevPick(r, ['Kiêng kỵ', 'Kieng ky']),
-    };
-    const d = yhctDeriveNhomFromCatalog(raw.nhom_duoc_ly);
-    return {
-        ...raw,
-        nhom_duoc_ly: d.nhom_duoc_ly || raw.nhom_duoc_ly,
-        nhom_lon: d.nhom_lon,
     };
 }
 
@@ -773,19 +663,21 @@ function yhctDevPick(r, keys) {
 
 function yhctExportViThuocXlsx() {
    if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
-   const data = _thuocData.viThuoc.map(v => ({
-       'Tên vị thuốc': v.ten_vi_thuoc,
-       'Tên gọi khác': v.ten_goi_khac,
-       'Nhóm lớn': yhctDeriveNhomFromCatalog(v.nhom_duoc_ly).nhom_lon || '',
-       'Nhóm dược lý': v.nhom_duoc_ly,
-       'Tính': v.tinh,
-       'Vị': v.vi,
-       'Quy kinh': v.quy_kinh,
-       'Liều dùng': v.lieu_dung,
-       'Công dụng': v.cong_dung,
-       'Chủ trị': v.chu_tri,
-       'Kiêng kỵ': v.kieng_ky,
-   }));
+   const data = _thuocData.viThuoc.map(v => {
+       const sub = yhctVtNhomSubDisplay(v);
+       return {
+           'Tên vị thuốc': v.ten_vi_thuoc,
+           'Tên gọi khác': v.ten_goi_khac,
+           'Nhóm nhỏ (dược lý)': sub === '—' ? '' : sub,
+           'Tính': v.tinh,
+           'Vị': v.vi,
+           'Quy kinh': v.quy_kinh,
+           'Liều dùng': v.lieu_dung,
+           'Công dụng': v.cong_dung,
+           'Chủ trị': v.chu_tri,
+           'Kiêng kỵ': v.kieng_ky,
+       };
+   });
    const wb = XLSX.utils.book_new();
    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "ViThuoc");
    XLSX.writeFile(wb, "Danh_Muc_Vi_Thuoc.xlsx");
@@ -824,16 +716,10 @@ function yhctImportViThuocXlsx(e) {
         const rows = rawRows.map(yhctNormalizeExcelRowKeys);
         if (!confirm(`Tìm thấy ${rows.length} dòng. Tiến hành import (trùng tên sẽ cập nhật)?`)) { e.target.value = ''; return; }
 
-        let created = 0, updated = 0, skipped = 0, invalidNhom = 0;
+        let created = 0, updated = 0, skipped = 0;
         for (const r of rows) {
             const payload = yhctViThuocPayloadFromRow(r);
             if (!payload.ten_vi_thuoc) { skipped++; continue; }
-            const nhoTrim = (payload.nhom_duoc_ly || '').trim();
-            if (nhoTrim && !payload.nhom_lon) {
-                invalidNhom++;
-                skipped++;
-                continue;
-            }
             const existing = (_thuocData.viThuoc || []).find(
                 v => (v.ten_vi_thuoc || '').trim().toLowerCase() === payload.ten_vi_thuoc.toLowerCase()
             );
@@ -848,7 +734,7 @@ function yhctImportViThuocXlsx(e) {
                 else skipped++;
             }
         }
-        alert(`Nhập xong: thêm ${created}, cập nhật ${updated}, bỏ qua/lỗi ${skipped}${invalidNhom ? ` (trong đó ${invalidNhom} dòng: Nhóm dược lý không có trong danh mục)` : ''}.`);
+        alert(`Nhập xong: thêm ${created}, cập nhật ${updated}, bỏ qua/lỗi ${skipped}. Gán nhóm dược lý tại tab «Nhóm dược lý».`);
         await loadAllThuocData();
         renderThuocSection();
         e.target.value = '';
@@ -872,21 +758,15 @@ function yhctImportViThuocXlsxDev(e) {
             e.target.value = '';
             return;
         }
-        if (!confirm(`[dev] ${rows.length} dòng. Import/cập nhật theo 11 cột mẫu Excel?`)) {
+        if (!confirm(`[dev] ${rows.length} dòng. Import/cập nhật theo cột mẫu (không gán nhóm qua file)?`)) {
             e.target.value = '';
             return;
         }
 
-        let created = 0, updated = 0, skipped = 0, invalidNhom = 0;
+        let created = 0, updated = 0, skipped = 0;
         for (const r of rows) {
             const payload = yhctViThuocPayloadFromRow(r);
             if (!payload.ten_vi_thuoc) { skipped++; continue; }
-            const nhoTrim = (payload.nhom_duoc_ly || '').trim();
-            if (nhoTrim && !payload.nhom_lon) {
-                invalidNhom++;
-                skipped++;
-                continue;
-            }
 
             const existing = (_thuocData.viThuoc || []).find(
                 v => (v.ten_vi_thuoc || '').trim().toLowerCase() === payload.ten_vi_thuoc.toLowerCase()
@@ -903,7 +783,7 @@ function yhctImportViThuocXlsxDev(e) {
             }
         }
 
-        alert(`[dev] Thêm ${created}, cập nhật ${updated}, bỏ qua/lỗi ${skipped}${invalidNhom ? ` (trong đó ${invalidNhom} dòng: Nhóm dược lý không có trong danh mục)` : ''}.`);
+        alert(`[dev] Thêm ${created}, cập nhật ${updated}, bỏ qua/lỗi ${skipped}.`);
         await loadAllThuocData();
         renderThuocSection();
         e.target.value = '';

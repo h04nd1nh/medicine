@@ -1,9 +1,7 @@
-// ViThuoc DTOs — khớp mẫu Excel
+// ViThuoc DTOs — khớp mẫu Excel (nhóm dược lý qua tab Danh mục / API riêng)
 export class CreateViThuocDto {
   ten_vi_thuoc: string;
   ten_goi_khac?: string;
-  nhom_lon?: string;
-  nhom_duoc_ly?: string;
   tinh?: string;
   vi?: string;
   quy_kinh?: string;

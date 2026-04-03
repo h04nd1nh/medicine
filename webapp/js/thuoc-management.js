@@ -282,13 +282,23 @@ async function deletePhapTri(id) {
 // TAB: VỊ THUỐC
 // ═══════════════════════════════════════════════════════════
 
+function vtNhomSubLabels(vt) {
+    const links = vt.nhomLinks || [];
+    const names = [];
+    for (const l of links) {
+        const n = l.nhomNho?.ten_nhom_nho;
+        if (n) names.push(n);
+    }
+    if (!names.length) return '—';
+    return names.join(', ');
+}
+
 /** Fallback nếu thuoc-yhct-analysis.js chưa ghi đè — schema Excel 11 cột */
 function renderViThuocTab(el) {
     const rows = (_thuocData.viThuoc || []).map(item => `
         <tr>
             <td><strong>${escHtml(item.ten_vi_thuoc)}</strong></td>
-            <td style="font-size:0.78rem;">${escHtml(typeof yhctDisplayNhomLon === 'function' ? yhctDisplayNhomLon(item) : (item.nhom_lon || '—'))}</td>
-            <td style="font-size:0.78rem;">${escHtml(item.nhom_duoc_ly || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(vtNhomSubLabels(item))}</td>
             <td style="font-size:0.78rem;">${escHtml(item.tinh || '—')}</td>
             <td style="font-size:0.78rem;">${escHtml(item.vi || '—')}</td>
             <td style="text-align:center;width:120px;">
@@ -305,10 +315,10 @@ function renderViThuocTab(el) {
         <div class="data-table-container">
             <table>
                 <thead><tr>
-                    <th>Tên vị thuốc</th><th>Nhóm lớn</th><th>Nhóm dược lý</th><th>Tính</th><th>Vị</th>
+                    <th>Tên vị thuốc</th><th>Nhóm nhỏ (dược lý)</th><th>Tính</th><th>Vị</th>
                     <th style="width:120px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -558,8 +568,6 @@ async function saveViThuoc(id) {
     const payload = {
         ten_vi_thuoc: (document.getElementById('vt-inp-ten')?.value || '').trim(),
         ten_goi_khac: (document.getElementById('vt-inp-alias')?.value || '').trim(),
-        nhom_lon: (document.getElementById('vt-inp-nhomlon')?.value || '').trim(),
-        nhom_duoc_ly: (document.getElementById('vt-inp-nhomduocly')?.value || '').trim(),
         tinh: (document.getElementById('vt-inp-tinh')?.value || '').trim(),
         vi: (typeof _vtCurrentVi !== 'undefined' && _vtCurrentVi.length)
             ? (typeof yhctNormalizeViString === 'function'
@@ -909,7 +917,8 @@ function btRenderBaiThuocChiTietRowsHtml() {
                         oninput="btUpdateBaiThuocChipVaiTro(${d.idViThuoc}, this.value)">
                 </td>
                 <td style="border:1px solid #E2D4B8; padding:8px; font-size:0.8rem; line-height:1.4; color:#5B3A1A;">
-                    <div><strong>Tính:</strong> ${escHtml(tinh)} <span style="margin:0 4px;color:#D4C5A0;">|</span> <strong>Vị:</strong> ${escHtml(vi)}</div>
+                    <div><strong>Nhóm nhỏ:</strong> ${escHtml(vt ? vtNhomSubLabels(vt) : '—')}</div>
+                    <div style="margin-top:4px;"><strong>Tính:</strong> ${escHtml(tinh)} <span style="margin:0 4px;color:#D4C5A0;">|</span> <strong>Vị:</strong> ${escHtml(vi)}</div>
                     <div style="margin-top:2px;"><strong>Quy kinh:</strong> ${escHtml(vtQuyKinh)}</div>
                 </td>
             </tr>
@@ -1341,127 +1350,247 @@ async function btSoftCreatePhapTri(name) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB: NHÓM DƯỢC LÝ
+// TAB: NHÓM DƯỢC LÝ (cây: nhóm lớn → nhóm nhỏ → danh sách vị thuốc)
 // ═══════════════════════════════════════════════════════════
+function ndlFindNhoById(idNho) {
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        const nho = (lon.nhomNho || []).find(x => x.id == idNho);
+        if (nho) return { lon, nho };
+    }
+    return null;
+}
+
 function renderNhomDuocLyTab(el) {
-    const getDisplayNhomNho = (item) => (item.nhom_nho || item.ten_nhom || '').trim();
-    const getDisplayNhomLon = (item) => (item.nhom_lon || '').trim();
-    const getDisplayMoTa = (item) => (item.mo_ta || '').trim();
-
-    const rows = (_thuocData.nhomDuocLy || []).map(item => {
-        const id = item.id;
-        const nhomLon = getDisplayNhomLon(item);
-        const nhomNho = getDisplayNhomNho(item);
-        const moTa = getDisplayMoTa(item);
-
-        const usageCount = (_thuocData.viThuoc || []).filter(vt =>
-            (vt.nhom_duoc_ly || '').trim() === nhomNho
-        ).length;
-        return `<tr>
-            <td style="font-weight:600;color:#5B3A1A;">${escHtml(nhomLon || '—')}</td>
-            <td style="font-weight:600;color:#5B3A1A;">${escHtml(nhomNho || '—')}</td>
-            <td style="color:#8B7355;font-size:0.8rem;">${escHtml(moTa || '—')}</td>
-            <td style="text-align:center;">
-                ${usageCount > 0
-                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} vị thuốc</span>`
-                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
-            </td>
-            <td style="text-align:center;width:130px;">
-                <div class="table-actions" style="justify-content:center;">
-                    <button class="btn btn-sm btn-outline" onclick="openNhomDuocLyForm(${id})">✏ Sửa</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteNhomDuocLy(${id})">🗑</button>
-                </div>
-            </td>
-        </tr>`;
+    const catalog = _thuocData.nhomDuocLy || [];
+    const lonCount = catalog.filter(l => !l.isOrphanBucket).length;
+    let totalNho = 0;
+    const blocks = catalog.map(lon => {
+        const nhoList = lon.nhomNho || [];
+        totalNho += nhoList.length;
+        const isBucket = !!lon.isOrphanBucket;
+        const idLonJs = isBucket ? 'null' : lon.id;
+        const rows = nhoList.map(nho => {
+            const cnt = (nho.id_vi_thuoc || []).length;
+            const mt = (nho.mo_ta || '').trim();
+            return `<tr>
+                <td style="font-weight:600;color:#5B3A1A;">${escHtml(nho.ten_nhom_nho)}</td>
+                <td style="color:#8B7355;font-size:0.78rem;">${escHtml(mt ? (mt.length > 100 ? mt.slice(0, 100) + '…' : mt) : '—')}</td>
+                <td style="text-align:center;">${cnt}</td>
+                <td style="text-align:center;">
+                    <div class="table-actions" style="justify-content:center;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="openNhomNhoMembersModal(${nho.id})">Vị thuốc</button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="openNhomDuocLyNhoForm(${idLonJs}, ${nho.id})">Sửa</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteNhomDuocLyNho(${nho.id})">🗑</button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+        const headerBtns = isBucket
+            ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openNhomDuocLyNhoForm(null, 0)">+ Nhóm nhỏ</button>
+               </div>`
+            : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="openNhomDuocLyLonForm(${lon.id})">Sửa nhóm lớn</button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openNhomDuocLyNhoForm(${lon.id}, 0)">+ Nhóm nhỏ</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteNhomDuocLyLon(${lon.id})">Xóa nhóm lớn</button>
+               </div>`;
+        const subHint = isBucket
+            ? `<div style="font-size:0.76rem;color:#8B7355;margin-bottom:8px;">Các nhóm nhỏ ở đây không gắn với nhóm lớn nào (tùy chọn). Có thể gán vào nhóm lớn khi sửa.</div>`
+            : '';
+        return `<div style="border:1px solid #E2D4B8;border-radius:10px;padding:12px;margin-bottom:14px;background:${isBucket ? '#FAFAF8' : '#FFFDF7'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <div style="font-weight:800;color:#5B3A1A;font-size:1rem;">${escHtml(lon.ten_nhom_lon)}</div>
+                ${headerBtns}
+            </div>
+            ${subHint}
+            <div class="data-table-container" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;width:100%;">
+                    <thead><tr>
+                        <th>Nhóm nhỏ (Tác dụng YHCT)</th><th>Mô tả</th><th style="text-align:center;">Số vị</th><th style="text-align:center;width:240px;">Thao tác</th>
+                    </tr></thead>
+                    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#9CA3AF;">Chưa có nhóm nhỏ — bấm «+ Nhóm nhỏ»</td></tr>'}</tbody>
+                </table>
+            </div>
+        </div>`;
     }).join('');
 
     el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div style="display:flex;gap:8px;">
-                <button class="btn btn-outline" onclick="exportNhomDuocLyXlsx()">📥 Xuất Excel</button>
-                <button class="btn btn-outline" onclick="document.getElementById('ndl-import-file').click()">📤 Nhập Excel</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline" onclick="exportNhomDuocLyXlsx()">📥 Xuất Excel</button>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('ndl-import-file').click()">📤 Nhập Excel</button>
                 <input type="file" id="ndl-import-file" accept=".xlsx, .xls, .csv" style="display:none;" onchange="importNhomDuocLyXlsx(event)">
             </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-                <div style="font-size:0.82rem;color:#A09580;">
-                    Tổng: <strong>${(_thuocData.nhomDuocLy||[]).length}</strong> nhóm dược lý
-                </div>
-                <button class="btn btn-primary" onclick="openNhomDuocLyForm()">+ Thêm nhóm dược lý</button>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:0.82rem;color:#A09580;">
+                    <strong>${lonCount}</strong> nhóm lớn · <strong>${totalNho}</strong> nhóm nhỏ
+                </span>
+                <button type="button" class="btn btn-primary" onclick="openNhomDuocLyLonForm(0)">+ Thêm nhóm lớn</button>
             </div>
         </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr>
-                    <th>Nhóm lớn</th>
-                    <th>Nhóm nhỏ</th>
-                    <th>Mô tả</th>
-                    <th style="text-align:center;">Sử dụng</th>
-                    <th style="width:130px;text-align:center;">Thao tác</th>
-                </tr></thead>
-                <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có nhóm dược lý nào</td></tr>'}</tbody>
-            </table>
-        </div>`;
+        ${blocks}`;
 }
 
-function openNhomDuocLyForm(id) {
-    const item = id ? (_thuocData.nhomDuocLy || []).find(x => x.id == id) : null;
-    showTayyModal(item ? 'Sửa nhóm dược lý' : 'Thêm nhóm dược lý', `
-        <label class="tayy-form-label">Nhóm lớn *<br>
-            <input id="ndl-inp-lon" type="text" class="tayy-form-input"
-                value="${item ? escHtml(item.nhom_lon || '') : ''}"
+function openNhomDuocLyLonForm(id) {
+    const catalog = _thuocData.nhomDuocLy || [];
+    const item = id ? catalog.find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa nhóm lớn' : 'Thêm nhóm lớn', `
+        <label class="tayy-form-label">Tên nhóm lớn *<br>
+            <input id="ndl-lon-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_nhom_lon) : ''}"
                 placeholder="VD: Giải biểu, Thanh nhiệt...">
-        </label>
-        <label class="tayy-form-label">Nhóm nhỏ *<br>
-            <input id="ndl-inp-nho" type="text" class="tayy-form-input"
-                value="${item ? escHtml(item.nhom_nho || item.ten_nhom || '') : ''}"
-                placeholder="VD: Tân lương giải biểu...">
-        </label>
-        <label class="tayy-form-label">Mô tả<br>
-            <textarea id="ndl-inp-mota" class="tayy-form-input" style="min-height:60px;" placeholder="Mô tả công dụng nhóm...">${item ? escHtml(item.mo_ta || '') : ''}</textarea>
         </label>
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveNhomDuocLy(${id || 0})">Lưu</button>
+            <button class="btn btn-primary" onclick="saveNhomDuocLyLon(${id || 0})">Lưu</button>
         </div>
     `);
-    setTimeout(() => document.getElementById('ndl-inp-lon')?.focus(), 50);
+    setTimeout(() => document.getElementById('ndl-lon-ten')?.focus(), 50);
 }
 
-async function saveNhomDuocLy(id) {
-    const nhomLon = (document.getElementById('ndl-inp-lon')?.value || '').trim();
-    const nhomNho = (document.getElementById('ndl-inp-nho')?.value || '').trim();
-    const moTa = (document.getElementById('ndl-inp-mota')?.value || '').trim();
-    if (!nhomLon) return alert('Vui lòng nhập Nhóm lớn!');
-    if (!nhomNho) return alert('Vui lòng nhập Nhóm nhỏ!');
-    const payload = {
-        nhom_lon: nhomLon,
-        nhom_nho: nhomNho,
-        mo_ta: moTa,
-        ten_nhom: nhomNho,
-    };
-    const res = id ? await apiUpdateNhomDuocLy(id, payload) : await apiCreateNhomDuocLy(payload);
+async function saveNhomDuocLyLon(id) {
+    const ten = (document.getElementById('ndl-lon-ten')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên nhóm lớn!');
+    const res = id
+        ? await apiUpdateNhomDuocLyLon(id, { ten_nhom_lon: ten })
+        : await apiCreateNhomDuocLyLon({ ten_nhom_lon: ten });
     if (!res.success && res.error) return alert('Lỗi: ' + res.error);
     closeTayyModal();
     await loadAllThuocData();
     renderThuocSection();
 }
 
-async function deleteNhomDuocLy(id) {
-    if (!confirm('Xóa nhóm dược lý này?')) return;
-    await apiDeleteNhomDuocLy(id);
+async function deleteNhomDuocLyLon(id) {
+    if (!confirm('Xóa nhóm lớn? Các nhóm nhỏ trực thuộc sẽ chuyển xuống mục «Nhóm nhỏ độc lập» (không mất dữ liệu, không xóa gán vị thuốc).')) return;
+    const res = await apiDeleteNhomDuocLyLon(id);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+function openNhomDuocLyNhoForm(idLon, idNho) {
+    const catalog = _thuocData.nhomDuocLy || [];
+    const lonsOnly = catalog.filter(l => !l.isOrphanBucket && l.id != null);
+
+    let nho = null;
+    let defaultParent = idLon;
+    if (idNho) {
+        const found = ndlFindNhoById(idNho);
+        if (!found) return alert('Không tìm thấy nhóm nhỏ.');
+        nho = found.nho;
+        defaultParent = nho.id_nhom_lon != null && nho.id_nhom_lon !== undefined ? nho.id_nhom_lon : '';
+    } else if (idLon != null && idLon !== undefined) {
+        const lon = lonsOnly.find(x => x.id == idLon);
+        if (!lon) return alert('Không tìm thấy nhóm lớn.');
+    }
+
+    const opts = lonsOnly.map(l =>
+        `<option value="${l.id}"${defaultParent !== '' && defaultParent != null && l.id == defaultParent ? ' selected' : ''}>${escHtml(l.ten_nhom_lon)}</option>`
+    ).join('');
+    const noneSel = defaultParent === '' || defaultParent == null ? ' selected' : '';
+
+    showTayyModal(nho ? 'Sửa nhóm nhỏ' : 'Thêm nhóm nhỏ', `
+        <label class="tayy-form-label">Thuộc nhóm lớn <span style="font-weight:400;color:#A09580;">(để «Không» nếu nhóm nhỏ độc lập)</span><br>
+            <select id="ndl-nho-parent-lon" class="tayy-form-input">
+                <option value=""${noneSel}>— Không —</option>
+                ${opts}
+            </select>
+        </label>
+        <label class="tayy-form-label">Tên nhóm nhỏ * <span style="font-weight:400;color:#A09580;">(hiển thị ở phân tích Tác dụng YHCT)</span><br>
+            <input id="ndl-nho-ten" type="text" class="tayy-form-input"
+                value="${nho ? escHtml(nho.ten_nhom_nho) : ''}"
+                placeholder="VD: Tân lương giải biểu...">
+        </label>
+        <label class="tayy-form-label">Mô tả<br>
+            <textarea id="ndl-nho-mota" class="tayy-form-input" style="min-height:60px;" placeholder="Mô tả nhóm nhỏ...">${nho ? escHtml(nho.mo_ta || '') : ''}</textarea>
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveNhomDuocLyNho(${nho ? nho.id : 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('ndl-nho-ten')?.focus(), 50);
+}
+
+async function saveNhomDuocLyNho(idNho) {
+    const ten = (document.getElementById('ndl-nho-ten')?.value || '').trim();
+    const moTa = (document.getElementById('ndl-nho-mota')?.value || '').trim();
+    const parentVal = (document.getElementById('ndl-nho-parent-lon')?.value || '').trim();
+    const id_nhom_lon = parentVal === '' ? null : +parentVal;
+    if (!ten) return alert('Vui lòng nhập tên nhóm nhỏ!');
+    const res = idNho
+        ? await apiUpdateNhomDuocLyNho(idNho, { ten_nhom_nho: ten, mo_ta: moTa, id_nhom_lon })
+        : await apiCreateNhomDuocLyNho({ id_nhom_lon, ten_nhom_nho: ten, mo_ta: moTa });
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteNhomDuocLyNho(id) {
+    if (!confirm('Xóa nhóm nhỏ và bỏ mọi gán vị thuốc?')) return;
+    const res = await apiDeleteNhomDuocLyNho(id);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+function openNhomNhoMembersModal(idNho) {
+    const found = ndlFindNhoById(idNho);
+    const nho = found?.nho;
+    if (!nho) return alert('Không tìm thấy nhóm nhỏ.');
+    const selected = new Set(nho.id_vi_thuoc || []);
+    const vts = [...(_thuocData.viThuoc || [])].sort((a, b) =>
+        (a.ten_vi_thuoc || '').localeCompare(b.ten_vi_thuoc || '', 'vi'));
+    const list = vts.map(v => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F0E8D8;cursor:pointer;">
+            <input type="checkbox" value="${v.id}" ${selected.has(v.id) ? 'checked' : ''}>
+            <span style="font-size:0.85rem;">${escHtml(v.ten_vi_thuoc)}</span>
+        </label>`).join('');
+    showTayyModal(`Gán vị thuốc — ${escHtml(nho.ten_nhom_nho)}`, `
+        <div style="max-height:55vh;overflow-y:auto;margin-bottom:12px;" id="ndl-members-box">${list || '<div style="color:#9CA3AF;">Chưa có vị thuốc trong danh mục.</div>'}</div>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveNhomNhoMembersFromModal(${idNho})">Lưu</button>
+        </div>
+    `, 'wide');
+}
+
+async function saveNhomNhoMembersFromModal(idNho) {
+    const box = document.getElementById('ndl-members-box');
+    if (!box) return;
+    const ids = [...box.querySelectorAll('input[type=checkbox]:checked')].map(i => +i.value);
+    const res = await apiSetNhomNhoMembers(idNho, ids);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
     await loadAllThuocData();
     renderThuocSection();
 }
 
 function exportNhomDuocLyXlsx() {
     if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
-    const data = (_thuocData.nhomDuocLy || []).map(item => ({
-        'Nhóm lớn': item.nhom_lon || '',
-        'Nhóm nhỏ': item.nhom_nho || item.ten_nhom || '',
-        'Mô tả': item.mo_ta || '',
-    }));
+    const data = [];
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        if (lon.isOrphanBucket) {
+            for (const n of lon.nhomNho || []) {
+                data.push({
+                    'Nhóm lớn': '',
+                    'Nhóm nhỏ': n.ten_nhom_nho || '',
+                    'Mô tả': n.mo_ta || '',
+                });
+            }
+            continue;
+        }
+        for (const n of lon.nhomNho || []) {
+            data.push({
+                'Nhóm lớn': lon.ten_nhom_lon || '',
+                'Nhóm nhỏ': n.ten_nhom_nho || '',
+                'Mô tả': n.mo_ta || '',
+            });
+        }
+    }
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'NhomDuocLy');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.length ? data : [{ 'Nhóm lớn': '', 'Nhóm nhỏ': '', 'Mô tả': '' }]), 'NhomDuocLy');
     XLSX.writeFile(wb, 'Danh_Muc_Nhom_Duoc_Ly.xlsx');
 }
 
@@ -1471,8 +1600,8 @@ function importNhomDuocLyXlsx(e) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
-        const data = new Uint8Array(evt.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
+        const buf = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(buf, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
         if (!rows.length) {
@@ -1480,35 +1609,73 @@ function importNhomDuocLyXlsx(e) {
             e.target.value = '';
             return;
         }
-        if (!confirm(`Tìm thấy ${rows.length} dòng nhóm dược lý. Tiến hành import?`)) {
+        if (!confirm(`Tìm thấy ${rows.length} dòng. Import nhóm lớn / nhóm nhỏ? (không gán vị thuốc)`)) {
             e.target.value = '';
             return;
         }
 
+        let catalog = JSON.parse(JSON.stringify(_thuocData.nhomDuocLy || []));
+        const findLonId = (name) => {
+            const x = catalog.find(l => (l.ten_nhom_lon || '').trim().toLowerCase() === name.toLowerCase());
+            return x?.id;
+        };
+        const findLon = (id) => catalog.find(l => l.id == id);
+
+        const findOrphanNho = (name) => {
+            const b = catalog.find(l => l.isOrphanBucket);
+            const list = b?.nhomNho || [];
+            return list.find(n => (n.ten_nhom_nho || '').trim().toLowerCase() === name.toLowerCase());
+        };
+
         for (const r of rows) {
             const nhomLon = (r['Nhóm lớn'] || '').toString().trim();
-            const nhomNho = String(
-                r['Nhóm nhỏ'] ?? r['Tên nhóm dược lý'] ?? r['Nhóm con'] ?? ''
-            ).trim();
+            const nhomNho = String(r['Nhóm nhỏ'] ?? r['Tên nhóm dược lý'] ?? r['Nhóm con'] ?? '').trim();
             const moTa = (r['Mô tả'] || '').toString().trim();
-            if (!nhomLon || !nhomNho) continue;
+            if (!nhomNho) continue;
 
-            const existed = (_thuocData.nhomDuocLy || []).find(x =>
-                (x.nhom_lon || '').trim().toLowerCase() === nhomLon.toLowerCase() &&
-                (x.nhom_nho || x.ten_nhom || '').trim().toLowerCase() === nhomNho.toLowerCase()
-            );
+            if (!nhomLon) {
+                const existedOr = findOrphanNho(nhomNho);
+                if (existedOr?.id) {
+                    if (moTa) await apiUpdateNhomDuocLyNho(existedOr.id, { mo_ta: moTa });
+                } else {
+                    await apiCreateNhomDuocLyNho({
+                        id_nhom_lon: null,
+                        ten_nhom_nho: nhomNho,
+                        mo_ta: moTa,
+                    });
+                }
+                continue;
+            }
 
-            const payload = {
-                nhom_lon: nhomLon,
-                nhom_nho: nhomNho,
-                mo_ta: moTa,
-                ten_nhom: nhomNho,
-            };
-
-            if (existed?.id) await apiUpdateNhomDuocLy(existed.id, payload);
-            else await apiCreateNhomDuocLy(payload);
+            let idLon = findLonId(nhomLon);
+            if (!idLon) {
+                const resL = await apiCreateNhomDuocLyLon({ ten_nhom_lon: nhomLon });
+                if (!resL.success) continue;
+                idLon = resL.id;
+                catalog.push({ id: idLon, ten_nhom_lon: nhomLon, nhomNho: [], isOrphanBucket: false });
+            }
+            const lon = findLon(idLon);
+            if (!lon.nhomNho) lon.nhomNho = [];
+            const existedNho = lon.nhomNho.find(n =>
+                (n.ten_nhom_nho || '').trim().toLowerCase() === nhomNho.toLowerCase());
+            if (existedNho?.id) {
+                if (moTa) await apiUpdateNhomDuocLyNho(existedNho.id, { mo_ta: moTa });
+            } else {
+                const resN = await apiCreateNhomDuocLyNho({
+                    id_nhom_lon: idLon,
+                    ten_nhom_nho: nhomNho,
+                    mo_ta: moTa,
+                });
+                if (resN.success)
+                    lon.nhomNho.push({
+                        id: resN.id,
+                        ten_nhom_nho: nhomNho,
+                        mo_ta: moTa || null,
+                        id_vi_thuoc: [],
+                    });
+            }
         }
-        alert('Import nhóm dược lý thành công!');
+        alert('Import nhóm dược lý xong.');
         await loadAllThuocData();
         renderThuocSection();
         e.target.value = '';

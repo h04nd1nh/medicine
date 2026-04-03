@@ -941,35 +941,69 @@ async function apiUpdateAppointmentStatus(id, newStatus) {
     return { success: true };
 }
 
-// ---- NHÓM DƯỢC LÝ ----
+// ---- NHÓM DƯỢC LÝ (cây: nhóm lớn → nhóm nhỏ → id vị thuốc) ----
 async function apiGetNhomDuocLy() {
     const res = await fetch(_base() + '/nhom-duoc-ly');
     if (!res.ok) return [];
     return res.json();
 }
-async function apiCreateNhomDuocLy(payload) {
-    const res = await fetch(_base() + '/nhom-duoc-ly', {
+async function apiCreateNhomDuocLyLon(payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/lon', {
         method: 'POST',
         headers: _authHeaders(),
         body: JSON.stringify(payload)
     });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo nhóm dược lý thất bại') };
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo nhóm lớn thất bại') };
     const data = await res.json();
     return { success: true, id: data.id, data };
 }
-async function apiUpdateNhomDuocLy(id, payload) {
-    const res = await fetch(_base() + '/nhom-duoc-ly/' + id, {
+async function apiUpdateNhomDuocLyLon(id, payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/lon/' + id, {
         method: 'PUT',
         headers: _authHeaders(),
         body: JSON.stringify(payload)
     });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật nhóm dược lý thất bại') };
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật nhóm lớn thất bại') };
     const data = await res.json();
     return { success: true, data };
 }
-async function apiDeleteNhomDuocLy(id) {
-    const res = await fetch(_base() + '/nhom-duoc-ly/' + id, { method: 'DELETE', headers: _authHeaders() });
-    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa nhóm dược lý thất bại') };
+async function apiDeleteNhomDuocLyLon(id) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/lon/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa nhóm lớn thất bại') };
+    return { success: true };
+}
+async function apiCreateNhomDuocLyNho(payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/nho', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo nhóm nhỏ thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateNhomDuocLyNho(id, payload) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/nho/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật nhóm nhỏ thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteNhomDuocLyNho(id) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/nho/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa nhóm nhỏ thất bại') };
+    return { success: true };
+}
+async function apiSetNhomNhoMembers(idNho, idViThuocList) {
+    const res = await fetch(_base() + '/nhom-duoc-ly/nho/' + idNho + '/members', {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify({ id_vi_thuoc: idViThuocList || [] })
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật vị thuốc trong nhóm thất bại') };
     return { success: true };
 }
 

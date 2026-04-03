@@ -3,7 +3,6 @@ dotenv.config();
 
 import { createConnection } from 'typeorm';
 import { ViThuoc } from '../src/models/vi-thuoc.model';
-import { NhomDuocLy } from '../src/models/nhom-duoc-ly.model';
 import { CongDung } from '../src/models/cong-dung.model';
 
 async function seed() {
@@ -18,33 +17,17 @@ async function seed() {
           rejectUnauthorized: true,
           ca: process.env.CA_CERTIFICATE,
         },
-        entities: [ViThuoc, NhomDuocLy, CongDung],
+        entities: [ViThuoc, CongDung],
         synchronize: true,
     });
 
-    console.log('Connected to Aiven DB. Seeding NhomDuocLy and CongDung...');
+    console.log('Connected to Aiven DB. Seeding CongDung from vi_thuoc...');
     const vtRepo = conn.getRepository(ViThuoc);
-    const ndlRepo = conn.getRepository(NhomDuocLy);
     const cdRepo = conn.getRepository(CongDung);
 
     const vts = await vtRepo.find();
-    
-    // Seed Nhom Duoc Ly
-    const nhomSet = new Set<string>();
-    vts.forEach(vt => {
-        if (vt.nhom_duoc_ly) nhomSet.add(vt.nhom_duoc_ly.trim());
-    });
-    
-    for (const nhom of nhomSet) {
-        if (!nhom) continue;
-        const exist = await ndlRepo.findOneBy({ ten_nhom: nhom });
-        if (!exist) {
-            await ndlRepo.save(ndlRepo.create({ ten_nhom: nhom }));
-            console.log(`+ Nhóm: ${nhom}`);
-        }
-    }
 
-    // Seed Cong Dung
+    // Seed From vi_thuoc.công dụng
     const cdMap = new Map<string, string>(); // text -> note
     vts.forEach(vt => {
         if (!vt.cong_dung) return;

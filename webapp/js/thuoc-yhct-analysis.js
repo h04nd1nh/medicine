@@ -588,8 +588,8 @@ function renderBaiThuocTab(el) {
     const rows = _thuocData.baiThuoc.map(item => {
         const ings = (item.chiTietViThuoc||[]).map(d=>{
             const ten = d?.viThuoc?.ten_vi_thuoc||'';
-            const lieu = (d?.lieu_luong||'').trim();
-            return ten+(lieu?` (${lieu})`:'');
+            const lieuText = btGetGramPreviewText((d?.lieu_luong||'').trim());
+            return ten+(lieuText?` (${lieuText})`:'');
         }).filter(Boolean).join(', ');
         return `<tr>
             <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>

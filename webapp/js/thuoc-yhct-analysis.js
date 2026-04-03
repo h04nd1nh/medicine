@@ -208,7 +208,8 @@ function yhctNhomInput(val) {
     if (!el) return;
     const q = (val||'').trim().toLowerCase();
     const existing = [...new Set((_thuocData.viThuoc||[]).map(v=>v.nhom_duoc_ly).filter(Boolean))];
-    const all = [...new Set([..._NHOM_LIST,...existing])];
+    const fromNhomDanhMuc = [...new Set((_thuocData.nhomDuocLy||[]).map(x => x.nhom_nho || x.ten_nhom).filter(Boolean))];
+    const all = [...new Set([..._NHOM_LIST, ...fromNhomDanhMuc, ...existing])];
     const filtered = all.filter(x=>x.toLowerCase().includes(q)).slice(0,10);
     const hasExact = all.some(x=>x.toLowerCase()===q);
     let html = filtered.map(m=>`

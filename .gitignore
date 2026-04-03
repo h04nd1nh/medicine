@@ -4,3 +4,4 @@
 
 # Firebase Service Account
 backend/config/*.json
+*.xlsx

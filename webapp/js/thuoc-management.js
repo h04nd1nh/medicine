@@ -11,6 +11,8 @@ let _thuocData = {
     trieuChung: [],
     nhomDuocLy: [],
     congDung: [],
+    chuTri: [],
+    kiengKy: [],
     activeTab: 'vi-thuoc',
 };
 
@@ -29,7 +31,7 @@ async function initThuocManagement() {
 
 async function loadAllThuocData() {
     try {
-        const [vt, bt, km, hv, bc, pt, tc, ndl, cd] = await Promise.all([
+        const [vt, bt, km, hv, bc, pt, tc, ndl, cd, cn, kk] = await Promise.all([
             apiGetViThuoc(),
             apiGetBaiThuoc(),
             apiGetKinhMach(),
@@ -39,6 +41,8 @@ async function loadAllThuocData() {
             apiGetTrieuChung(),
             apiGetNhomDuocLy(),
             apiGetCongDung(),
+            apiGetChuTri(),
+            apiGetKiengKy(),
         ]);
         _thuocData.viThuoc = vt || [];
         _thuocData.baiThuoc = bt || [];
@@ -49,6 +53,8 @@ async function loadAllThuocData() {
         _thuocData.trieuChung = tc || [];
         _thuocData.nhomDuocLy = ndl || [];
         _thuocData.congDung = cd || [];
+        _thuocData.chuTri = cn || [];
+        _thuocData.kiengKy = kk || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Thuốc:', e);
     }
@@ -74,6 +80,8 @@ function renderThuocSection() {
                 <button class="tayy-tab ${tab === 'phap-tri' ? 'active' : ''}" onclick="switchThuocTab('phap-tri')">Pháp trị</button>
                 <button class="tayy-tab ${tab === 'nhom-duoc-ly' ? 'active' : ''}" onclick="switchThuocTab('nhom-duoc-ly')">Nhóm dược lý</button>
                 <button class="tayy-tab ${tab === 'cong-dung' ? 'active' : ''}" onclick="switchThuocTab('cong-dung')">Công dụng</button>
+                <button class="tayy-tab ${tab === 'chu-tri' ? 'active' : ''}" onclick="switchThuocTab('chu-tri')">Chủ trị</button>
+                <button class="tayy-tab ${tab === 'kieng-ky' ? 'active' : ''}" onclick="switchThuocTab('kieng-ky')">Kiêng kỵ</button>
             </div>
 
             <div id="thuoc-tab-content"></div>
@@ -99,6 +107,8 @@ function renderThuocTabContent() {
         case 'phap-tri': renderPhapTriTab(el); break;
         case 'nhom-duoc-ly': renderNhomDuocLyTab(el); break;
         case 'cong-dung': renderCongDungTab(el); break;
+        case 'chu-tri': renderChuTriTab(el); break;
+        case 'kieng-ky': renderKiengKyTab(el); break;
     }
 }
 
@@ -649,6 +659,68 @@ function vtRemoveCongDungInput(idx) {
         _vtCurrentCongDung[0] = { text: '', note: '' };
     }
     vtRenderCongDungList();
+}
+
+// ── Chủ trị với ghi chú ─────────────────────────────────
+function vtRenderChuTriList() {
+    const container = document.getElementById('vt-chutri-list');
+    if (!container) return;
+    container.innerHTML = _vtCurrentChuTri.map((entry, idx) => `
+        <div style="display:flex; gap:6px; align-items:center;">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:2;"
+                value="${escHtml(entry.text || '')}"
+                oninput="_vtCurrentChuTri[${idx}].text = this.value"
+                placeholder="Nhập chủ trị (VD: Ăn không tiêu)...">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:1; font-style:italic; color:#8B7355;"
+                value="${escHtml(entry.note || '')}"
+                oninput="_vtCurrentChuTri[${idx}].note = this.value"
+                placeholder="Ghi chú...">
+            <button class="btn btn-sm" style="background:#FDECEA; color:#B03A2E; padding:0 10px; flex-shrink:0;" onclick="vtRemoveChuTriInput(${idx})">×</button>
+        </div>
+    `).join('');
+}
+function vtAddChuTriInput() {
+    _vtCurrentChuTri.push({ text: '', note: '' });
+    vtRenderChuTriList();
+}
+function vtRemoveChuTriInput(idx) {
+    if (_vtCurrentChuTri.length > 1) {
+        _vtCurrentChuTri.splice(idx, 1);
+    } else {
+        _vtCurrentChuTri[0] = { text: '', note: '' };
+    }
+    vtRenderChuTriList();
+}
+
+// ── Kiêng kỵ với ghi chú ─────────────────────────────────
+function vtRenderKiengKyList() {
+    const container = document.getElementById('vt-kiengky-list');
+    if (!container) return;
+    container.innerHTML = _vtCurrentKiengKy.map((entry, idx) => `
+        <div style="display:flex; gap:6px; align-items:center;">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:2;"
+                value="${escHtml(entry.text || '')}"
+                oninput="_vtCurrentKiengKy[${idx}].text = this.value"
+                placeholder="Nhập kiêng kỵ (VD: Phụ nữ có thai)...">
+            <input type="text" class="tayy-form-input" style="margin-top:0; flex:1; font-style:italic; color:#8B7355;"
+                value="${escHtml(entry.note || '')}"
+                oninput="_vtCurrentKiengKy[${idx}].note = this.value"
+                placeholder="Ghi chú...">
+            <button class="btn btn-sm" style="background:#FDECEA; color:#B03A2E; padding:0 10px; flex-shrink:0;" onclick="vtRemoveKiengKyInput(${idx})">×</button>
+        </div>
+    `).join('');
+}
+function vtAddKiengKyInput() {
+    _vtCurrentKiengKy.push({ text: '', note: '' });
+    vtRenderKiengKyList();
+}
+function vtRemoveKiengKyInput(idx) {
+    if (_vtCurrentKiengKy.length > 1) {
+        _vtCurrentKiengKy.splice(idx, 1);
+    } else {
+        _vtCurrentKiengKy[0] = { text: '', note: '' };
+    }
+    vtRenderKiengKyList();
 }
 
 async function saveViThuoc(id) {
@@ -1600,6 +1672,182 @@ async function saveCongDung(id) {
 async function deleteCongDung(id) {
     if (!confirm('Xóa công dụng này? Các vị thuốc đang có sẽ không bị ảnh hưởng.')) return;
     await apiDeleteCongDung(id);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: CHỦ TRỊ
+// ═══════════════════════════════════════════════════════════
+function renderChuTriTab(el) {
+    const rows = (_thuocData.chuTri || []).map(item => {
+        const id = item.id;
+        // Count vi thuoc using this chu tri
+        const usageCount = (_thuocData.viThuoc || []).filter(vt => {
+            const cdStr = vt.chu_tri || '';
+            const entries = cdStr.split('; ').filter(Boolean).map(e => e.split('||')[0].trim());
+            return entries.includes(item.ten_chu_tri);
+        }).length;
+
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_chu_tri)}</td>
+            <td style="color:#8B7355; font-style:italic;">${escHtml(item.ghi_chu || '—')}</td>
+            <td style="text-align:center;">
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} vị thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
+            </td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openChuTriForm(${id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteChuTri(${id})">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.chuTri||[]).length}</strong> chủ trị
+            </div>
+            <button class="btn btn-primary" onclick="openChuTriForm()">+ Thêm chủ trị</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên chủ trị</th>
+                    <th>Ghi chú mặc định</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có chủ trị nào</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+
+function openChuTriForm(id) {
+    const item = id ? (_thuocData.chuTri || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa chủ trị' : 'Thêm chủ trị', `
+        <label class="tayy-form-label">Tên chủ trị *<br>
+            <input id="ct-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_chu_tri) : ''}"
+                placeholder="VD: Ăn không tiêu, Đau bụng kinh...">
+        </label>
+        <label class="tayy-form-label">Ghi chú mặc định<br>
+            <textarea id="ct-inp-ghichu" class="tayy-form-input" style="min-height:60px;" placeholder="Ghi chú thêm...">${item ? escHtml(item.ghi_chu || '') : ''}</textarea>
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveChuTri(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('ct-inp-ten')?.focus(), 50);
+}
+
+async function saveChuTri(id) {
+    const ten = (document.getElementById('ct-inp-ten')?.value || '').trim();
+    const ghichu = (document.getElementById('ct-inp-ghichu')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên chủ trị!');
+    const payload = { ten_chu_tri: ten, ghi_chu: ghichu };
+    const res = id ? await apiUpdateChuTri(id, payload) : await apiCreateChuTri(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteChuTri(id) {
+    if (!confirm('Xóa chủ trị này? Các vị thuốc đang có sẽ không bị ảnh hưởng.')) return;
+    await apiDeleteChuTri(id);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: KIÊNG KỴ
+// ═══════════════════════════════════════════════════════════
+function renderKiengKyTab(el) {
+    const rows = (_thuocData.kiengKy || []).map(item => {
+        const id = item.id;
+        // Count vi thuoc using this kieng ky
+        const usageCount = (_thuocData.viThuoc || []).filter(vt => {
+            const cdStr = vt.kieng_ky || '';
+            const entries = cdStr.split('; ').filter(Boolean).map(e => e.split('||')[0].trim());
+            return entries.includes(item.ten_kieng_ky);
+        }).length;
+
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_kieng_ky)}</td>
+            <td style="color:#8B7355; font-style:italic;">${escHtml(item.ghi_chu || '—')}</td>
+            <td style="text-align:center;">
+                ${usageCount > 0
+                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} vị thuốc</span>`
+                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
+            </td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openKiengKyForm(${id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteKiengKy(${id})">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.82rem;color:#A09580;">
+                Tổng: <strong>${(_thuocData.kiengKy||[]).length}</strong> kiêng kỵ
+            </div>
+            <button class="btn btn-primary" onclick="openKiengKyForm()">+ Thêm kiêng kỵ</button>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Tên kiêng kỵ</th>
+                    <th>Ghi chú mặc định</th>
+                    <th style="text-align:center;">Sử dụng</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có kiêng kỵ nào</td></tr>'}</tbody>
+            </table>
+        </div>`;
+}
+
+function openKiengKyForm(id) {
+    const item = id ? (_thuocData.kiengKy || []).find(x => x.id == id) : null;
+    showTayyModal(item ? 'Sửa kiêng kỵ' : 'Thêm kiêng kỵ', `
+        <label class="tayy-form-label">Tên kiêng kỵ *<br>
+            <input id="kk-inp-ten" type="text" class="tayy-form-input"
+                value="${item ? escHtml(item.ten_kieng_ky) : ''}"
+                placeholder="VD: Phụ nữ có thai...">
+        </label>
+        <label class="tayy-form-label">Ghi chú mặc định<br>
+            <textarea id="kk-inp-ghichu" class="tayy-form-input" style="min-height:60px;" placeholder="Ghi chú thêm...">${item ? escHtml(item.ghi_chu || '') : ''}</textarea>
+        </label>
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="saveKiengKy(${id || 0})">Lưu</button>
+        </div>
+    `);
+    setTimeout(() => document.getElementById('kk-inp-ten')?.focus(), 50);
+}
+
+async function saveKiengKy(id) {
+    const ten = (document.getElementById('kk-inp-ten')?.value || '').trim();
+    const ghichu = (document.getElementById('kk-inp-ghichu')?.value || '').trim();
+    if (!ten) return alert('Vui lòng nhập tên kiêng kỵ!');
+    const payload = { ten_kieng_ky: ten, ghi_chu: ghichu };
+    const res = id ? await apiUpdateKiengKy(id, payload) : await apiCreateKiengKy(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deleteKiengKy(id) {
+    if (!confirm('Xóa kiêng kỵ này? Các vị thuốc đang có sẽ không bị ảnh hưởng.')) return;
+    await apiDeleteKiengKy(id);
     await loadAllThuocData();
     renderThuocSection();
 }

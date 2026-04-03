@@ -5,6 +5,14 @@ let _yhctChartNguVi   = null;
 let _yhctChartQuyKinh = null;
 let _yhctChartTGPT    = null;
 
+const CHART_COLORS = ['#A32D2D','#2D6A4F','#B8860B','#6B4E71','#2C3E50','#800000'];
+
+// Khai báo global state cho Vị Thuốc Form
+let _vtCurrentQuyKinh = [];
+let _vtCurrentCongDung = [];
+let _vtCurrentChuTri = [];
+let _vtCurrentKiengKy = [];
+
 const YHCT_KINH_ORDER = [
     'Tâm','Can','Tỳ','Phế','Thận','Tâm Bào',
     'Đại Trường','Tiểu Trường','Bàng Quang','Đởm','Vị','Tam Tiêu'
@@ -145,6 +153,14 @@ function openViThuocForm(id) {
             <div id="vt-congdung-list" style="display:flex;flex-direction:column;gap:8px;"></div>
             <button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="vtAddCongDungInput()">+ Thêm công dụng</button>
         </label>
+        <label class="tayy-form-label">Chủ trị (mỗi dòng một chủ trị)<br>
+            <div id="vt-chutri-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="vtAddChuTriInput()">+ Thêm chủ trị</button>
+        </label>
+        <label class="tayy-form-label">Kiêng kỵ (mỗi dòng một kiêng kỵ)<br>
+            <div id="vt-kiengky-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="vtAddKiengKyInput()">+ Thêm kiêng kỵ</button>
+        </label>
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
             <button class="btn btn-primary" onclick="saveViThuoc(${id||0})">Lưu</button>
@@ -152,13 +168,22 @@ function openViThuocForm(id) {
     `, 'wide');
 
     _vtCurrentQuyKinh  = (item?.quy_kinh||'').split(',').map(s=>s.trim()).filter(Boolean);
-    // Parse công dụng dạng "text||note" sang [{text, note}]
-    const rawCD = (item?.cong_dung||'').split('; ').filter(Boolean);
-    _vtCurrentCongDung = rawCD.length > 0
-        ? rawCD.map(e => { const p = e.split('||'); return { text: (p[0]||'').trim(), note: (p[1]||'').trim() }; })
-        : [{ text: '', note: '' }];
+    // Parse công dụng, chủ trị, kiêng kỵ dạng "text||note" sang [{text, note}]
+    const parseList = (str) => {
+        const raw = (str||'').split('; ').filter(Boolean);
+        return raw.length > 0
+            ? raw.map(e => { const p = e.split('||'); return { text: (p[0]||'').trim(), note: (p[1]||'').trim() }; })
+            : [{ text: '', note: '' }];
+    };
+    
+    _vtCurrentCongDung = parseList(item?.cong_dung);
+    _vtCurrentChuTri = parseList(item?.chu_tri);
+    _vtCurrentKiengKy = parseList(item?.kieng_ky);
+
     vtRenderQuyKinhChips();
     vtRenderCongDungList();
+    vtRenderChuTriList();
+    vtRenderKiengKyList();
 }
 
 // Radio style helper — dùng 1 màu accent duy nhất
@@ -207,6 +232,12 @@ function yhctNhomInput(val) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function saveViThuoc(id) {
     const gf = elId => { const e = document.getElementById(elId); return e ? parseFloat(e.value)||0 : 0; };
+    const renderListToString = (list) => list.filter(e => (e?.text || '').trim()).map(e => {
+        const t = (e.text||'').trim();
+        const n = (e.note||'').trim();
+        return n ? `${t}||${n}` : t;
+    }).join('; ');
+
     const payload = {
         ten_vi_thuoc:   (document.getElementById('vt-inp-ten')?.value||'').trim(),
         ten_goi_khac:   (document.getElementById('vt-inp-alias')?.value||'').trim(),
@@ -223,13 +254,9 @@ async function saveViThuoc(id) {
         vi_tan:  gf('vt-nv-vi_tan'),
         vi_ham:  gf('vt-nv-vi_ham'),
         // Serialize {text, note} → "text||note" hoặc "text" nếu không có note
-        cong_dung: _vtCurrentCongDung
-            .filter(e => (e?.text || '').trim())
-            .map(e => {
-                const t = (e.text||'').trim();
-                const n = (e.note||'').trim();
-                return n ? `${t}||${n}` : t;
-            }).join('; '),
+        cong_dung: renderListToString(_vtCurrentCongDung),
+        chu_tri: renderListToString(_vtCurrentChuTri),
+        kieng_ky: renderListToString(_vtCurrentKiengKy),
     };
     if (!payload.ten_vi_thuoc) return alert('Thiếu tên vị thuốc!');
     const res = id ? await apiUpdateViThuoc(id, payload) : await apiCreateViThuoc(payload);
@@ -652,6 +679,8 @@ function yhctExportViThuocXlsx() {
        'Tác dụng chính': v.tac_dung_chinh,
        'Quy kinh': v.quy_kinh,
        'Công dụng': v.cong_dung,
+       'Chủ trị': v.chu_tri,
+       'Kiêng kỵ': v.kieng_ky,
        'Tính': v.tinh,
        'Vị': v.vi,
        'Tứ khí': v.tu_khi,
@@ -712,6 +741,8 @@ function yhctImportViThuocXlsx(e) {
                 tac_dung_chinh: r['Tác dụng chính']||'',
                 quy_kinh: r['Quy kinh']||'',
                 cong_dung: r['Công dụng']||'',
+                chu_tri: r['Chủ trị']||'',
+                kieng_ky: r['Kiêng kỵ']||'',
                 tinh: r['Tính']||'',
                 vi: r['Vị']||'',
                 tu_khi: parseFloat(r['Tứ khí']) || 0,

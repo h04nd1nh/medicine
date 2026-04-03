@@ -1005,3 +1005,66 @@ async function apiDeleteCongDung(id) {
     return { success: true };
 }
 
+// ---- CHỦ TRỊ ----
+async function apiGetChuTri() {
+    const res = await fetch(_base() + '/chu-tri');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateChuTri(payload) {
+    const res = await fetch(_base() + '/chu-tri', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo chủ trị thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateChuTri(id, payload) {
+    const res = await fetch(_base() + '/chu-tri/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật chủ trị thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteChuTri(id) {
+    const res = await fetch(_base() + '/chu-tri/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa chủ trị thất bại') };
+    return { success: true };
+}
+
+// ---- KIÊNG KỴ ----
+async function apiGetKiengKy() {
+    const res = await fetch(_base() + '/kieng-ky');
+    if (!res.ok) return [];
+    return res.json();
+}
+async function apiCreateKiengKy(payload) {
+    const res = await fetch(_base() + '/kieng-ky', {
+        method: 'POST',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Tạo kiêng kỵ thất bại') };
+    const data = await res.json();
+    return { success: true, id: data.id, data };
+}
+async function apiUpdateKiengKy(id, payload) {
+    const res = await fetch(_base() + '/kieng-ky/' + id, {
+        method: 'PUT',
+        headers: _authHeaders(),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Cập nhật kiêng kỵ thất bại') };
+    const data = await res.json();
+    return { success: true, data };
+}
+async function apiDeleteKiengKy(id) {
+    const res = await fetch(_base() + '/kieng-ky/' + id, { method: 'DELETE', headers: _authHeaders() });
+    if (!res.ok) return { success: false, error: await _safeText(res, 'Xóa kiêng kỵ thất bại') };
+    return { success: true };
+}

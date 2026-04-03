@@ -39,6 +39,12 @@ export class ViThuoc {
   @Column({ type: 'text', nullable: true })
   luu_y: string;
 
+  @Column({ type: 'text', nullable: true })
+  chu_tri: string;
+
+  @Column({ type: 'text', nullable: true })
+  kieng_ky: string;
+
   // ── YHCT Pharmacology Fields (for radar chart analysis) ──
 
   @Column({ type: 'varchar', length: 100, nullable: true })

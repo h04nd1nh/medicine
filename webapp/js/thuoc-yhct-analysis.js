@@ -551,16 +551,24 @@ function renderViThuocTab(el) {
         const alias = item.ten_goi_khac ? `<div style="font-size:0.72rem;color:#9CA3AF;font-style:italic;">(${escHtml(item.ten_goi_khac)})</div>` : '';
         const nhom  = item.nhom_duoc_ly ? `<div style="font-size:0.68rem;color:#15803D;margin-top:2px;">${escHtml(item.nhom_duoc_ly)}</div>` : '';
         // Công dụng hiển thị tên + ghi chú nếu có
-        const cd = (item.cong_dung||'').split('; ').filter(Boolean).map(entry => {
-            const p = entry.split('||');
-            const t = escHtml((p[0]||'').trim());
-            const n = (p[1]||'').trim();
-            return n ? `• ${t} <span style="color:#A09580;font-style:italic;">— ${escHtml(n)}</span>` : `• ${t}`;
-        }).join('<br>');
+        const parseHtmlList = (str) => {
+            return (str||'').split('; ').filter(Boolean).map(entry => {
+                const p = entry.split('||');
+                const t = escHtml((p[0]||'').trim());
+                const n = (p[1]||'').trim();
+                return n ? `• ${t} <span style="color:#A09580;font-style:italic;">— ${escHtml(n)}</span>` : `• ${t}`;
+            }).join('<br>');
+        };
+
+        const cd = parseHtmlList(item.cong_dung);
+        const ct = parseHtmlList(item.chu_tri);
+        const kk = parseHtmlList(item.kieng_ky);
+
         const tk = item.tu_khi ?? null;
         const tkText = tk !== null
             ? `<span style="font-size:0.82rem;color:#5B3A1A;font-weight:600;">${tk > 0 ? '+' + tk : tk}</span>`
             : '<span style="color:#D1D5DB;">—</span>';
+        
         // Quy kinh: ưu tiên tên viết tắt từ bảng KinhMach
         const qkRaw = item.quy_kinh || '';
         const kinhMachList = (typeof _dongyData !== 'undefined' && _dongyData.kinhMach) ? _dongyData.kinhMach : [];
@@ -571,6 +579,7 @@ function renderViThuocTab(el) {
             );
             return found ? (found.ten_viet_tat || found.ten_kinh_mach || s) : s;
         }).join(', ') || '—';
+        
         const nv = [
             item.vi_toan>0?`Chua:${item.vi_toan}`:'',
             item.vi_khu >0?`Đắng:${item.vi_khu}`:'',
@@ -585,6 +594,8 @@ function renderViThuocTab(el) {
             <td style="font-size:0.74rem;color:#5B3A1A;">${nv}</td>
             <td style="font-size:0.74rem;color:#6B7280;">${qkDisplay}</td>
             <td style="font-size:0.76rem;line-height:1.4;">${cd||'—'}</td>
+            <td style="font-size:0.76rem;line-height:1.4;color:#B8860B;">${ct||'—'}</td>
+            <td style="font-size:0.76rem;line-height:1.4;color:#A32D2D;">${kk||'—'}</td>
             <td style="text-align:center;width:120px;">
                 <div class="table-actions" style="justify-content:center;">
                     <button class="btn btn-sm btn-outline" onclick="openViThuocForm(${item.id})">✏ Sửa</button>
@@ -611,9 +622,11 @@ function renderViThuocTab(el) {
                     <th>Ngũ Vị (điểm)</th>
                     <th>Quy kinh</th>
                     <th>Công dụng</th>
+                    <th>Chủ trị</th>
+                    <th>Kiêng kỵ</th>
                     <th style="width:120px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows||'<tr><td colspan="8" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>
         </div>`;
 }

@@ -742,8 +742,37 @@ function yhctImportBaiThuocXlsx(e) {
         const wb = XLSX.read(data, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
-        if(!confirm(`Tìm thấy ${rows.length} bài thuốc. Hệ thống sẽ tự động ghép dính các \nThành phần vào Vị thuốc tương đương. Viêc này mất khoảng \nvài chục giây. Khuyến khích không Import quá 100 dòng/lần.\nTiếp tục chạy?`)) return e.target.value = '';
+        if(!confirm(`Tìm thấy ${rows.length} bài thuốc. Khuyến khích không Import quá 100 dòng/lần.\nTiếp tục phân tích?`)) return e.target.value = '';
         
+        // --- BƯỚC 1: QUÉT TRƯỚC (Dry Run) TÌM LỖI CHÍNH TẢ ---
+        const missingHerbsSet = new Set();
+        for (const r of rows) {
+            const tpText = r['Thành phần']||'';
+            const tpArray = tpText.split(',').map(s=>s.trim()).filter(Boolean);
+            for (const text of tpArray) {
+                let m = text.match(/^(.*?)\s*\((.*?)\)$/);
+                let vten = m ? m[1].trim() : text;
+                if (!vten) continue;
+                
+                // Kiểm tra xem tên này đã có trong DB chưa (không phân biệt hoa thường)
+                const exists = _thuocData.viThuoc.some(x => x.ten_vi_thuoc.toLowerCase() === vten.toLowerCase());
+                if (!exists) {
+                    missingHerbsSet.add(vten);
+                }
+            }
+        }
+
+        // Nếu có tên lạ, bật cảnh báo cho User
+        if (missingHerbsSet.size > 0) {
+            const missingList = Array.from(missingHerbsSet).join(', ');
+            const t = confirm(`⚠️ CẢNH BÁO TÊN THUỐC LẠ / GÕ SAI ⚠️\n\nHệ thống phát hiện ${missingHerbsSet.size} vị thuốc sau đây CHƯA CÓ trong danh mục:\n[ ${missingList} ]\n\n- Nếu do bạn NGHĨ SAI TÊN (sai chính tả), hãy ấn [Cancel], sửa lại file Excel rồi Import lại để tránh rác hệ thống.\n- Nếu đây thực sự là thuốc MỚI, ấn [OK] để hệ thống tự động tạo mới chúng.\n\nTiếp tục nhập và tạo mới?`);
+            if (!t) {
+                e.target.value = '';
+                return;
+            }
+        }
+        
+        // --- BƯỚC 2: IMPORT THẬT SỰ ---
         for (const r of rows) {
             const ten = r['Tên bài thuốc'];
             if (!ten) continue;

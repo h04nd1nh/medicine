@@ -510,14 +510,41 @@ tr:hover {
 }
 .pt-form-grid-3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px 14px;
     align-items: start;
 }
-@media (max-width: 680px) {
+/* Ô lưới được phép co — tránh cột chip bị tràn ngang */
+.pt-form-grid-2 > div,
+.pt-form-grid-3 > div {
+    min-width: 0;
+}
+.pt-form-section .chips-container {
+    max-width: 100%;
+}
+/* < ~960px: 3 cột bát pháp quá chật → 2 cột */
+@media (max-width: 960px) {
+    .pt-form-grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+/* < ~720px: mọi lưới 1 cột */
+@media (max-width: 720px) {
     .pt-form-grid-2,
     .pt-form-grid-3 {
         grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 720px) {
+    .pt-form-section {
+        padding: 12px 12px 14px;
+    }
+    .pt-form-section-title {
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+    }
+    .pt-form {
+        gap: 0.9rem;
     }
 }
 .pt-field-hint {

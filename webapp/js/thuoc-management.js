@@ -1314,7 +1314,7 @@ async function renderPhapTriTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" title="Cột «Chứng trạng» (text). Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều giá trị: dấu phẩy."
+                <button type="button" class="btn btn-outline" title="Cột «Chứng trạng» (text). Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều mục trong một ô: dấu phẩy hoặc dấu + (cùng ý nghĩa)."
                     onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
                 <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
@@ -1519,7 +1519,8 @@ function ptNhomDuocExportLabel(nho) {
 }
 
 function ptKinhIdsFromTangPhuCell(raw, kinhList) {
-    const parts = String(raw || '')
+    const norm = ptExcelCellToCsvList(raw);
+    const parts = String(norm || '')
         .split(/[,，、]/g)
         .map(s => s.trim())
         .filter(Boolean);
@@ -1609,6 +1610,20 @@ function ptSanitizeExcelImportRow(row) {
         out[k2] = v;
     }
     return out;
+}
+
+/**
+ * Ô Excel nhiều mục: dấu «+» (ASCII hoặc fullwidth ＋) tương đương dấu phẩy.
+ * Dùng cho Bát pháp / Bát cương / Lục dâm / Tạng phủ / Triệu chứng khi nhập pháp trị.
+ */
+function ptExcelCellToCsvList(raw) {
+    if (raw == null) return '';
+    let s = String(raw).replace(/\r\n?/g, ' ').replace(/\n/g, ' ').trim();
+    if (!s) return '';
+    s = s.replace(/\s*[\u002B\uFF0B]\s*/g, ',');
+    s = s.replace(/\s*,\s*/g, ', ');
+    s = s.replace(/(?:,\s*){2,}/g, ', ');
+    return s.replace(/^,\s*|,\s*$/g, '').trim();
 }
 
 /**
@@ -1706,11 +1721,16 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
     const y_nghia = ndlPickNhomCol(row, [
         'Ý nghĩa & cơ chế', 'Ý Nghĩa & Cơ Chế', 'Y nghia & co che', 'Y nghia', 'Co che', 'Ý nghĩa', 'Y nghia',
     ]);
-    const bat_phap = ndlPickNhomCol(row, ['Bát pháp', 'Bat phap', 'Bát Pháp']);
-    const bat_cuong = ndlPickNhomCol(row, ['Bát cương', 'Bat cuong', 'Bát Cương']);
-    const luc_dam = ndlPickNhomCol(row, ['Lục dâm', 'Luc dam', 'Lục Dâm']);
-    const tang_phu = ndlPickNhomCol(row, ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach']);
-    const trieu_chung = ndlPickNhomCol(row, ['Triệu chứng', 'Trieu chung', 'Triệu Chứng']);
+    const bat_phapRaw = ndlPickNhomCol(row, ['Bát pháp', 'Bat phap', 'Bát Pháp']);
+    const bat_cuongRaw = ndlPickNhomCol(row, ['Bát cương', 'Bat cuong', 'Bát Cương']);
+    const luc_damRaw = ndlPickNhomCol(row, ['Lục dâm', 'Luc dam', 'Lục Dâm']);
+    const tang_phuRaw = ndlPickNhomCol(row, ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach']);
+    const trieu_chungRaw = ndlPickNhomCol(row, ['Triệu chứng', 'Trieu chung', 'Triệu Chứng']);
+    const bat_phap = bat_phapRaw ? ptExcelCellToCsvList(bat_phapRaw) : '';
+    const bat_cuong = bat_cuongRaw ? ptExcelCellToCsvList(bat_cuongRaw) : '';
+    const luc_dam = luc_damRaw ? ptExcelCellToCsvList(luc_damRaw) : '';
+    const tang_phu = tang_phuRaw ? ptExcelCellToCsvList(tang_phuRaw) : '';
+    const trieu_chung = trieu_chungRaw ? ptExcelCellToCsvList(trieu_chungRaw) : '';
     const bai_thuoc = ndlPickNhomCol(row, ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc']);
     const nhom_duoc = ndlPickNhomCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
 
@@ -1859,6 +1879,9 @@ function importPhapTriXlsx(e) {
             if (!confirm(`Tìm thấy ${toProcess.length} dòng. Ghi vào hệ thống?\n• Cột «id» (nếu có): cập nhật đúng bản ghi.\n• Không có id: tìm bản ghi theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.`)) {
                 return;
             }
+
+            ndlNhomImportSetLoading(true, 'Đang đồng bộ dữ liệu pháp trị từ máy chủ…');
+            await loadAllThuocData();
 
             ndlNhomImportSetLoading(true, 'Đang nhập Excel pháp trị…');
             const existingIds = new Set((_thuocData.phapTriList || []).map(x => x.id));

@@ -463,3 +463,84 @@ tr:hover {
     font-size: 0.75rem;
     color: var(--text-dark);
 }
+
+/* ─── Form Pháp trị (luận trị) — bố cục theo nhóm nghiệp vụ ─── */
+.pt-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+.pt-form-section {
+    border: 1px solid #D4C5A0;
+    border-radius: 10px;
+    padding: 14px 16px 16px;
+    background: linear-gradient(165deg, #FFFDF9 0%, #FBF8F1 55%, #F7F2E8 100%);
+    box-shadow: 0 1px 3px rgba(91, 58, 26, 0.07);
+}
+.pt-form-section-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6B5340;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #E5D8C4;
+    line-height: 1.35;
+}
+.pt-form-section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35em;
+    height: 1.35em;
+    margin-right: 6px;
+    border-radius: 4px;
+    background: #5B3A1A;
+    color: #FFFDF7;
+    font-size: 0.85em;
+    vertical-align: middle;
+    letter-spacing: 0;
+}
+.pt-form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+    align-items: start;
+}
+.pt-form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 14px;
+    align-items: start;
+}
+@media (max-width: 680px) {
+    .pt-form-grid-2,
+    .pt-form-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+.pt-field-hint {
+    display: block;
+    font-size: 0.68rem;
+    color: #9A8B72;
+    margin-top: 5px;
+    line-height: 1.4;
+    font-weight: 500;
+}
+.pt-form .tayy-form-label {
+    display: block;
+}
+.pt-form-section .tayy-form-label {
+    font-size: 0.82rem;
+}
+.pt-form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pt-form-actions-wrap {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid #E8DCC8;
+}

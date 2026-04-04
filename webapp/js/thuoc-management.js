@@ -1358,69 +1358,110 @@ async function openPhapTriRowForm(id) {
 
     const btTenInit = btObj && btObj.ten_bai_thuoc ? String(btObj.ten_bai_thuoc) : '';
 
-    showTayyModal(item ? 'Sửa pháp trị' : 'Thêm pháp trị', `
-        <label class="tayy-form-label">Chứng trạng<br>
+    showTayyModal(item ? 'Sửa pháp trị (luận trị)' : 'Thêm pháp trị (luận trị)', `
+<div class="pt-form">
+    <section class="pt-form-section" aria-labelledby="pt-sec-1">
+        <h3 class="pt-form-section-title" id="pt-sec-1"><span class="pt-form-section-num">1</span>Nhận diện chứng trạng</h3>
+        <label class="tayy-form-label">Tên / tiểu kết chứng trạng
             <input id="pt-inp-chung-trang" type="text" class="tayy-form-input" value="${escHtml(chungInit)}"
-                placeholder="Nhập chứng trạng (tiểu kết) — lưu dạng text">
+                placeholder="VD: Phong hàn biểu hư, Thấp nhiệt nội uẩn…">
         </label>
-        <label class="tayy-form-label">Nguyên tắc<br>
-            <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
-        </label>
-        <label class="tayy-form-label">Ý nghĩa &amp; cơ chế<br>
-            <textarea id="pt-inp-y_nghia" class="tayy-form-input" rows="3">${item ? escHtml(item.y_nghia_co_che || '') : ''}</textarea>
-        </label>
+        <span class="pt-field-hint">Định danh bản ghi; dùng để khớp khi nhập Excel (cột «Chứng trạng»). Lưu dạng văn bản.</span>
+    </section>
 
-        <label class="tayy-form-label">Bát pháp <span style="font-size:0.72rem;color:#A09580;">(Enter để thêm chip)</span>
-            <div id="pt-chips-batphap" class="chips-container" onclick="document.getElementById('pt-inp-batphap').focus()">
-                <input id="pt-inp-batphap" type="text" class="chip-input" placeholder="VD: Hãn, Ôn..."
-                    onkeydown="ptOnChipKeydown('bat_phap', event)">
+    <section class="pt-form-section" aria-labelledby="pt-sec-2">
+        <h3 class="pt-form-section-title" id="pt-sec-2"><span class="pt-form-section-num">2</span>Phân loại — bát cương · bát pháp · lục dâm</h3>
+        <div class="pt-form-grid-3">
+            <div>
+                <label class="tayy-form-label">Bát cương</label>
+                <div id="pt-chips-batcuong" class="chips-container" onclick="document.getElementById('pt-inp-batcuong').focus()">
+                    <input id="pt-inp-batcuong" type="text" class="chip-input" placeholder="Biểu, lý, hàn, nhiệt…"
+                        onkeydown="ptOnChipKeydown('bat_cuong', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm từng mục.</span>
             </div>
-        </label>
-        <label class="tayy-form-label">Bát cương
-            <div id="pt-chips-batcuong" class="chips-container" onclick="document.getElementById('pt-inp-batcuong').focus()">
-                <input id="pt-inp-batcuong" type="text" class="chip-input" placeholder="VD: Biểu, Hàn..."
-                    onkeydown="ptOnChipKeydown('bat_cuong', event)">
+            <div>
+                <label class="tayy-form-label">Bát pháp</label>
+                <div id="pt-chips-batphap" class="chips-container" onclick="document.getElementById('pt-inp-batphap').focus()">
+                    <input id="pt-inp-batphap" type="text" class="chip-input" placeholder="Hãn, ôn, thanh, bổ…"
+                        onkeydown="ptOnChipKeydown('bat_phap', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm từng mục.</span>
             </div>
-        </label>
-        <label class="tayy-form-label">Lục dâm
-            <div id="pt-chips-lucdam" class="chips-container" onclick="document.getElementById('pt-inp-lucdam').focus()">
-                <input id="pt-inp-lucdam" type="text" class="chip-input" placeholder="VD: Phong, Hàn..."
-                    onkeydown="ptOnChipKeydown('luc_dam', event)">
+            <div>
+                <label class="tayy-form-label">Lục dâm</label>
+                <div id="pt-chips-lucdam" class="chips-container" onclick="document.getElementById('pt-inp-lucdam').focus()">
+                    <input id="pt-inp-lucdam" type="text" class="chip-input" placeholder="Phong, hàn, thấp, táo…"
+                        onkeydown="ptOnChipKeydown('luc_dam', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm từng mục.</span>
             </div>
-        </label>
-
-        <label class="tayy-form-label">Tạng phủ <span style="font-size:0.72rem;color:#A09580;">(Enter để thêm chip — gõ hoặc chọn gợi ý)</span>
-            <div id="pt-chips-kinh" class="chips-container" onclick="document.getElementById('pt-inp-kinh').focus()">
-                <input id="pt-inp-kinh" type="text" class="chip-input" list="pt-datalist-kinh"
-                    placeholder="VD: Phế, Tỳ, Thận…"
-                    onkeydown="ptOnKinhChipKeydown(event)" autocomplete="off">
-            </div>
-            <datalist id="pt-datalist-kinh"></datalist>
-        </label>
-
-        <label class="tayy-form-label">Triệu chứng (nhiều giá trị)
-            <div id="pt-chips-tcmota" class="chips-container" onclick="document.getElementById('pt-inp-tcmota').focus()">
-                <input id="pt-inp-tcmota" type="text" class="chip-input" placeholder="Thêm triệu chứng..."
-                    onkeydown="ptOnChipKeydown('trieu_chung_mo_ta', event)">
-            </div>
-        </label>
-
-        <label class="tayy-form-label">Bài thuốc <span style="font-size:0.72rem;color:#A09580;">(gõ để tìm — khớp đúng tên đã lưu)</span><br>
-            <input id="pt-inp-baithuoc" type="search" class="tayy-form-input" list="pt-datalist-baithuoc"
-                value="${escHtml(btTenInit)}" placeholder="Gõ tên bài thuốc…"
-                autocomplete="off" oninput="ptOnBaiThuocSearchInput()" onchange="ptOnBaiThuocSearchInput()" onblur="ptOnBaiThuocSearchInput()">
-        </label>
-        <input type="hidden" id="pt-hid-baithuoc-id" value="${btVal ? escHtml(String(btVal)) : ''}">
-        <datalist id="pt-datalist-baithuoc"></datalist>
-        <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)<br>
-            <select id="pt-sel-nhomnho" class="tayy-form-input">${ptNhomNhoOptionsHtml(nnVal)}</select>
-        </label>
-
-        <div class="tayy-form-actions">
-            <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="savePhapTriRow(${id || 0})">Lưu</button>
         </div>
-    `, 'wide');
+    </section>
+
+    <section class="pt-form-section" aria-labelledby="pt-sec-3">
+        <h3 class="pt-form-section-title" id="pt-sec-3"><span class="pt-form-section-num">3</span>Nguyên tắc &amp; cơ chế luận trị</h3>
+        <div class="pt-form-stack">
+            <label class="tayy-form-label">Nguyên tắc điều trị
+                <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2" placeholder="Tóm tắt hướng pháp trị chính…">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
+            </label>
+            <label class="tayy-form-label">Ý nghĩa &amp; cơ chế
+                <textarea id="pt-inp-y_nghia" class="tayy-form-input" rows="3" placeholder="Giải thích cơ chế, liên hệ bệnh cơ…">${item ? escHtml(item.y_nghia_co_che || '') : ''}</textarea>
+            </label>
+        </div>
+    </section>
+
+    <section class="pt-form-section" aria-labelledby="pt-sec-4">
+        <h3 class="pt-form-section-title" id="pt-sec-4"><span class="pt-form-section-num">4</span>Biểu hiện lâm sàng &amp; quy kinh / tạng phủ</h3>
+        <div class="pt-form-grid-2">
+            <div>
+                <label class="tayy-form-label">Tạng phủ — kinh mạch liên quan</label>
+                <div id="pt-chips-kinh" class="chips-container" onclick="document.getElementById('pt-inp-kinh').focus()">
+                    <input id="pt-inp-kinh" type="text" class="chip-input" list="pt-datalist-kinh"
+                        placeholder="Gõ tắt hoặc tên kinh, Enter để thêm…"
+                        onkeydown="ptOnKinhChipKeydown(event)" autocomplete="off">
+                </div>
+                <span class="pt-field-hint">Chọn gợi ý hoặc Enter; mỗi kinh một chip.</span>
+            </div>
+            <div>
+                <label class="tayy-form-label">Triệu chứng / mô tả lâm sàng</label>
+                <div id="pt-chips-tcmota" class="chips-container" onclick="document.getElementById('pt-inp-tcmota').focus()">
+                    <input id="pt-inp-tcmota" type="text" class="chip-input" placeholder="Mỗi triệu chứng — Enter…"
+                        onkeydown="ptOnChipKeydown('trieu_chung_mo_ta', event)">
+                </div>
+                <span class="pt-field-hint">Tự do gõ; Enter để tách từng triệu chứng.</span>
+            </div>
+        </div>
+        <datalist id="pt-datalist-kinh"></datalist>
+    </section>
+
+    <section class="pt-form-section" aria-labelledby="pt-sec-5">
+        <h3 class="pt-form-section-title" id="pt-sec-5"><span class="pt-form-section-num">5</span>Phương thuốc &amp; phân loại dược lý</h3>
+        <div class="pt-form-grid-2">
+            <div>
+                <label class="tayy-form-label">Bài thuốc tham chiếu</label>
+                <input id="pt-inp-baithuoc" type="search" class="tayy-form-input" list="pt-datalist-baithuoc"
+                    value="${escHtml(btTenInit)}" placeholder="Gõ để lọc, chọn đúng tên trong danh mục…"
+                    autocomplete="off" oninput="ptOnBaiThuocSearchInput()" onchange="ptOnBaiThuocSearchInput()" onblur="ptOnBaiThuocSearchInput()">
+                <span class="pt-field-hint">Chỉ gắn được khi tên trùng khớp một bài đã có trong hệ thống.</span>
+            </div>
+            <div>
+                <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)</label>
+                <select id="pt-sel-nhomnho" class="tayy-form-input">${ptNhomNhoOptionsHtml(nnVal)}</select>
+                <span class="pt-field-hint">Phục vụ phân loại công dụng / họ thuốc.</span>
+            </div>
+        </div>
+    </section>
+
+    <input type="hidden" id="pt-hid-baithuoc-id" value="${btVal ? escHtml(String(btVal)) : ''}">
+    <datalist id="pt-datalist-baithuoc"></datalist>
+
+    <div class="tayy-form-actions pt-form-actions-wrap">
+        <button type="button" class="btn" onclick="closeTayyModal()">Hủy</button>
+        <button type="button" class="btn btn-primary" onclick="savePhapTriRow(${id || 0})">Lưu bản ghi</button>
+    </div>
+</div>
+    `, 'phap-tri');
     setTimeout(() => {
         ptRenderChipGroups();
         ptFillKinhMachDatalist();

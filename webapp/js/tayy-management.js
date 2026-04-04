@@ -798,7 +798,7 @@ function showTayyModal(title, bodyHtml, widthClass) {
     if (widthClass === 'analysis') {
         innerBox = 'background:#FFFDF7;width:min(96vw,1520px);max-width:96vw;padding:16px 20px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:94vh;overflow-y:auto;overflow-x:hidden;position:relative;box-sizing:border-box;';
     } else {
-        const maxW = widthClass === 'wide' ? '780px' : '480px';
+        const maxW = widthClass === 'phap-tri' ? 'min(96vw, 920px)' : widthClass === 'wide' ? '780px' : '480px';
         innerBox = `background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;position:relative;`;
     }
     modal.innerHTML = `

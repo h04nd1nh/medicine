@@ -793,10 +793,16 @@ function showTayyModal(title, bodyHtml, widthClass) {
         modal.id = 'tayy-modal';
         document.body.appendChild(modal);
     }
-    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1400;align-items:center;justify-content:center;';
-    const maxW = widthClass === 'wide' ? '780px' : '480px';
+    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1400;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
+    let innerBox;
+    if (widthClass === 'analysis') {
+        innerBox = 'background:#FFFDF7;width:min(96vw,1520px);max-width:96vw;padding:16px 20px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:94vh;overflow-y:auto;overflow-x:hidden;position:relative;box-sizing:border-box;';
+    } else {
+        const maxW = widthClass === 'wide' ? '780px' : '480px';
+        innerBox = `background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;position:relative;`;
+    }
     modal.innerHTML = `
-        <div style="background:#FFFDF7;width:90%;max-width:${maxW};padding:20px 24px;border-radius:12px;border:1px solid #D4C5A0;box-shadow:0 8px 28px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;position:relative;" onclick="tyCloseAllSuggests(event)" onscroll="document.querySelectorAll('div[id$=-suggest]').forEach(el => el.style.display = 'none')">
+        <div style="${innerBox}" onclick="tyCloseAllSuggests(event)" onscroll="document.querySelectorAll('div[id$=-suggest]').forEach(el => el.style.display = 'none')">
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #5B3A1A;padding-bottom:8px;margin-bottom:14px;">
                 <div style="font-weight:900;color:#5B3A1A;font-size:1rem;">${title}</div>
                 <button class="btn" onclick="closeTayyModal()" style="padding:2px 10px;">✕</button>

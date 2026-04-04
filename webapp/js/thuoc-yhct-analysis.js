@@ -619,7 +619,7 @@ async function openBaiThuocAnalysis(baiThuocId) {
     const bt = _thuocData.baiThuoc.find(x => x.id == baiThuocId);
     if (!bt) return alert('Không tìm thấy bài thuốc.');
     const result = yhctAnalyzeLocalSimple(bt);
-    showTayyModal(`Phân tích: ${escHtml(bt.ten_bai_thuoc)}`, yhctBuildAnalysisHtml(result), 'wide');
+    showTayyModal(`Phân tích: ${escHtml(bt.ten_bai_thuoc)}`, yhctBuildAnalysisHtml(result), 'analysis');
     setTimeout(() => yhctInitAnalysisCharts(result), 0);
 }
 
@@ -1050,6 +1050,12 @@ function yhctBuildAnalysisHtml(r) {
         </div>`).join('');
 
     return `
+    <style>
+    @media (max-width: 900px) {
+        .yhct-analysis-layout { grid-template-columns: 1fr !important; }
+        .yhct-analysis-dosage { position: relative !important; top: auto !important; max-height: none !important; }
+    }
+    </style>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px;">
         <div style="font-weight:700;color:#374151;font-size:0.9rem;margin-bottom:10px;">1) Phân tích Tứ khí</div>
         <div style="border:1px solid #D1D5DB;border-radius:8px;overflow:hidden;background:#fff;">
@@ -1058,62 +1064,70 @@ function yhctBuildAnalysisHtml(r) {
             <div style="display:flex;background:#FAFAF8;">${tuKhiLabels}</div>
         </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">2) Phân tích Ngũ vị</div>
-            <div style="font-size:0.65rem;color:#9CA3AF;margin-bottom:4px;line-height:1.35;">Liền nét = tính toán gốc · Nét đứt = giả lập kéo (cập nhật gram/% bảng dưới).</div>
-            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
-                <canvas id="yhct-radar-nguvi" style="display:block;"></canvas>
+    <div class="yhct-analysis-layout" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,38%);gap:16px;align-items:start;margin-bottom:14px;">
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0;">
+            <div style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);gap:12px;align-items:center;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px;background:#fff;">
+                <div style="min-width:0;">
+                    <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;">2) Ngũ vị</div>
+                    <div style="font-size:0.62rem;color:#9CA3AF;margin-top:4px;line-height:1.3;">Liền nét = gốc · Nét đứt = kéo giả lập.</div>
+                </div>
+                <div style="height:200px;min-height:160px;position:relative;width:100%;box-sizing:border-box;">
+                    <canvas id="yhct-radar-nguvi" style="display:block;width:100%;height:100%;"></canvas>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);gap:12px;align-items:center;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px;background:#fff;">
+                <div style="min-width:0;font-weight:700;color:#5B3A1A;font-size:0.85rem;">3) Quy kinh</div>
+                <div style="height:200px;min-height:160px;position:relative;width:100%;box-sizing:border-box;">
+                    <canvas id="yhct-radar-quykinh" style="display:block;width:100%;height:100%;"></canvas>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);gap:12px;align-items:center;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px;background:#fff;">
+                <div style="min-width:0;">
+                    <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;">4) Thăng – Giáng – Phù – Trầm</div>
+                    <div style="font-size:0.62rem;color:#9CA3AF;margin-top:4px;line-height:1.3;">Liền nét = gốc · Nét đứt = kéo giả lập.</div>
+                </div>
+                <div style="height:200px;min-height:160px;position:relative;width:100%;box-sizing:border-box;">
+                    <canvas id="yhct-radar-tgpt" style="display:block;width:100%;height:100%;"></canvas>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);gap:12px;align-items:start;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px;background:#fff;">
+                <div style="min-width:0;line-height:1.35;">
+                    <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;">5) Tác dụng YHCT</div>
+                    <div style="margin-top:6px;font-weight:800;font-size:1.02rem;color:#1F1410;letter-spacing:-0.02em;">${escHtml(r.ten || '—')}</div>
+                </div>
+                <div style="min-width:0;max-height:min(52vh,420px);overflow-y:auto;padding-right:4px;">
+                    ${(r.tacDungYhctNhomNho && r.tacDungYhctNhomNho.length)
+                        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;">${
+                            r.tacDungYhctNhomNho.map(n => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(n)}</span>`).join('')
+                        }</div>`
+                        : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có nhóm nhỏ nào được gán. Gán vị thuốc trong tab «Nhóm dược lý».</div>'}
+                    <div style="margin-top:12px;">${yhctNhomLonChipsHtml(r.tacDungYhctNhomLon || [])}</div>
+                    <div style="margin-top:12px;">${yhctPhapTriChipsHtml(r.phapTriBaiThuoc)}</div>
+                    ${yhctCongDungBaiThuocHtml(r)}
+                </div>
             </div>
         </div>
-        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">3) Phân tích Quy kinh</div>
-            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
-                <canvas id="yhct-radar-quykinh" style="display:block;"></canvas>
+        <div class="yhct-analysis-dosage" style="position:sticky;top:0;align-self:start;border:1px solid #E5E7EB;border-radius:10px;padding:12px 14px;background:#fff;max-height:min(88vh, calc(94vh - 100px));overflow:auto;min-width:0;box-sizing:border-box;">
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:6px;">
+                Quân–Thần–Tá–Sứ <span id="yhct-analysis-total-g" style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
             </div>
-        </div>
-        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">4) Phân tích Thăng – Giáng – Phù – Trầm</div>
-            <div style="font-size:0.65rem;color:#9CA3AF;margin-bottom:4px;line-height:1.35;">Liền nét = tính toán gốc · Nét đứt = giả lập kéo (cập nhật gram/% bảng dưới).</div>
-            <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
-                <canvas id="yhct-radar-tgpt" style="display:block;"></canvas>
+            <div style="font-size:0.68rem;color:#9CA3AF;margin-bottom:10px;line-height:1.35;">Sửa Gram để giả lập; % và radar nét đứt đồng bộ.</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+                    <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB;">
+                        <th style="padding:6px 6px;text-align:left;">Vị thuốc</th>
+                        <th style="padding:6px 6px;text-align:center;">Gram</th>
+                        <th style="padding:6px 6px;text-align:center;">%</th>
+                        <th style="padding:6px 6px;text-align:center;">Vai trò</th>
+                        <th style="padding:6px 6px;text-align:left;">Nhóm nhỏ</th>
+                        <th style="padding:6px 6px;text-align:left;">Quy kinh</th>
+                    </tr></thead>
+                    <tbody>${vtRows}</tbody>
+                </table>
             </div>
-        </div>
-        <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
-            <div style="margin-bottom:10px;line-height:1.35;">
-                <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;">5) Phân tích Tác dụng YHCT</div>
-                <div style="margin-top:6px;font-weight:800;font-size:1.12rem;color:#1F1410;letter-spacing:-0.02em;">${escHtml(r.ten || '—')}</div>
-            </div>
-            ${(r.tacDungYhctNhomNho && r.tacDungYhctNhomNho.length)
-                ? `<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;padding:2px 0;">${
-                    r.tacDungYhctNhomNho.map(n => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(n)}</span>`).join('')
-                }</div>`
-                : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có nhóm nhỏ nào được gán. Gán vị thuốc trong tab «Nhóm dược lý».</div>'}
-            <div style="margin-top:14px;">${yhctNhomLonChipsHtml(r.tacDungYhctNhomLon || [])}</div>
-            <div style="margin-top:14px;">${yhctPhapTriChipsHtml(r.phapTriBaiThuoc)}</div>
-            ${yhctCongDungBaiThuocHtml(r)}
         </div>
     </div>
-    <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">
-        <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:6px;">
-            Quân–Thần–Tá–Sứ <span id="yhct-analysis-total-g" style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
-        </div>
-        <div style="font-size:0.68rem;color:#9CA3AF;margin-bottom:10px;line-height:1.35;">Sửa cột Gram để giả lập liều; tổng và % cập nhật theo bạn, radar nét đứt đồng bộ.</div>
-        <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
-                <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB;">
-                    <th style="padding:7px 8px;text-align:left;">Vị thuốc</th>
-                    <th style="padding:7px 8px;text-align:center;">Gram</th>
-                    <th style="padding:7px 8px;text-align:center;">%</th>
-                    <th style="padding:7px 8px;text-align:center;">Vai trò</th>
-                    <th style="padding:7px 8px;text-align:left;">Nhóm nhỏ (dược lý)</th>
-                    <th style="padding:7px 8px;text-align:left;">Quy kinh</th>
-                </tr></thead>
-                <tbody>${vtRows}</tbody>
-            </table>
-        </div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;">
+    <div style="display:flex;justify-content:flex-end;margin-top:4px;">
         <button class="btn" onclick="closeTayyModal()">Đóng</button>
     </div>`;
 }
@@ -1183,8 +1197,9 @@ function yhctInitAnalysisCharts(r) {
                         borderColor: color,
                         backgroundColor: color.replace('1)', '0.12)'),
                         borderWidth: 2,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 24,
                     },
                     {
                         label: 'sim',
@@ -1193,8 +1208,9 @@ function yhctInitAnalysisCharts(r) {
                         backgroundColor: color.replace('1)', '0.06)'),
                         borderWidth: 2.5,
                         borderDash: [5, 4],
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 24,
                         hidden: true,
                     },
                 ],
@@ -1208,17 +1224,34 @@ function yhctInitAnalysisCharts(r) {
 
         let dragIdx = -1;
 
+        /** Chọn trục radar theo góc (dễ kéo hơn so với bấm đúng nút tròn). */
         const nearestPointIndex = (pos) => {
             const dsIdx = chart.data.datasets[1].hidden ? 0 : 1;
             const meta = chart.getDatasetMeta(dsIdx);
-            let best = -1, bestD = 22;
+            const scale = chart.scales.r;
+            const center = scale.getCenterPoint();
+            const dx = pos.x - center.x;
+            const dy = pos.y - center.y;
+            const dist = Math.hypot(dx, dy);
+            let dMin = 0;
+            let dMax = 100;
+            try {
+                dMin = scale.getDistanceFromCenterForValue(scale.min);
+                dMax = scale.getDistanceFromCenterForValue(scale.max);
+            } catch (_) {}
+            if (dist < dMin + 4 || dist > dMax + 40) return -1;
+            const clickAng = Math.atan2(dy, dx);
+            let bestIdx = -1;
+            let bestDiff = Infinity;
             for (let i = 0; i < meta.data.length; i++) {
                 const pt = meta.data[i];
                 if (!pt || pt.skip) continue;
-                const d = Math.hypot(pos.x - pt.x, pos.y - pt.y);
-                if (d < bestD) { bestD = d; best = i; }
+                const a = Math.atan2(pt.y - center.y, pt.x - center.x);
+                let diff = Math.abs(clickAng - a);
+                if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
             }
-            return best;
+            return bestIdx;
         };
 
         const applyDragAtIndex = (idx, pos) => {

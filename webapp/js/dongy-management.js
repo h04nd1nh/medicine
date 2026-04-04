@@ -860,9 +860,15 @@ async function deletePhacDo(id) { if(confirm('Xóa?')) { await apiDeletePhacDo(i
 function showTayyModal(title, bodyHtml, widthClass) {
     let modal = document.getElementById('tayy-modal');
     if (!modal) { modal = document.createElement('div'); modal.id = 'tayy-modal'; document.body.appendChild(modal); }
-    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;';
-    const maxW = widthClass === 'wide' ? '800px' : '480px';
-    modal.innerHTML = `<div style="background:#FFFDF7;width:95%;max-width:${maxW};padding:25px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;border:1px solid #D4C5A0;">
+    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
+    let innerStyle;
+    if (widthClass === 'analysis') {
+        innerStyle = 'background:#FFFDF7;width:min(96vw,1520px);max-width:96vw;padding:16px 20px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.3);max-height:94vh;overflow-y:auto;overflow-x:hidden;border:1px solid #D4C5A0;position:relative;box-sizing:border-box;';
+    } else {
+        const maxW = widthClass === 'wide' ? '800px' : '480px';
+        innerStyle = `background:#FFFDF7;width:95%;max-width:${maxW};padding:25px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;border:1px solid #D4C5A0;`;
+    }
+    modal.innerHTML = `<div style="${innerStyle}">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #5B3A1A;padding-bottom:10px;margin-bottom:15px;"><span style="font-weight:900;color:#5B3A1A;font-size:1.1rem;">${title}</span><button class="btn" onclick="closeTayyModal()" style="padding:0 8px;">✕</button></div>
         ${bodyHtml}</div>`;
 }

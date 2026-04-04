@@ -1424,7 +1424,7 @@ function yhctImportBaiThuocXlsx(e) {
                 e.target.value = '';
                 return;
             }
-            if (!confirm(`Tìm thấy ${rows.length} dòng. Form mẫu: Tên bài thuốc, Nguồn gốc, …, Thành phần (tách bởi dấu phẩy/chấm phẩy; trong ngoặc: ghi chú bỏ qua, liều dạng *, #, X tiền…).\nKhuyến khích không import quá 100 dòng/lần.\nTiếp tục?`)) {
+            if (!confirm(`Tìm thấy ${rows.length} dòng. Form mẫu: Tên bài thuốc, Nguồn gốc, …, Thành phần (tách bởi dấu phẩy/chấm phẩy; trong ngoặc: ghi chú bỏ qua, liều dạng *, #, X tiền…).\nBài đã có (trùng tên) sẽ được cập nhật theo file.\nKhuyến khích không import quá 100 dòng/lần.\nTiếp tục?`)) {
                 e.target.value = '';
                 return;
             }
@@ -1458,7 +1458,7 @@ function yhctImportBaiThuocXlsx(e) {
             const fileHint = file?.name ? `\n${file.name}` : '';
             yhctBaiThuocImportSetLoading(true, `Đang nhập bài thuốc… 0 / ${totalRows}${fileHint}`);
 
-            let created = 0, skippedDup = 0, skippedErr = 0, skippedEmpty = 0;
+            let created = 0, updated = 0, skippedErr = 0, skippedEmpty = 0;
 
             for (let idx = 0; idx < rows.length; idx++) {
                 const r = rows[idx];
@@ -1472,12 +1472,6 @@ function yhctImportBaiThuocXlsx(e) {
                     continue;
                 }
                 const tenNorm = ten.trim();
-                if ((_thuocData.baiThuoc || []).some(
-                    b => (b.ten_bai_thuoc || '').trim().toLowerCase() === tenNorm.toLowerCase()
-                )) {
-                    skippedDup++;
-                    continue;
-                }
 
                 const tpText = yhctDevPick(r, ['Thành phần', 'Thanh phan', 'Thành phan vi thuoc']);
                 const chi_tiet = [];
@@ -1517,9 +1511,26 @@ function yhctImportBaiThuocXlsx(e) {
                     chi_tiet,
                 };
 
-                const res = await apiCreateBaiThuoc(payload);
-                if (res.success) created++;
-                else skippedErr++;
+                const existingBt = (_thuocData.baiThuoc || []).find(
+                    b => (b.ten_bai_thuoc || '').trim().toLowerCase() === tenNorm.toLowerCase()
+                );
+
+                if (existingBt?.id) {
+                    const res = await apiUpdateBaiThuoc(existingBt.id, payload);
+                    if (res.success) {
+                        updated++;
+                        if (res.data) {
+                            const i = _thuocData.baiThuoc.findIndex(b => b.id === existingBt.id);
+                            if (i >= 0) _thuocData.baiThuoc[i] = res.data;
+                        }
+                    } else skippedErr++;
+                } else {
+                    const res = await apiCreateBaiThuoc(payload);
+                    if (res.success) {
+                        created++;
+                        if (res.data) _thuocData.baiThuoc.push(res.data);
+                    } else skippedErr++;
+                }
             }
 
             yhctBaiThuocImportSetLoading(true, 'Đang tải lại danh mục…');
@@ -1528,8 +1539,7 @@ function yhctImportBaiThuocXlsx(e) {
             yhctBaiThuocImportSetLoading(false, '');
 
             alert(
-                `Nhập xong bài thuốc: thêm ${created} bài.` +
-                    (skippedDup ? ` Bỏ qua trùng tên: ${skippedDup}.` : '') +
+                `Nhập xong bài thuốc: thêm ${created} bài, cập nhật ${updated} bài.` +
                     (skippedEmpty ? ` Dòng thiếu tên: ${skippedEmpty}.` : '') +
                     (skippedErr ? ` Lỗi API: ${skippedErr}.` : '')
             );

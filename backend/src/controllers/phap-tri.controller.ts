@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { PhapTri } from '../models/phap-tri.model';
 import { CreatePhapTriDto, UpdatePhapTriDto } from '../models/phap-tri.dto';
-import { MeridianSyndrome } from '../models/meridian-syndrome.model';
 import { BaiThuoc } from '../models/bai-thuoc.model';
 import { NhomDuocLyNho } from '../models/nhom-duoc-ly-nho.model';
 import { KinhMach } from '../models/kinh-mach.model';
@@ -11,7 +10,6 @@ import { KinhMach } from '../models/kinh-mach.model';
 @Injectable()
 export class PhapTriService {
   private static readonly RELATIONS = [
-    'benh_dong_y',
     'bai_thuoc',
     'nhom_duoc_ly_nho',
     'nhom_duoc_ly_nho.nhomLon',
@@ -21,8 +19,6 @@ export class PhapTriService {
   constructor(
     @InjectRepository(PhapTri)
     private readonly repo: Repository<PhapTri>,
-    @InjectRepository(MeridianSyndrome)
-    private readonly benhRepo: Repository<MeridianSyndrome>,
     @InjectRepository(BaiThuoc)
     private readonly baiThuocRepo: Repository<BaiThuoc>,
     @InjectRepository(NhomDuocLyNho)
@@ -66,17 +62,6 @@ export class PhapTriService {
   ): Promise<void> {
     const touch = (key: keyof CreatePhapTriDto) =>
       mode === 'create' || PhapTriService.has(dto, key as string);
-
-    if (touch('id_benh_dong_y')) {
-      const v = dto.id_benh_dong_y;
-      if (v == null) entity.benh_dong_y = null;
-      else {
-        const b = await this.benhRepo.findOneBy({ id: v });
-        entity.benh_dong_y = b ?? null;
-      }
-    } else if (mode === 'create') {
-      entity.benh_dong_y = null;
-    }
 
     if (touch('id_bai_thuoc')) {
       const v = dto.id_bai_thuoc;

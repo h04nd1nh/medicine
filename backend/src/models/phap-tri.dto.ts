@@ -1,5 +1,4 @@
 export class CreatePhapTriDto {
-  id_benh_dong_y?: number | null;
   chung_trang?: string | null;
   nguyen_tac?: string | null;
   y_nghia_co_che?: string | null;
@@ -14,7 +13,6 @@ export class CreatePhapTriDto {
 }
 
 export class UpdatePhapTriDto {
-  id_benh_dong_y?: number | null;
   chung_trang?: string | null;
   nguyen_tac?: string | null;
   y_nghia_co_che?: string | null;

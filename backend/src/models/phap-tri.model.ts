@@ -7,7 +7,6 @@ import {
   JoinTable,
   JoinColumn,
 } from 'typeorm';
-import { MeridianSyndrome } from './meridian-syndrome.model';
 import { BaiThuoc } from './bai-thuoc.model';
 import { NhomDuocLyNho } from './nhom-duoc-ly-nho.model';
 import { KinhMach } from './kinh-mach.model';
@@ -17,11 +16,7 @@ export class PhapTri {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => MeridianSyndrome, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'id_benh_dong_y' })
-  benh_dong_y: MeridianSyndrome | null;
-
-  /** Văn bản chứng trạng (form Excel / hiển thị khi chưa khớp benh_dong_y) */
+  /** Chứng trạng (tiểu kết) — chỉ lưu text */
   @Column({ type: 'text', nullable: true })
   chung_trang: string | null;
 

@@ -16,22 +16,21 @@ let _thuocData = {
     baiThuoc: [],
     kinhMach: [],
     huyetVi: [],
-    bienChung: [],
-    phapTri: [],
     trieuChung: [],
     nhomDuocLy: [],
     congDung: [],
     chuTri: [],
     kiengKy: [],
+    phapTriList: [],
     activeTab: 'vi-thuoc',
 };
 
+let _phapTriDongYCache = null;
+
 // Draft de chi_tiet (thành phần vị thuốc) đang được chỉnh trong modal bài thuốc
 let _btDraftChiTiet = [];
-// Draft chips cho biện chứng, triệu chứng, pháp trị
-let _btDraftBienChung = [];
+// Draft chips cho triệu chứng
 let _btDraftTrieuChung = [];
-let _btDraftPhapTri = [];
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initThuocManagement() {
@@ -41,30 +40,28 @@ async function initThuocManagement() {
 
 async function loadAllThuocData() {
     try {
-        const [vt, bt, km, hv, bc, pt, tc, ndl, cd, cn, kk] = await Promise.all([
+        const [vt, bt, km, hv, tc, ndl, cd, cn, kk, pt] = await Promise.all([
             apiGetViThuoc(),
             apiGetBaiThuoc(),
             apiGetKinhMach(),
             apiGetHuyetVi(),
-            apiGetBienChung(),
-            apiGetPhapTri(),
             apiGetTrieuChung(),
             apiGetNhomDuocLy(),
             apiGetCongDung(),
             apiGetChuTri(),
             apiGetKiengKy(),
+            apiGetPhapTri(),
         ]);
         _thuocData.viThuoc = vt || [];
         _thuocData.baiThuoc = bt || [];
         _thuocData.kinhMach = km || [];
         _thuocData.huyetVi = hv || [];
-        _thuocData.bienChung = bc || [];
-        _thuocData.phapTri = pt || [];
         _thuocData.trieuChung = tc || [];
         _thuocData.nhomDuocLy = ndl || [];
         _thuocData.congDung = cd || [];
         _thuocData.chuTri = cn || [];
         _thuocData.kiengKy = kk || [];
+        _thuocData.phapTriList = pt || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Thuốc:', e);
     }
@@ -76,6 +73,9 @@ function renderThuocSection() {
     const container = document.getElementById('thuoc-section');
     if (!container) return;
 
+    if (_thuocData.activeTab === 'bien-chung') {
+        _thuocData.activeTab = 'bai-thuoc';
+    }
     const tab = _thuocData.activeTab;
     container.innerHTML = `
         <div class="section">
@@ -86,7 +86,6 @@ function renderThuocSection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border); overflow-x:auto; white-space:nowrap;">
                 <button class="tayy-tab ${tab === 'vi-thuoc' ? 'active' : ''}" onclick="switchThuocTab('vi-thuoc')">Danh mục Vị thuốc</button>
                 <button class="tayy-tab ${tab === 'bai-thuoc' ? 'active' : ''}" onclick="switchThuocTab('bai-thuoc')">Danh mục Bài thuốc</button>
-                <button class="tayy-tab ${tab === 'bien-chung' ? 'active' : ''}" onclick="switchThuocTab('bien-chung')">Biện chứng</button>
                 <button class="tayy-tab ${tab === 'phap-tri' ? 'active' : ''}" onclick="switchThuocTab('phap-tri')">Pháp trị</button>
                 <button class="tayy-tab ${tab === 'nhom-duoc-ly' ? 'active' : ''}" onclick="switchThuocTab('nhom-duoc-ly')">Nhóm dược lý</button>
                 <button class="tayy-tab ${tab === 'cong-dung' ? 'active' : ''}" onclick="switchThuocTab('cong-dung')">Công dụng</button>
@@ -113,169 +112,12 @@ function renderThuocTabContent() {
     switch (_thuocData.activeTab) {
         case 'vi-thuoc': renderViThuocTab(el); break;
         case 'bai-thuoc': renderBaiThuocTab(el); break;
-        case 'bien-chung': renderBienChungTab(el); break;
         case 'phap-tri': renderPhapTriTab(el); break;
         case 'nhom-duoc-ly': renderNhomDuocLyTab(el); break;
         case 'cong-dung': renderCongDungTab(el); break;
         case 'chu-tri': renderChuTriTab(el); break;
         case 'kieng-ky': renderKiengKyTab(el); break;
     }
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB: BIỆN CHỨNG
-// ═══════════════════════════════════════════════════════════
-function renderBienChungTab(el) {
-    const rows = (_thuocData.bienChung || []).map(item => {
-        const id = item.id;
-        const usageCount = (_thuocData.baiThuoc || []).filter(bt =>
-            (bt.bien_chung || '').split(',').map(s => s.trim()).includes(item.ten_bien_chung)
-        ).length;
-        return `<tr>
-            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_bien_chung)}</td>
-            <td style="text-align:center;">
-                ${usageCount > 0
-                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} bài thuốc</span>`
-                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
-            </td>
-            <td style="text-align:center;width:130px;">
-                <div class="table-actions" style="justify-content:center;">
-                    <button class="btn btn-sm btn-outline" onclick="openBienChungForm(${id})">✏ Sửa</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteBienChung(${id})">🗑</button>
-                </div>
-            </td>
-        </tr>`;
-    }).join('');
-
-    el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div style="font-size:0.82rem;color:#A09580;">
-                Tổng: <strong>${(_thuocData.bienChung||[]).length}</strong> biện chứng
-            </div>
-            <button class="btn btn-primary" onclick="openBienChungForm()">+ Thêm biện chứng</button>
-        </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr>
-                    <th>Tên biện chứng</th>
-                    <th style="text-align:center;">Sử dụng</th>
-                    <th style="width:130px;text-align:center;">Thao tác</th>
-                </tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có biện chứng nào</td></tr>'}</tbody>
-            </table>
-        </div>`;
-}
-
-function openBienChungForm(id) {
-    const item = id ? (_thuocData.bienChung || []).find(x => x.id == id) : null;
-    showTayyModal(item ? 'Sửa biện chứng' : 'Thêm biện chứng', `
-        <label class="tayy-form-label">Tên biện chứng *<br>
-            <input id="bc-inp-ten" type="text" class="tayy-form-input"
-                value="${item ? escHtml(item.ten_bien_chung) : ''}"
-                placeholder="VD: Can đảm thấp nhiệt, Thận dương hư...">
-        </label>
-        <div class="tayy-form-actions">
-            <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveBienChung(${id || 0})">Lưu</button>
-        </div>
-    `);
-    setTimeout(() => document.getElementById('bc-inp-ten')?.focus(), 50);
-}
-
-async function saveBienChung(id) {
-    const ten = (document.getElementById('bc-inp-ten')?.value || '').trim();
-    if (!ten) return alert('Vui lòng nhập tên biện chứng!');
-    const payload = { ten_bien_chung: ten };
-    const res = id ? await apiUpdateBienChung(id, payload) : await apiCreateBienChung(payload);
-    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
-    closeTayyModal();
-    await loadAllThuocData();
-    renderThuocSection();
-}
-
-async function deleteBienChung(id) {
-    if (!confirm('Xóa biện chứng này?')) return;
-    await apiDeleteBienChung(id);
-    await loadAllThuocData();
-    renderThuocSection();
-}
-
-// ═══════════════════════════════════════════════════════════
-// TAB: PHÁP TRị
-// ═══════════════════════════════════════════════════════════
-function renderPhapTriTab(el) {
-    const rows = (_thuocData.phapTri || []).map(item => {
-        const id = item.id;
-        const usageCount = (_thuocData.baiThuoc || []).filter(bt =>
-            (bt.phap_tri || '').split(',').map(s => s.trim()).includes(item.ten_phap_tri)
-        ).length;
-        return `<tr>
-            <td style="font-weight:600;color:#5B3A1A;">${escHtml(item.ten_phap_tri)}</td>
-            <td style="text-align:center;">
-                ${usageCount > 0
-                    ? `<span style="background:#F5F0E8;color:#8B7355;border-radius:10px;padding:2px 10px;font-size:0.78rem;font-weight:600;">${usageCount} bài thuốc</span>`
-                    : `<span style="color:#D1D5DB;font-size:0.78rem;">Chưa dùng</span>`}
-            </td>
-            <td style="text-align:center;width:130px;">
-                <div class="table-actions" style="justify-content:center;">
-                    <button class="btn btn-sm btn-outline" onclick="openPhapTriForm(${id})">&#9999; Sửa</button>
-                    <button class="btn btn-sm btn-danger" onclick="deletePhapTri(${id})">&#128465;</button>
-                </div>
-            </td>
-        </tr>`;
-    }).join('');
-
-    el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div style="font-size:0.82rem;color:#A09580;">
-                Tổng: <strong>${(_thuocData.phapTri||[]).length}</strong> pháp trị
-            </div>
-            <button class="btn btn-primary" onclick="openPhapTriForm()">+ Thêm pháp trị</button>
-        </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr>
-                    <th>Tên pháp trị</th>
-                    <th style="text-align:center;">Sử dụng</th>
-                    <th style="width:130px;text-align:center;">Thao tác</th>
-                </tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có pháp trị nào</td></tr>'}</tbody>
-            </table>
-        </div>`;
-}
-
-function openPhapTriForm(id) {
-    const item = id ? (_thuocData.phapTri || []).find(x => x.id == id) : null;
-    showTayyModal(item ? 'Sửa pháp trị' : 'Thêm pháp trị', `
-        <label class="tayy-form-label">Tên pháp trị *<br>
-            <input id="pt-inp-ten" type="text" class="tayy-form-input"
-                value="${item ? escHtml(item.ten_phap_tri) : ''}"
-                placeholder="VD: Bổ thận dưỡng, Thanh can tả hỏa...">
-        </label>
-        <div class="tayy-form-actions">
-            <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="savePhapTri(${id || 0})">Lưu</button>
-        </div>
-    `);
-    setTimeout(() => document.getElementById('pt-inp-ten')?.focus(), 50);
-}
-
-async function savePhapTri(id) {
-    const ten = (document.getElementById('pt-inp-ten')?.value || '').trim();
-    if (!ten) return alert('Vui lòng nhập tên pháp trị!');
-    const payload = { ten_phap_tri: ten };
-    const res = id ? await apiUpdatePhapTri(id, payload) : await apiCreatePhapTri(payload);
-    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
-    closeTayyModal();
-    await loadAllThuocData();
-    renderThuocSection();
-}
-
-async function deletePhapTri(id) {
-    if (!confirm('Xóa pháp trị này?')) return;
-    await apiDeletePhapTri(id);
-    await loadAllThuocData();
-    renderThuocSection();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -715,10 +557,7 @@ function openBaiThuocForm(id) {
         };
     }).filter(x => Number.isFinite(x.idViThuoc));
 
-    // Khởi tạo draft chips cho biện chứng, triệu chứng, pháp trị
-    _btDraftBienChung = (item?.bien_chung || '').split(',').map(s => s.trim()).filter(Boolean);
     _btDraftTrieuChung = (item?.trieu_chung || '').split(',').map(s => s.trim()).filter(Boolean);
-    _btDraftPhapTri = (item?.phap_tri || '').split(',').map(s => s.trim()).filter(Boolean);
 
     const rowsHtml = btRenderBaiThuocChiTietRowsHtml();
     showTayyModal('Bài thuốc', `
@@ -731,22 +570,7 @@ function openBaiThuocForm(id) {
         <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item ? escHtml(item.nguon_goc) : ''}"></label>
         <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item ? escHtml(item.cach_dung) : ''}</textarea></label>
 
-        <!-- Biện chứng -->
-        <label class="tayy-form-label">
-            Biện chứng
-            <div style="position:relative; margin-top:6px;">
-                <div id="bt-bienchung-chips" class="chips-container" onclick="document.getElementById('bt-inp-bienchung').focus()">
-                    <input id="bt-inp-bienchung" type="text" class="chip-input"
-                        placeholder="Thêm biện chứng..."
-                        oninput="btOnBienChungSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value.trim()){btSelectBienChung(this.value.trim()); event.preventDefault();}">
-                </div>
-                <div id="bt-bienchung-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px);
-                    background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                    box-shadow:0 10px 30px rgba(0,0,0,0.12);
-                    max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
-            </div>
-        </label>
+        <label class="tayy-form-label">Biện chứng<br><textarea id="bt-inp-bienchung" class="tayy-form-input" rows="2" placeholder="Nhập biện chứng (tự do)">${item ? escHtml(item.bien_chung || '') : ''}</textarea></label>
 
         <!-- Triệu chứng -->
         <label class="tayy-form-label">
@@ -765,22 +589,7 @@ function openBaiThuocForm(id) {
             </div>
         </label>
 
-        <!-- Pháp trị -->
-        <label class="tayy-form-label">
-            Pháp trị
-            <div style="position:relative; margin-top:6px;">
-                <div id="bt-phaptri-chips" class="chips-container" onclick="document.getElementById('bt-inp-phaptri').focus()">
-                    <input id="bt-inp-phaptri" type="text" class="chip-input"
-                        placeholder="Thêm pháp trị..."
-                        oninput="btOnPhapTriSearchInput(this.value)"
-                        onkeydown="if(event.key==='Enter' && this.value.trim()){btSelectPhapTri(this.value.trim()); event.preventDefault();}">
-                </div>
-                <div id="bt-phaptri-suggest" style="position:absolute; left:0; right:0; top:calc(100% + 4px);
-                    background:#FFFDF7; border:1px solid #D4C5A0; border-radius:8px;
-                    box-shadow:0 10px 30px rgba(0,0,0,0.12);
-                    max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
-            </div>
-        </label>
+        <label class="tayy-form-label">Pháp trị<br><textarea id="bt-inp-phaptri" class="tayy-form-input" rows="2" placeholder="Nhập pháp trị (tự do)">${item ? escHtml(item.phap_tri || '') : ''}</textarea></label>
 
         <label class="tayy-form-label">
             Thành phần vị thuốc
@@ -819,9 +628,7 @@ function openBaiThuocForm(id) {
 
     // Khởi tạo UI chips và suggestion cho modal mới
     setTimeout(() => {
-        btRenderBienChungChips();
         btRenderTrieuChungChips();
-        btRenderPhapTriChips();
         btOnViThuocSearchInput('');
         btRerenderBaiThuocChiTietRows();
     }, 0);
@@ -851,9 +658,9 @@ async function saveBaiThuoc(id) {
         ten_bai_thuoc: document.getElementById('bt-inp-ten').value.trim(),
         nguon_goc: document.getElementById('bt-inp-source').value.trim(),
         cach_dung: document.getElementById('bt-inp-usage').value.trim(),
-        bien_chung: _btDraftBienChung.join(', '),
+        bien_chung: (document.getElementById('bt-inp-bienchung')?.value || '').trim(),
         trieu_chung: _btDraftTrieuChung.join(', '),
-        phap_tri: _btDraftPhapTri.join(', '),
+        phap_tri: (document.getElementById('bt-inp-phaptri')?.value || '').trim(),
         chi_tiet
     };
     if (!payload.ten_bai_thuoc) return alert('Thiếu tên bài thuốc');
@@ -1167,91 +974,6 @@ function btUpdateBaiThuocChipVi(viThuocId, viValue) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// BIỆN CHỨNG — chips + soft create
-// ═══════════════════════════════════════════════════════════
-function btRenderBienChungChips() {
-    const container = document.getElementById('bt-bienchung-chips');
-    const input = document.getElementById('bt-inp-bienchung');
-    if (!container || !input) return;
-    container.querySelectorAll('.chip').forEach(c => c.remove());
-    _btDraftBienChung.forEach(name => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="btRemoveBienChungChip('${escHtml(name)}'); event.stopPropagation();">×</span>`;
-        container.insertBefore(chip, input);
-    });
-}
-
-function btRemoveBienChungChip(name) {
-    _btDraftBienChung = _btDraftBienChung.filter(x => x !== name);
-    btRenderBienChungChips();
-}
-
-function btSelectBienChung(name) {
-    if (!name || _btDraftBienChung.includes(name)) return;
-    _btDraftBienChung.push(name);
-    const inp = document.getElementById('bt-inp-bienchung');
-    if (inp) { inp.value = ''; inp.focus(); }
-    btRenderBienChungChips();
-    const suggestEl = document.getElementById('bt-bienchung-suggest');
-    if (suggestEl) suggestEl.style.display = 'none';
-}
-
-function btOnBienChungSearchInput(val) {
-    const suggestEl = document.getElementById('bt-bienchung-suggest');
-    if (!suggestEl) return;
-    const query = (val || '').trim().toLowerCase();
-    if (!query) { suggestEl.style.display = 'none'; return; }
-
-    const allNames = (_thuocData.bienChung || []).map(b => b.ten_bien_chung);
-    const filtered = allNames.filter(n => n.toLowerCase().includes(query) && !_btDraftBienChung.includes(n)).slice(0, 10);
-    const hasExact = allNames.some(n => n.toLowerCase() === query);
-
-    let html = '';
-    if (filtered.length > 0) {
-        html += filtered.map(m => `
-            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-                 onmouseover="this.style.background='#F5F0E8'"
-                 onmouseout="this.style.background='transparent'"
-                 onclick="btSelectBienChung('${escHtml(m)}')">
-                ${escHtml(m)}
-            </div>
-        `).join('');
-    } else {
-        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy biện chứng có sẵn</div>`;
-    }
-    if (!hasExact && val.trim()) {
-        html += `
-            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
-                 onmouseover="this.style.background='#EFE8D8'"
-                 onmouseout="this.style.background='#FAF6EE'"
-                 onclick="btSoftCreateBienChung('${escHtml(val.trim())}')">
-                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm biện chứng "${escHtml(val.trim())}"
-                </div>
-            </div>
-        `;
-    }
-    suggestEl.style.display = 'block';
-    suggestEl.innerHTML = html;
-}
-
-async function btSoftCreateBienChung(name) {
-    if (!name) return;
-    const inp = document.getElementById('bt-inp-bienchung');
-    const suggestEl = document.getElementById('bt-bienchung-suggest');
-    if (inp) { inp.disabled = true; inp.value = 'Đang thêm...'; }
-    if (suggestEl) suggestEl.style.display = 'none';
-
-    const res = await apiCreateBienChung({ ten_bien_chung: name });
-    if (inp) { inp.disabled = false; inp.value = ''; inp.focus(); }
-    if (!res.success) { alert('Lỗi khi thêm biện chứng: ' + (res.error || '')); return; }
-
-    _thuocData.bienChung.push({ id: res.id, ten_bien_chung: name, ...(res.data || {}) });
-    btSelectBienChung(name);
-}
-
-// ═══════════════════════════════════════════════════════════
 // TRIỆU CHỨNG — chips + soft create
 // ═══════════════════════════════════════════════════════════
 function btRenderTrieuChungChips() {
@@ -1337,88 +1059,597 @@ async function btSoftCreateTrieuChung(name) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PHÁP TRỊ — chips + soft create
+// TAB: PHÁP TRỊ (bảng phap_tri — theo cấu trúc Excel luận trị)
 // ═══════════════════════════════════════════════════════════
-function btRenderPhapTriChips() {
-    const container = document.getElementById('bt-phaptri-chips');
-    const input = document.getElementById('bt-inp-phaptri');
-    if (!container || !input) return;
-    container.querySelectorAll('.chip').forEach(c => c.remove());
-    _btDraftPhapTri.forEach(name => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="btRemovePhapTriChip('${escHtml(name)}'); event.stopPropagation();">×</span>`;
-        container.insertBefore(chip, input);
-    });
+let _ptChips = {
+    bat_phap: [],
+    bat_cuong: [],
+    luc_dam: [],
+    trieu_chung_mo_ta: [],
+};
+let _ptKinhIds = [];
+
+function ptCsvToArr(s) {
+    return String(s || '').split(/[,，]/).map(x => x.trim()).filter(Boolean);
 }
 
-function btRemovePhapTriChip(name) {
-    _btDraftPhapTri = _btDraftPhapTri.filter(x => x !== name);
-    btRenderPhapTriChips();
+function ptArrToCsv(arr) {
+    return (arr || []).map(x => String(x).trim()).filter(Boolean).join(', ');
 }
 
-function btSelectPhapTri(name) {
-    if (!name || _btDraftPhapTri.includes(name)) return;
-    _btDraftPhapTri.push(name);
-    const inp = document.getElementById('bt-inp-phaptri');
-    if (inp) { inp.value = ''; inp.focus(); }
-    btRenderPhapTriChips();
-    const suggestEl = document.getElementById('bt-phaptri-suggest');
-    if (suggestEl) suggestEl.style.display = 'none';
+function kmRowId(k) {
+    if (!k) return NaN;
+    const v = k.idKinhMach != null ? k.idKinhMach : k.id_kinh_mach;
+    return Number(v);
 }
 
-function btOnPhapTriSearchInput(val) {
-    const suggestEl = document.getElementById('bt-phaptri-suggest');
-    if (!suggestEl) return;
-    const query = (val || '').trim().toLowerCase();
-    if (!query) { suggestEl.style.display = 'none'; return; }
+function ptChipsPreviewCsv(csv) {
+    const parts = ptCsvToArr(csv);
+    if (!parts.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">${
+        parts.map(p => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(p)}</span>`).join('')
+    }</div>`;
+}
 
-    const allNames = (_thuocData.phapTri || []).map(p => p.ten_phap_tri);
-    const filtered = allNames.filter(n => n.toLowerCase().includes(query) && !_btDraftPhapTri.includes(n)).slice(0, 10);
-    const hasExact = allNames.some(n => n.toLowerCase() === query);
-
-    let html = '';
-    if (filtered.length > 0) {
-        html += filtered.map(m => `
-            <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
-                 onmouseover="this.style.background='#F5F0E8'"
-                 onmouseout="this.style.background='transparent'"
-                 onclick="btSelectPhapTri('${escHtml(m)}')">
-                ${escHtml(m)}
-            </div>
-        `).join('');
-    } else {
-        html += `<div style="padding:10px; color:#A09580; font-size:0.82rem;">Không tìm thấy pháp trị có sẵn</div>`;
+function ptNhomNhoOptionsHtml(selectedId) {
+    let html = '<option value="">— Nhóm dược lý —</option>';
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        const tLon = lon.ten_nhom_lon || '';
+        for (const nho of lon.nhomNho || []) {
+            const id = nho.id;
+            const lab = (tLon ? tLon + ' › ' : '') + (nho.ten_nhom_nho || '');
+            const sel = String(selectedId) === String(id) ? ' selected' : '';
+            html += `<option value="${id}"${sel}>${escHtml(lab)}</option>`;
+        }
     }
-    if (!hasExact && val.trim()) {
-        html += `
-            <div style="padding:8px 10px; cursor:pointer; background:#FAF6EE; border-top:1px dashed #D4C5A0; margin-top:4px;"
-                 onmouseover="this.style.background='#EFE8D8'"
-                 onmouseout="this.style.background='#FAF6EE'"
-                 onclick="btSoftCreatePhapTri('${escHtml(val.trim())}')">
-                <div style="font-weight:700; color:#CA6222; font-size:0.82rem; display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:1.2rem; line-height:1;">+</span> Thêm pháp trị "${escHtml(val.trim())}"
+    return html;
+}
+
+function ptResetChips() {
+    _ptChips = { bat_phap: [], bat_cuong: [], luc_dam: [], trieu_chung_mo_ta: [] };
+    _ptKinhIds = [];
+}
+
+function ptRemoveChip(field, term) {
+    _ptChips[field] = (_ptChips[field] || []).filter(x => x !== term);
+    ptRenderChipGroups();
+}
+
+function ptOnChipKeydown(field, ev) {
+    if (ev.key === 'Enter' && ev.target.value.trim()) {
+        ev.preventDefault();
+        const idMap = {
+            bat_phap: 'pt-inp-batphap',
+            bat_cuong: 'pt-inp-batcuong',
+            luc_dam: 'pt-inp-lucdam',
+            trieu_chung_mo_ta: 'pt-inp-tcmota',
+        };
+        const inp = document.getElementById(idMap[field]);
+        if (!inp) return;
+        const v = inp.value.trim();
+        if (!v) return;
+        if (!_ptChips[field].includes(v)) _ptChips[field].push(v);
+        inp.value = '';
+        ptRenderChipGroups();
+    }
+}
+
+function ptRenderChipGroups() {
+    const spec = [
+        { field: 'bat_phap', box: 'pt-chips-batphap', inp: 'pt-inp-batphap' },
+        { field: 'bat_cuong', box: 'pt-chips-batcuong', inp: 'pt-inp-batcuong' },
+        { field: 'luc_dam', box: 'pt-chips-lucdam', inp: 'pt-inp-lucdam' },
+        { field: 'trieu_chung_mo_ta', box: 'pt-chips-tcmota', inp: 'pt-inp-tcmota' },
+    ];
+    for (const { field, box, inp } of spec) {
+        const container = document.getElementById(box);
+        const input = document.getElementById(inp);
+        if (!container || !input) continue;
+        container.querySelectorAll('.chip').forEach(c => c.remove());
+        (_ptChips[field] || []).forEach(term => {
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+            chip.appendChild(document.createTextNode(term + ' '));
+            const x = document.createElement('span');
+            x.className = 'chip-remove';
+            x.textContent = '×';
+            x.onclick = (e) => { e.stopPropagation(); ptRemoveChip(field, term); };
+            chip.appendChild(x);
+            container.insertBefore(chip, input);
+        });
+    }
+}
+
+function ptToggleKinhId(kid, on) {
+    kid = Number(kid);
+    if (!Number.isFinite(kid)) return;
+    const i = _ptKinhIds.indexOf(kid);
+    if (on && i < 0) _ptKinhIds.push(kid);
+    if (!on && i >= 0) _ptKinhIds.splice(i, 1);
+}
+
+async function renderPhapTriTab(el) {
+    try {
+        if (!_phapTriDongYCache) {
+            _phapTriDongYCache = await apiGetModels() || [];
+        }
+    } catch (e) {
+        console.error(e);
+        _phapTriDongYCache = [];
+    }
+
+    const rows = (_thuocData.phapTriList || []).map(r => {
+        const ck = (r.benh_dong_y && r.benh_dong_y.tieuket) ? r.benh_dong_y.tieuket : '—';
+        const bt = (r.bai_thuoc && r.bai_thuoc.ten_bai_thuoc) ? r.bai_thuoc.ten_bai_thuoc : '—';
+        const nho = r.nhom_duoc_ly_nho;
+        const lonTen = (nho && (nho.nhomLon || nho.nhom_lon)) ? (nho.nhomLon || nho.nhom_lon).ten_nhom_lon : '';
+        const nn = nho
+            ? ((lonTen ? lonTen + ' › ' : '') + (nho.ten_nhom_nho || '')).trim() || '—'
+            : '—';
+        const nt = (r.nguyen_tac || '').trim();
+        const ntShort = nt.length > 48 ? escHtml(nt.slice(0, 48)) + '…' : escHtml(nt || '—');
+        return `<tr>
+            <td style="font-weight:600;color:#5B3A1A;">${escHtml(ck)}</td>
+            <td style="font-size:0.78rem;max-width:200px;">${ntShort}</td>
+            <td>${ptChipsPreviewCsv(r.bat_phap)}</td>
+            <td style="font-size:0.8rem;">${escHtml(bt)}</td>
+            <td style="font-size:0.78rem;">${escHtml(nn)}</td>
+            <td style="text-align:center;width:130px;">
+                <div class="table-actions" style="justify-content:center;">
+                    <button class="btn btn-sm btn-outline" onclick="openPhapTriRowForm(${r.id})">✏ Sửa</button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePhapTriRow(${r.id})">🗑</button>
                 </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
+                <button type="button" class="btn btn-outline" title="Form mặc định không có id: cập nhật theo cột «Chứng trạng» (khớp tiểu kết benh_dong_y). Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều giá trị: dấu phẩy."
+                    onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
+                <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
-        `;
-    }
-    suggestEl.style.display = 'block';
-    suggestEl.innerHTML = html;
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:0.82rem;color:#A09580;">
+                    Pháp trị (luận trị): <strong>${(_thuocData.phapTriList || []).length}</strong> bản ghi
+                </span>
+                <button class="btn btn-primary" onclick="openPhapTriRowForm()">+ Thêm pháp trị</button>
+            </div>
+        </div>
+        <div class="data-table-container">
+            <table>
+                <thead><tr>
+                    <th>Chứng trạng (tiểu kết)</th>
+                    <th>Nguyên tắc</th>
+                    <th>Bát pháp</th>
+                    <th>Bài thuốc</th>
+                    <th>Nhóm dược</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#9CA3AF;">Chưa có bản ghi</td></tr>'}</tbody>
+            </table>
+        </div>`;
 }
 
-async function btSoftCreatePhapTri(name) {
-    if (!name) return;
-    const inp = document.getElementById('bt-inp-phaptri');
-    const suggestEl = document.getElementById('bt-phaptri-suggest');
-    if (inp) { inp.disabled = true; inp.value = 'Đang thêm...'; }
-    if (suggestEl) suggestEl.style.display = 'none';
+async function openPhapTriRowForm(id) {
+    if (!_phapTriDongYCache) {
+        try { _phapTriDongYCache = await apiGetModels() || []; } catch (e) { _phapTriDongYCache = []; }
+    }
+    const item = id ? (_thuocData.phapTriList || []).find(x => x.id == id) : null;
+    ptResetChips();
+    if (item) {
+        _ptChips.bat_phap = ptCsvToArr(item.bat_phap);
+        _ptChips.bat_cuong = ptCsvToArr(item.bat_cuong);
+        _ptChips.luc_dam = ptCsvToArr(item.luc_dam);
+        _ptChips.trieu_chung_mo_ta = ptCsvToArr(item.trieu_chung_mo_ta);
+        _ptKinhIds = (item.kinh_mach_list || []).map(k => kmRowId(k)).filter(n => Number.isFinite(n));
+    }
+    const benhVal = item && item.benh_dong_y ? item.benh_dong_y.id : '';
+    const btVal = item && item.bai_thuoc ? item.bai_thuoc.id : '';
+    const nnVal = item && item.nhom_duoc_ly_nho ? item.nhom_duoc_ly_nho.id : '';
 
-    const res = await apiCreatePhapTri({ ten_phap_tri: name });
-    if (inp) { inp.disabled = false; inp.value = ''; inp.focus(); }
-    if (!res.success) { alert('Lỗi khi thêm pháp trị: ' + (res.error || '')); return; }
+    const benhOpts = '<option value="">— Chứng trạng (benh_dong_y / tiểu kết) —</option>' +
+        (_phapTriDongYCache || []).map(m => {
+            const sel = String(m.id) === String(benhVal) ? ' selected' : '';
+            return `<option value="${m.id}"${sel}>${escHtml(m.tieuket || ('#' + m.id))}</option>`;
+        }).join('');
 
-    _thuocData.phapTri.push({ id: res.id, ten_phap_tri: name, ...(res.data || {}) });
-    btSelectPhapTri(name);
+    const btOpts = '<option value="">— Bài thuốc —</option>' +
+        (_thuocData.baiThuoc || []).map(bt => {
+            const sel = String(bt.id) === String(btVal) ? ' selected' : '';
+            return `<option value="${bt.id}"${sel}>${escHtml(bt.ten_bai_thuoc)}</option>`;
+        }).join('');
+
+    const kinhBoxes = (_thuocData.kinhMach || []).map(k => {
+        const kid = kmRowId(k);
+        const checked = _ptKinhIds.includes(kid) ? ' checked' : '';
+        return `<label style="display:block;font-size:0.8rem;margin:2px 0;cursor:pointer;">
+            <input type="checkbox"${checked} onchange="ptToggleKinhId(${kid}, this.checked)">
+            ${k.ten_viet_tat ? escHtml(k.ten_viet_tat) + ' — ' : ''}${escHtml(k.ten_kinh_mach || '')}
+        </label>`;
+    }).join('');
+
+    showTayyModal(item ? 'Sửa pháp trị' : 'Thêm pháp trị', `
+        <label class="tayy-form-label">Chứng trạng (liên kết tiểu kết — benh_dong_y)<br>
+            <select id="pt-sel-benhdy" class="tayy-form-input">${benhOpts}</select>
+        </label>
+        <label class="tayy-form-label">Nguyên tắc<br>
+            <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
+        </label>
+        <label class="tayy-form-label">Ý nghĩa &amp; cơ chế<br>
+            <textarea id="pt-inp-y_nghia" class="tayy-form-input" rows="3">${item ? escHtml(item.y_nghia_co_che || '') : ''}</textarea>
+        </label>
+
+        <label class="tayy-form-label">Bát pháp <span style="font-size:0.72rem;color:#A09580;">(Enter để thêm chip)</span>
+            <div id="pt-chips-batphap" class="chips-container" onclick="document.getElementById('pt-inp-batphap').focus()">
+                <input id="pt-inp-batphap" type="text" class="chip-input" placeholder="VD: Hãn, Ôn..."
+                    onkeydown="ptOnChipKeydown('bat_phap', event)">
+            </div>
+        </label>
+        <label class="tayy-form-label">Bát cương
+            <div id="pt-chips-batcuong" class="chips-container" onclick="document.getElementById('pt-inp-batcuong').focus()">
+                <input id="pt-inp-batcuong" type="text" class="chip-input" placeholder="VD: Biểu, Hàn..."
+                    onkeydown="ptOnChipKeydown('bat_cuong', event)">
+            </div>
+        </label>
+        <label class="tayy-form-label">Lục dâm
+            <div id="pt-chips-lucdam" class="chips-container" onclick="document.getElementById('pt-inp-lucdam').focus()">
+                <input id="pt-inp-lucdam" type="text" class="chip-input" placeholder="VD: Phong, Hàn..."
+                    onkeydown="ptOnChipKeydown('luc_dam', event)">
+            </div>
+        </label>
+
+        <label class="tayy-form-label">Tạng phủ (nhiều kinh mạch)
+            <div style="max-height:160px;overflow-y:auto;border:1px solid #D4C5A0;border-radius:8px;padding:8px;background:#FBF8F1;">
+                ${kinhBoxes || '<span style="color:#9CA3AF;">Chưa có danh sách kinh mạch</span>'}
+            </div>
+        </label>
+
+        <label class="tayy-form-label">Triệu chứng (nhiều giá trị)
+            <div id="pt-chips-tcmota" class="chips-container" onclick="document.getElementById('pt-inp-tcmota').focus()">
+                <input id="pt-inp-tcmota" type="text" class="chip-input" placeholder="Thêm triệu chứng..."
+                    onkeydown="ptOnChipKeydown('trieu_chung_mo_ta', event)">
+            </div>
+        </label>
+
+        <label class="tayy-form-label">Bài thuốc<br>
+            <select id="pt-sel-baithuoc" class="tayy-form-input">${btOpts}</select>
+        </label>
+        <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)<br>
+            <select id="pt-sel-nhomnho" class="tayy-form-input">${ptNhomNhoOptionsHtml(nnVal)}</select>
+        </label>
+
+        <div class="tayy-form-actions">
+            <button class="btn" onclick="closeTayyModal()">Hủy</button>
+            <button class="btn btn-primary" onclick="savePhapTriRow(${id || 0})">Lưu</button>
+        </div>
+    `, 'wide');
+    setTimeout(() => ptRenderChipGroups(), 0);
+}
+
+async function savePhapTriRow(id) {
+    function numOrNull(v) {
+        if (v === '' || v == null) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    }
+    const payload = {
+        id_benh_dong_y: numOrNull(document.getElementById('pt-sel-benhdy')?.value),
+        nguyen_tac: (document.getElementById('pt-inp-nguyen_tac')?.value || '').trim() || null,
+        y_nghia_co_che: (document.getElementById('pt-inp-y_nghia')?.value || '').trim() || null,
+        bat_phap: ptArrToCsv(_ptChips.bat_phap) || null,
+        bat_cuong: ptArrToCsv(_ptChips.bat_cuong) || null,
+        luc_dam: ptArrToCsv(_ptChips.luc_dam) || null,
+        trieu_chung_mo_ta: ptArrToCsv(_ptChips.trieu_chung_mo_ta) || null,
+        id_bai_thuoc: numOrNull(document.getElementById('pt-sel-baithuoc')?.value),
+        id_nhom_duoc_ly_nho: numOrNull(document.getElementById('pt-sel-nhomnho')?.value),
+        id_kinh_mach_list: _ptKinhIds.filter(n => Number.isFinite(n)),
+    };
+    const res = id ? await apiUpdatePhapTri(id, payload) : await apiCreatePhapTri(payload);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    closeTayyModal();
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+async function deletePhapTriRow(id) {
+    if (!confirm('Xóa bản ghi pháp trị này?')) return;
+    const res = await apiDeletePhapTri(id);
+    if (!res.success && res.error) return alert('Lỗi: ' + res.error);
+    await loadAllThuocData();
+    renderThuocSection();
+}
+
+function ptNhomDuocExportLabel(nho) {
+    if (!nho) return '';
+    const lon = nho.nhomLon || nho.nhom_lon;
+    const lonTen = lon ? String(lon.ten_nhom_lon || '').trim() : '';
+    const nhoTen = String(nho.ten_nhom_nho || '').trim();
+    if (lonTen && nhoTen) return lonTen + ' › ' + nhoTen;
+    return nhoTen;
+}
+
+function ptKinhIdsFromTangPhuCell(raw, kinhList) {
+    const parts = String(raw || '')
+        .split(/[,，、]/g)
+        .map(s => s.trim())
+        .filter(Boolean);
+    if (!parts.length) return [];
+    const byTen = new Map();
+    const byTat = new Map();
+    for (const k of kinhList || []) {
+        const id = kmRowId(k);
+        if (!Number.isFinite(id)) continue;
+        const t = String(k.ten_kinh_mach || '').trim().toLowerCase();
+        const a = String(k.ten_viet_tat || '').trim().toLowerCase();
+        if (t) byTen.set(t, id);
+        if (a) byTat.set(a, id);
+    }
+    const out = [];
+    for (const p of parts) {
+        const key = p.toLowerCase();
+        const id = byTen.get(key) || byTat.get(key);
+        if (id != null && !out.includes(id)) out.push(id);
+    }
+    return out;
+}
+
+function ptResolveBenhDongYIdFromExcel(tieuket) {
+    const s = String(tieuket || '').trim();
+    if (!s) return null;
+    const models = _phapTriDongYCache || [];
+    const m = models.find(x => String(x.tieuket || '').trim().toLowerCase() === s.toLowerCase());
+    return m ? m.id : null;
+}
+
+function ptResolveBaiThuocIdFromExcel(name) {
+    const s = String(name || '').trim();
+    if (!s) return null;
+    const bt = (_thuocData.baiThuoc || []).find(b => String(b.ten_bai_thuoc || '').trim().toLowerCase() === s.toLowerCase());
+    return bt ? bt.id : null;
+}
+
+function ptResolveNhomNhoIdFromExcel(cell) {
+    const s = String(cell || '').trim();
+    if (!s) return null;
+    const want = s.toLowerCase();
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        for (const nho of lon.nhomNho || []) {
+            const nhoTen = String(nho.ten_nhom_nho || '').trim().toLowerCase();
+            if (nhoTen === want) return nho.id;
+        }
+    }
+    const norm = s.replace(/\s*[›>]\s*/g, ' › ').toLowerCase();
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        const lonTen = String(lon.ten_nhom_lon || '').trim().toLowerCase();
+        for (const nho of lon.nhomNho || []) {
+            const nhoTen = String(nho.ten_nhom_nho || '').trim().toLowerCase();
+            const label = (lonTen ? lonTen + ' › ' : '') + nhoTen;
+            if (label === norm) return nho.id;
+        }
+    }
+    return null;
+}
+
+function ptPhapTriImportRowSkippable(row) {
+    const idStr = ndlPickNhomCol(row, ['id', 'ID']);
+    if (String(idStr || '').trim() !== '') return false;
+    const probes = [
+        ['Chứng trạng', 'Chứng Trạng', 'Tiểu kết', 'Tieu ket', 'Chung trang', 'tieuket'],
+        ['Nguyên tắc', 'Nguyen tac', 'Nguyên Tắc'],
+        ['Ý nghĩa & cơ chế', 'Y nghia & co che', 'Y nghia', 'Co che'],
+        ['Bát pháp', 'Bat phap', 'Bát Pháp'],
+        ['Bát cương', 'Bat cuong', 'Bát Cương'],
+        ['Lục dâm', 'Luc dam', 'Lục Dâm'],
+        ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach'],
+        ['Triệu chứng', 'Trieu chung', 'Triệu Chứng'],
+        ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Bài Thuốc'],
+        ['Nhóm dược', 'Nhom duoc', 'Nhom duoc ly', 'Nhóm Dược', 'Nhóm dược lý'],
+    ];
+    for (const keys of probes) {
+        if (ndlPickNhomCol(row, keys)) return false;
+    }
+    return true;
+}
+
+function ptBuildPayloadFromExcelRow(row, warnAcc) {
+    const chungTrang = ndlPickNhomCol(row, [
+        'Chứng trạng', 'Chứng Trạng', 'Tiểu kết', 'Tieu ket', 'Chung trang', 'tieuket',
+    ]);
+    const nguyen_tac = ndlPickNhomCol(row, ['Nguyên tắc', 'Nguyen tac', 'Nguyên Tắc']);
+    const y_nghia = ndlPickNhomCol(row, ['Ý nghĩa & cơ chế', 'Y nghia & co che', 'Ý nghĩa', 'Y nghia', 'Co che', 'Ý Nghĩa & Cơ Chế']);
+    const bat_phap = ndlPickNhomCol(row, ['Bát pháp', 'Bat phap', 'Bát Pháp']);
+    const bat_cuong = ndlPickNhomCol(row, ['Bát cương', 'Bat cuong', 'Bát Cương']);
+    const luc_dam = ndlPickNhomCol(row, ['Lục dâm', 'Luc dam', 'Lục Dâm']);
+    const tang_phu = ndlPickNhomCol(row, ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach']);
+    const trieu_chung = ndlPickNhomCol(row, ['Triệu chứng', 'Trieu chung', 'Triệu Chứng']);
+    const bai_thuoc = ndlPickNhomCol(row, ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc']);
+    const nhom_duoc = ndlPickNhomCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
+
+    const idBenh = ptResolveBenhDongYIdFromExcel(chungTrang);
+    if (chungTrang && !idBenh) {
+        warnAcc.push('Không khớp chứng trạng với benh_dong_y (tiểu kết): «' + chungTrang + '»');
+    }
+
+    const idBt = ptResolveBaiThuocIdFromExcel(bai_thuoc);
+    if (bai_thuoc && !idBt) warnAcc.push('Không khớp bài thuốc: «' + bai_thuoc + '»');
+
+    const idNho = ptResolveNhomNhoIdFromExcel(nhom_duoc);
+    if (nhom_duoc && !idNho) warnAcc.push('Không khớp nhóm dược: «' + nhom_duoc + '»');
+
+    const idKinhList = ptKinhIdsFromTangPhuCell(tang_phu, _thuocData.kinhMach);
+    const kinhParts = String(tang_phu || '')
+        .split(/[,，、]/g)
+        .map(s => s.trim())
+        .filter(Boolean);
+    if (kinhParts.length && idKinhList.length < kinhParts.length) {
+        warnAcc.push('Một số tạng phủ/kinh không khớp: «' + tang_phu + '»');
+    }
+
+    return {
+        id_benh_dong_y: idBenh,
+        nguyen_tac: nguyen_tac ? nguyen_tac : null,
+        y_nghia_co_che: y_nghia ? y_nghia : null,
+        bat_phap: bat_phap ? bat_phap : null,
+        bat_cuong: bat_cuong ? bat_cuong : null,
+        luc_dam: luc_dam ? luc_dam : null,
+        trieu_chung_mo_ta: trieu_chung ? trieu_chung : null,
+        id_bai_thuoc: idBt,
+        id_nhom_duoc_ly_nho: idNho,
+        id_kinh_mach_list: idKinhList,
+    };
+}
+
+function ptResolveUpsertPhapTriTarget(row, payload, existingIds) {
+    const idStr = ndlPickNhomCol(row, ['id', 'ID']);
+    const idNum = parseInt(String(idStr || '').trim(), 10);
+    if (Number.isFinite(idNum) && existingIds.has(idNum)) {
+        return { targetId: idNum, via: 'id', extraWarn: null };
+    }
+    const idBenh = payload.id_benh_dong_y;
+    if (idBenh != null) {
+        const matches = (_thuocData.phapTriList || []).filter(p =>
+            p.benh_dong_y && Number(p.benh_dong_y.id) === Number(idBenh)
+        );
+        if (matches.length > 0) {
+            const sorted = [...matches].sort((a, b) => a.id - b.id);
+            const chosen = sorted[0];
+            const extraWarn = matches.length > 1
+                ? 'Cùng chứng trạng có ' + matches.length + ' bản ghi — cập nhật bản id ' + chosen.id
+                : null;
+            return { targetId: chosen.id, via: 'chung_trang', extraWarn };
+        }
+    }
+    return { targetId: null, via: 'create', extraWarn: null };
+}
+
+function exportPhapTriXlsx() {
+    if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
+    const list = _thuocData.phapTriList || [];
+    const data = list.map(r => ({
+        'Chứng trạng': (r.benh_dong_y && r.benh_dong_y.tieuket) ? r.benh_dong_y.tieuket : '',
+        'Nguyên tắc': r.nguyen_tac || '',
+        'Ý nghĩa & cơ chế': r.y_nghia_co_che || '',
+        'Bát pháp': r.bat_phap || '',
+        'Bát cương': r.bat_cuong || '',
+        'Lục dâm': r.luc_dam || '',
+        'Tạng phủ': (r.kinh_mach_list || []).map(k => k.ten_kinh_mach || k.ten_viet_tat || '').filter(Boolean).join(', '),
+        'Triệu chứng': r.trieu_chung_mo_ta || '',
+        'Bài thuốc': (r.bai_thuoc && r.bai_thuoc.ten_bai_thuoc) ? r.bai_thuoc.ten_bai_thuoc : '',
+        'Nhóm dược': ptNhomDuocExportLabel(r.nhom_duoc_ly_nho),
+    }));
+    const emptyRow = {
+        'Chứng trạng': '',
+        'Nguyên tắc': '',
+        'Ý nghĩa & cơ chế': '',
+        'Bát pháp': '',
+        'Bát cương': '',
+        'Lục dâm': '',
+        'Tạng phủ': '',
+        'Triệu chứng': '',
+        'Bài thuốc': '',
+        'Nhóm dược': '',
+    };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.length ? data : [emptyRow]), 'PhapTri');
+    XLSX.writeFile(wb, 'Phap_Tri_Luan_Tri.xlsx');
+}
+
+function importPhapTriXlsx(e) {
+    if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện');
+    const file = e.target.files?.[0];
+    const inputEl = e.target;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const buf = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(buf, { type: 'array' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rawRows = XLSX.utils.sheet_to_json(sheet);
+            if (!rawRows.length) {
+                alert('File Excel không có dữ liệu.');
+                return;
+            }
+            if (!_phapTriDongYCache) {
+                try { _phapTriDongYCache = await apiGetModels() || []; } catch (err) { _phapTriDongYCache = []; }
+            }
+            const toProcess = rawRows.filter(r => r && typeof r === 'object' && !ptPhapTriImportRowSkippable(r));
+            if (!toProcess.length) {
+                alert('Không có dòng dữ liệu hợp lệ (bỏ qua dòng trống).');
+                return;
+            }
+            if (!confirm(`Tìm thấy ${toProcess.length} dòng. Ghi vào hệ thống?\n• Mặc định: «Chứng trạng» khớp tiểu kết benh_dong_y → nếu đã có pháp trị cho bệnh đó thì cập nhật, không thì tạo mới.\n• Nếu file có cột «id» hợp lệ: ưu tiên cập nhật theo id.`)) {
+                return;
+            }
+
+            ndlNhomImportSetLoading(true, 'Đang nhập Excel pháp trị…');
+            const existingIds = new Set((_thuocData.phapTriList || []).map(x => x.id));
+            let created = 0;
+            let updated = 0;
+            const allWarn = [];
+            const errors = [];
+            let idx = 0;
+            for (const row of toProcess) {
+                idx++;
+                ndlNhomImportSetLoading(true, `Đang nhập pháp trị… (${idx}/${toProcess.length})`);
+                const rowWarn = [];
+                const payload = ptBuildPayloadFromExcelRow(row, rowWarn);
+                const { targetId, via, extraWarn } = ptResolveUpsertPhapTriTarget(row, payload, existingIds);
+                if (rowWarn.length) {
+                    allWarn.push('Dòng ~' + idx + ': ' + rowWarn.join('; '));
+                }
+                if (extraWarn) {
+                    allWarn.push('Dòng ~' + idx + ': ' + extraWarn);
+                }
+                try {
+                    if (targetId != null) {
+                        const res = await apiUpdatePhapTri(targetId, payload);
+                        if (!res.success) {
+                            errors.push('Dòng ' + idx + (via === 'id' ? ' (id ' + targetId + ')' : ' (chứng trạng → id ' + targetId + ')') + ': ' + (res.error || 'Lỗi'));
+                            continue;
+                        }
+                        updated++;
+                    } else {
+                        const res = await apiCreatePhapTri(payload);
+                        if (!res.success) {
+                            errors.push('Dòng ' + idx + ': ' + (res.error || 'Lỗi'));
+                            continue;
+                        }
+                        created++;
+                        if (res.id != null) {
+                            existingIds.add(res.id);
+                            if (payload.id_benh_dong_y != null) {
+                                _thuocData.phapTriList = _thuocData.phapTriList || [];
+                                _thuocData.phapTriList.push({
+                                    id: res.id,
+                                    benh_dong_y: { id: payload.id_benh_dong_y },
+                                });
+                            }
+                        }
+                    }
+                } catch (err) {
+                    errors.push('Dòng ' + idx + ': ' + (err && err.message ? err.message : String(err)));
+                }
+            }
+            ndlNhomImportSetLoading(false, '');
+            await loadAllThuocData();
+            renderThuocSection();
+            let msg = 'Hoàn tất. Tạo mới: ' + created + ', cập nhật: ' + updated + '.';
+            if (errors.length) msg += '\n\nLỗi (' + errors.length + '):\n' + errors.slice(0, 8).join('\n') + (errors.length > 8 ? '\n…' : '');
+            if (allWarn.length) msg += '\n\nCảnh báo khớp tên (' + allWarn.length + '):\n' + allWarn.slice(0, 6).join('\n') + (allWarn.length > 6 ? '\n…' : '');
+            alert(msg);
+        } catch (err) {
+            ndlNhomImportSetLoading(false, '');
+            console.error(err);
+            alert('Lỗi đọc Excel: ' + (err && err.message ? err.message : String(err)));
+        } finally {
+            inputEl.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 // ═══════════════════════════════════════════════════════════

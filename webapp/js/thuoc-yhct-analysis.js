@@ -624,9 +624,18 @@ async function openBaiThuocAnalysis(baiThuocId) {
 }
 
 let _yhctAnalysisCharts = [];
+/** Kết quả phân tích bài thuốc đang mở (modal) — dùng cho input gram + radar. */
+let _yhctCurrentBaiThuocAnalysis = null;
 function yhctDestroyAnalysisCharts() {
-    (_yhctAnalysisCharts || []).forEach(c => { try { c.destroy(); } catch (_) {} });
+    (_yhctAnalysisCharts || []).forEach(c => {
+        if (c._yhctDragCleanup) {
+            try { c._yhctDragCleanup(); } catch (_) {}
+            c._yhctDragCleanup = null;
+        }
+        try { c.destroy(); } catch (_) {}
+    });
     _yhctAnalysisCharts = [];
+    _yhctCurrentBaiThuocAnalysis = null;
 }
 
 function yhctAnalyzeLocalSimple(bt) {
@@ -683,7 +692,7 @@ function yhctAnalyzeLocalSimple(bt) {
 
     const viThuocList = items.map(({d,vt,gram}) => {
         const nhomSubs = yhctNhomSubNamesFromVt(vt);
-        return {
+        const row = {
             id: vt.id,
             ten: vt.ten_vi_thuoc || '—', gram,
             pct: Math.round(gram / W * 100),
@@ -696,6 +705,10 @@ function yhctAnalyzeLocalSimple(bt) {
             nhomSubDisplay: nhomSubs.length ? nhomSubs.join(', ') : '—',
             _nhomLonText: yhctNhomLonTextFromVt(vt),
         };
+        row.nguViVec = yhctNguViVecFromViString(row.vi);
+        row.tgptVec = yhctTgptVecFromItem(row);
+        row.simGram = gram;
+        return row;
     });
 
     const tuKhi = { daiHan:0, han:0, luong:0, binh:0, on:0, nhiet:0, daiNhiet:0 };
@@ -792,17 +805,213 @@ function yhctAnalyzeLocalSimple(bt) {
     };
 }
 
+/** Vector 5 vị (Chua,Đắng,Ngọt,Cay,Mặn) — trọng số tương đối, không nhân liều. */
+function yhctNguViVecFromViString(viRaw) {
+    const parts = String(viRaw || '').split(/[,;，、]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (!parts.length) return [0, 0, 0, 0, 0];
+    const uniq = [...new Set(parts)];
+    const each = 1 / uniq.length;
+    const o = { chua: 0, dang: 0, ngot: 0, cay: 0, man: 0 };
+    uniq.forEach(v => {
+        if (v.includes('chua')) o.chua += each;
+        else if (v.includes('đắng') || v.includes('dang')) o.dang += each;
+        else if (v.includes('ngọt') || v.includes('ngot')) o.ngot += each;
+        else if (v.includes('cay')) o.cay += each;
+        else if (v.includes('mặn') || v.includes('man')) o.man += each;
+    });
+    return [o.chua, o.dang, o.ngot, o.cay, o.man];
+}
+
+function yhctTgptVecFromItem(item) {
+    const tinh = (item.tinh || '').toLowerCase();
+    const nhom = (item._nhomLonText || '').toLowerCase();
+    const qk = (item.quy_kinh || '').toLowerCase();
+    let th = 0, ph = 0, gi = 0, tr = 0;
+    if (tinh.includes('ôn') || tinh.includes('on') || tinh.includes('nóng') || tinh.includes('nong')) { th += 0.35; ph += 0.35; }
+    if (tinh.includes('hàn') || tinh.includes('han') || tinh.includes('lương') || tinh.includes('luong')) { gi += 0.35; tr += 0.35; }
+    if (nhom.includes('giải biểu') || nhom.includes('thăng')) ph += 0.35;
+    if (nhom.includes('tả hạ') || nhom.includes('giáng')) gi += 0.35;
+    if (qk.includes('phế') || qk.includes('phe') || qk.includes('tâm')) th += 0.15;
+    if (qk.includes('thận') || qk.includes('than') || qk.includes('bàng quang') || qk.includes('bang quang')) tr += 0.15;
+    const base = 0.15;
+    th += base; gi += base; ph += base; tr += base;
+    return [th, ph, gi, tr];
+}
+
+function yhctAddNguViToBucket(bucket, viRaw, wPct) {
+    const parts = String(viRaw || '').split(/[,;，、]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (!parts.length) return;
+    const uniq = [...new Set(parts)];
+    const each = wPct / uniq.length;
+    uniq.forEach(v => {
+        if (v.includes('chua')) bucket.chua += each;
+        else if (v.includes('đắng') || v.includes('dang')) bucket.dang += each;
+        else if (v.includes('ngọt') || v.includes('ngot')) bucket.ngot += each;
+        else if (v.includes('cay')) bucket.cay += each;
+        else if (v.includes('mặn') || v.includes('man')) bucket.man += each;
+    });
+}
+
+function yhctAddTgptToBucket(bucket, item, wPct) {
+    const tinh = (item.tinh || '').toLowerCase();
+    const nhom = (item._nhomLonText || '').toLowerCase();
+    const qk = (item.quy_kinh || '').toLowerCase();
+    if (tinh.includes('ôn') || tinh.includes('on') || tinh.includes('nóng') || tinh.includes('nong')) { bucket.thang += wPct * 0.35; bucket.phu += wPct * 0.35; }
+    if (tinh.includes('hàn') || tinh.includes('han') || tinh.includes('lương') || tinh.includes('luong')) { bucket.giang += wPct * 0.35; bucket.tram += wPct * 0.35; }
+    if (nhom.includes('giải biểu') || nhom.includes('thăng')) bucket.phu += wPct * 0.35;
+    if (nhom.includes('tả hạ') || nhom.includes('giáng')) bucket.giang += wPct * 0.35;
+    if (qk.includes('phế') || qk.includes('phe') || qk.includes('tâm')) bucket.thang += wPct * 0.15;
+    if (qk.includes('thận') || qk.includes('than') || qk.includes('bàng quang') || qk.includes('bang quang')) bucket.tram += wPct * 0.15;
+    const base = wPct * 0.15;
+    bucket.thang += base; bucket.giang += base; bucket.phu += base; bucket.tram += base;
+}
+
+function yhctAggregateNguViFromSimGram(list) {
+    const o = { chua: 0, dang: 0, ngot: 0, cay: 0, man: 0 };
+    const W = list.reduce((s, v) => s + (v.simGram != null ? v.simGram : v.gram), 0) || 1;
+    for (const v of list) {
+        const g = v.simGram != null ? v.simGram : v.gram;
+        yhctAddNguViToBucket(o, v.vi, g / W);
+    }
+    return o;
+}
+
+function yhctAggregateTgptFromSimGram(list) {
+    const o = { thang: 0, phu: 0, giang: 0, tram: 0 };
+    const W = list.reduce((s, v) => s + (v.simGram != null ? v.simGram : v.gram), 0) || 1;
+    for (const v of list) {
+        const g = v.simGram != null ? v.simGram : v.gram;
+        yhctAddTgptToBucket(o, v, g / W);
+    }
+    return o;
+}
+
+function yhctNguViToRadar5(o) {
+    return [o.chua || 0, o.dang || 0, o.ngot || 0, o.cay || 0, o.man || 0];
+}
+
+function yhctTgptToRadar4(o) {
+    return [o.thang || 0, o.phu || 0, o.giang || 0, o.tram || 0];
+}
+
+function yhctRedistributeGramsByRadarTarget(r, kind, targetArr) {
+    const list = r.viThuocList;
+    const W = list.reduce((s, v) => s + (v.simGram != null ? v.simGram : v.gram), 0) || 1;
+    const eps = 0.06;
+    const scores = list.map(v => {
+        const vec = kind === 'nguVi' ? v.nguViVec : v.tgptVec;
+        let d = 0;
+        for (let j = 0; j < targetArr.length; j++) d += (vec[j] || 0) * targetArr[j];
+        const g = v.simGram != null ? v.simGram : v.gram;
+        return d + eps * (g / W);
+    });
+    let sumS = scores.reduce((a, b) => a + b, 0);
+    if (sumS < 1e-9) return;
+    list.forEach((v, i) => { v.simGram = W * scores[i] / sumS; });
+}
+
+function yhctAnalysisSumSimGrams(r) {
+    const s = (r.viThuocList || []).reduce((acc, v) => acc + (v.simGram != null ? v.simGram : v.gram), 0);
+    return s > 0 ? s : (r.W || 1);
+}
+
+function yhctAnalysisUpdateDosageTable(r) {
+    const W = yhctAnalysisSumSimGrams(r);
+    (r.viThuocList || []).forEach(v => {
+        const tr = document.querySelector(`tr[data-yhct-vt-id="${v.id}"]`);
+        if (!tr) return;
+        const g = v.simGram != null ? v.simGram : v.gram;
+        const gramEl = tr.querySelector('.yhct-analysis-gram');
+        const pctEl = tr.querySelector('.yhct-analysis-pct');
+        if (gramEl) {
+            if (gramEl.tagName === 'INPUT') {
+                if (document.activeElement !== gramEl) gramEl.value = String(Math.round(g * 10) / 10);
+            } else {
+                gramEl.textContent = `${g.toFixed(1)}g`;
+            }
+        }
+        if (pctEl) pctEl.textContent = W > 0 ? `${Math.round(g / W * 100)}%` : '—';
+    });
+    const tot = document.getElementById('yhct-analysis-total-g');
+    if (tot) tot.textContent = `Tổng ≈ ${W.toFixed(1)}g`;
+}
+
+/** Gõ gram trong bảng phân tích — đồng bộ %, tổng và radar nét đứt. */
+function yhctAnalysisGramInput(ev) {
+    const inp = ev && ev.target;
+    const r = _yhctCurrentBaiThuocAnalysis;
+    if (!inp || !r) return;
+    const id = Number(inp.dataset.vtId);
+    const v = (r.viThuocList || []).find(x => x.id === id);
+    if (!v) return;
+    const raw = parseFloat(String(inp.value).replace(',', '.'));
+    v.simGram = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+    yhctAnalysisUpdateDosageTable(r);
+    yhctRefreshInteractiveRadarOverlays(r);
+}
+
+function yhctSimGramsDirty(r) {
+    return (r.viThuocList || []).some(v => Math.abs((v.simGram != null ? v.simGram : v.gram) - v.gram) > 0.02);
+}
+
+function yhctRefreshInteractiveRadarOverlays(analysisResult) {
+    const dirty = yhctSimGramsDirty(analysisResult);
+    for (const c of _yhctAnalysisCharts) {
+        if (!c._yhctRadarKind || !c.data.datasets[1]) continue;
+        const agg = c._yhctRadarKind === 'nguVi'
+            ? yhctAggregateNguViFromSimGram(analysisResult.viThuocList)
+            : yhctAggregateTgptFromSimGram(analysisResult.viThuocList);
+        const arr = c._yhctRadarKind === 'nguVi' ? yhctNguViToRadar5(agg) : yhctTgptToRadar4(agg);
+        c.data.datasets[1].data = arr.map(x => Number(x) || 0);
+        c.data.datasets[1].hidden = !dirty;
+        c.update('none');
+    }
+}
+
+function yhctRadarValueFromPointer(chart, datasetIndex, index, pos) {
+    const scale = chart.scales.r;
+    const meta = chart.getDatasetMeta(datasetIndex);
+    const el = meta.data[index];
+    if (!el || el.skip) return null;
+    const center = scale.getCenterPoint();
+    const vx = el.x - center.x;
+    const vy = el.y - center.y;
+    const vlen = Math.hypot(vx, vy);
+    if (vlen < 1e-6) return scale.min;
+    const ux = vx / vlen, uy = vy / vlen;
+    const relx = pos.x - center.x, rely = pos.y - center.y;
+    let distAlong = relx * ux + rely * uy;
+    distAlong = Math.max(0, distAlong);
+    let val;
+    if (typeof scale.getValueForDistanceFromCenter === 'function') {
+        val = scale.getValueForDistanceFromCenter(distAlong);
+    } else {
+        const d0 = scale.getDistanceFromCenterForValue(scale.min);
+        const d1 = scale.getDistanceFromCenterForValue(scale.max);
+        const t = Math.abs(d1 - d0) < 1e-9 ? 0 : (distAlong - d0) / (d1 - d0);
+        val = scale.min + t * (scale.max - scale.min);
+    }
+    return Math.max(scale.min, Math.min(scale.max, val));
+}
+
 function yhctBuildAnalysisHtml(r) {
     if (r.empty) return `<div style="text-align:center;padding:40px;color:#A09580;font-style:italic;">
         Bài thuốc chưa có vị thuốc.</div>`;
 
     const roleOrder = {Quân:0,Thần:1,Tá:2,Sứ:3};
     const sortedVt = [...r.viThuocList].sort((a,b)=>(roleOrder[a.vai_tro]||3)-(roleOrder[b.vai_tro]||3)||b.gram-a.gram);
+    const W = r.W || 1;
     const vtRows = sortedVt.map(v=>`
-        <tr>
+        <tr data-yhct-vt-id="${v.id}">
             <td style="padding:5px 8px;font-weight:600;">${escHtml(v.ten)}</td>
-            <td style="padding:5px 8px;text-align:center;">${v.gram.toFixed ? v.gram.toFixed(1) : v.gram}g</td>
-            <td style="padding:5px 8px;text-align:center;">${v.pct}%</td>
+            <td style="padding:4px 6px;text-align:center;">
+                <input type="number" class="yhct-analysis-gram yhct-analysis-gram-input" data-vt-id="${v.id}"
+                    value="${(v.simGram != null ? v.simGram : v.gram).toFixed(1)}" min="0" step="0.1"
+                    title="Giả lập liều lượng (gram)"
+                    style="width:72px;max-width:100%;box-sizing:border-box;text-align:center;padding:5px 6px;border:1px solid #D4C5A0;border-radius:6px;font-size:0.8rem;background:#FFFCF7;color:#1F1410;"
+                    oninput="yhctAnalysisGramInput(event)" />
+            </td>
+            <td class="yhct-analysis-pct" style="padding:5px 8px;text-align:center;">${Math.round((v.simGram != null ? v.simGram : v.gram) / W * 100)}%</td>
             <td style="padding:5px 8px;text-align:center;">
                 <span style="background:${v.color};color:#fff;border-radius:10px;padding:2px 9px;font-size:0.75rem;font-weight:700;">${escHtml(v.vai_tro)}</span>
             </td>
@@ -852,6 +1061,7 @@ function yhctBuildAnalysisHtml(r) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">2) Phân tích Ngũ vị</div>
+            <div style="font-size:0.65rem;color:#9CA3AF;margin-bottom:4px;line-height:1.35;">Liền nét = tính toán gốc · Nét đứt = giả lập kéo (cập nhật gram/% bảng dưới).</div>
             <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
                 <canvas id="yhct-radar-nguvi" style="display:block;"></canvas>
             </div>
@@ -864,6 +1074,7 @@ function yhctBuildAnalysisHtml(r) {
         </div>
         <div style="border:1px solid #E5E7EB;border-radius:10px;padding:10px;background:#fff;">
             <div style="font-weight:700;color:#5B3A1A;font-size:0.85rem;margin-bottom:6px;">4) Phân tích Thăng – Giáng – Phù – Trầm</div>
+            <div style="font-size:0.65rem;color:#9CA3AF;margin-bottom:4px;line-height:1.35;">Liền nét = tính toán gốc · Nét đứt = giả lập kéo (cập nhật gram/% bảng dưới).</div>
             <div style="height:220px;position:relative;width:100%;box-sizing:border-box;overflow:hidden;">
                 <canvas id="yhct-radar-tgpt" style="display:block;"></canvas>
             </div>
@@ -884,9 +1095,10 @@ function yhctBuildAnalysisHtml(r) {
         </div>
     </div>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;background:#fff;margin-bottom:14px;">
-        <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:10px;">
-            Quân–Thần–Tá–Sứ <span style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
+        <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:6px;">
+            Quân–Thần–Tá–Sứ <span id="yhct-analysis-total-g" style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
         </div>
+        <div style="font-size:0.68rem;color:#9CA3AF;margin-bottom:10px;line-height:1.35;">Sửa cột Gram để giả lập liều; tổng và % cập nhật theo bạn, radar nét đứt đồng bộ.</div>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
                 <thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB;">
@@ -909,6 +1121,7 @@ function yhctBuildAnalysisHtml(r) {
 function yhctInitAnalysisCharts(r) {
     if (typeof Chart === 'undefined') return;
     yhctDestroyAnalysisCharts();
+    _yhctCurrentBaiThuocAnalysis = r;
 
     const baseRadarOptions = {
         responsive: true,
@@ -925,6 +1138,7 @@ function yhctInitAnalysisCharts(r) {
             }
         }
     };
+
     const mkRadar = (id, labels, data, color) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -945,11 +1159,139 @@ function yhctInitAnalysisCharts(r) {
         _yhctAnalysisCharts.push(chart);
     };
 
+    const getRelPos = (e, chart) => {
+        if (Chart.helpers && typeof Chart.helpers.getRelativePosition === 'function') {
+            return Chart.helpers.getRelativePosition(e, chart);
+        }
+        const rect = chart.canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    const mkInteractiveRadar = (canvasId, labels, baseArr, color, analysisResult, kind) => {
+        const el = document.getElementById(canvasId);
+        if (!el) return;
+        const baseData = baseArr.map(x => Number(x) || 0);
+        const simData = baseData.slice();
+        const chart = new Chart(el.getContext('2d'), {
+            type: 'radar',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'calc',
+                        data: baseData,
+                        borderColor: color,
+                        backgroundColor: color.replace('1)', '0.12)'),
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                    },
+                    {
+                        label: 'sim',
+                        data: simData,
+                        borderColor: color.replace('1)', '0.85)'),
+                        backgroundColor: color.replace('1)', '0.06)'),
+                        borderWidth: 2.5,
+                        borderDash: [5, 4],
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        hidden: true,
+                    },
+                ],
+            },
+            options: {
+                ...baseRadarOptions,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+            },
+        });
+        _yhctAnalysisCharts.push(chart);
+
+        let dragIdx = -1;
+
+        const nearestPointIndex = (pos) => {
+            const dsIdx = chart.data.datasets[1].hidden ? 0 : 1;
+            const meta = chart.getDatasetMeta(dsIdx);
+            let best = -1, bestD = 22;
+            for (let i = 0; i < meta.data.length; i++) {
+                const pt = meta.data[i];
+                if (!pt || pt.skip) continue;
+                const d = Math.hypot(pos.x - pt.x, pos.y - pt.y);
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            return best;
+        };
+
+        const applyDragAtIndex = (idx, pos) => {
+            const dsIdx = chart.data.datasets[1].hidden ? 0 : 1;
+            const agg = kind === 'nguVi'
+                ? yhctAggregateNguViFromSimGram(analysisResult.viThuocList)
+                : yhctAggregateTgptFromSimGram(analysisResult.viThuocList);
+            const target = (kind === 'nguVi' ? yhctNguViToRadar5(agg) : yhctTgptToRadar4(agg)).slice();
+            const v = yhctRadarValueFromPointer(chart, dsIdx, idx, pos);
+            if (v == null) return;
+            target[idx] = v;
+            yhctRedistributeGramsByRadarTarget(analysisResult, kind, target);
+            yhctAnalysisUpdateDosageTable(analysisResult);
+            yhctRefreshInteractiveRadarOverlays(analysisResult);
+        };
+
+        const onPointerDown = (e) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            const pos = getRelPos(e, chart);
+            const idx = nearestPointIndex(pos);
+            if (idx < 0) return;
+            dragIdx = idx;
+            applyDragAtIndex(idx, pos);
+        };
+
+        const onPointerMove = (e) => {
+            if (dragIdx < 0) return;
+            if (e.cancelable) e.preventDefault();
+            const pos = getRelPos(e, chart);
+            applyDragAtIndex(dragIdx, pos);
+        };
+
+        const endDrag = () => { dragIdx = -1; };
+
+        const canvas = chart.canvas;
+        chart._yhctRadarKind = kind;
+        chart._yhctAnalysisResult = analysisResult;
+        canvas.style.cursor = 'grab';
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', endDrag);
+        const onTouchStart = (ev) => {
+            if (ev.touches.length === 1) onPointerDown(ev.touches[0]);
+        };
+        const onTouchMove = (ev) => {
+            if (dragIdx >= 0 && ev.touches.length === 1) onPointerMove(ev.touches[0]);
+        };
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', endDrag);
+        window.addEventListener('touchcancel', endDrag);
+
+        chart._yhctDragCleanup = () => {
+            canvas.removeEventListener('mousedown', onPointerDown);
+            window.removeEventListener('mousemove', onPointerMove);
+            window.removeEventListener('mouseup', endDrag);
+            canvas.removeEventListener('touchstart', onTouchStart);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', endDrag);
+            window.removeEventListener('touchcancel', endDrag);
+            delete chart._yhctRadarKind;
+            delete chart._yhctAnalysisResult;
+        };
+    };
+
     const nguVi = r.nguVi || {};
-    mkRadar('yhct-radar-nguvi',
+    mkInteractiveRadar(
+        'yhct-radar-nguvi',
         ['Chua', 'Đắng', 'Ngọt', 'Cay', 'Mặn'],
-        [nguVi.chua||0, nguVi.dang||0, nguVi.ngot||0, nguVi.cay||0, nguVi.man||0],
-        'rgba(239, 68, 68, 1)'
+        [nguVi.chua || 0, nguVi.dang || 0, nguVi.ngot || 0, nguVi.cay || 0, nguVi.man || 0],
+        'rgba(239, 68, 68, 1)',
+        r,
+        'nguVi'
     );
 
     mkRadar('yhct-radar-quykinh',
@@ -959,12 +1301,14 @@ function yhctInitAnalysisCharts(r) {
     );
 
     const tgpt = r.tgpt || {};
-    mkRadar('yhct-radar-tgpt',
+    mkInteractiveRadar(
+        'yhct-radar-tgpt',
         ['Thăng', 'Phù', 'Giáng', 'Trầm'],
-        [tgpt.thang||0, tgpt.phu||0, tgpt.giang||0, tgpt.tram||0],
-        'rgba(59, 130, 246, 1)'
+        [tgpt.thang || 0, tgpt.phu || 0, tgpt.giang || 0, tgpt.tram || 0],
+        'rgba(59, 130, 246, 1)',
+        r,
+        'tgpt'
     );
-
 }
 
 function renderViThuocTab(el) {

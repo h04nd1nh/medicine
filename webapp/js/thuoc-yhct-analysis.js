@@ -112,15 +112,19 @@ function yhctCongDungBaiThuocHtml(r) {
     const ct = r.chuTriBaiThuoc || [];
     const kk = r.kiengKyBaiThuoc || [];
     const kkChip = 'cursor:default;font-size:0.8rem;font-weight:600;padding:2px 10px;border-radius:4px;border:1px solid #E8A598;background:#FDF5F3;color:#7A2E23;';
+    const ctChips = ct.map(t => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(t)}</span>`).join('');
+    const kkChips = kk.map(t => `<span class="chip" style="${kkChip}">${escHtml(t)}</span>`).join('');
     const ctBlock = ct.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${
-            ct.map(t => `<span class="chip" style="${yhctTacdungChipStyle('nho')}">${escHtml(t)}</span>`).join('')
-        }</div>`
+        ? `<div class="yhct-cd-section" data-expanded="0">
+                <div class="yhct-cd-inner"><div style="display:flex;flex-wrap:wrap;gap:6px;">${ctChips}</div></div>
+                <button type="button" class="btn btn-sm btn-outline yhct-cd-toggle" style="margin-top:6px;display:none;padding:3px 12px;font-size:0.72rem;" onclick="yhctToggleCdExpand(this)">Xem thêm</button>
+            </div>`
         : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có chủ trị nào được gán cho các vị thuốc trong bài.</div>';
     const kkBlock = kk.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${
-            kk.map(t => `<span class="chip" style="${kkChip}">${escHtml(t)}</span>`).join('')
-        }</div>`
+        ? `<div class="yhct-cd-section" data-expanded="0">
+                <div class="yhct-cd-inner"><div style="display:flex;flex-wrap:wrap;gap:6px;">${kkChips}</div></div>
+                <button type="button" class="btn btn-sm btn-outline yhct-cd-toggle" style="margin-top:6px;display:none;padding:3px 12px;font-size:0.72rem;" onclick="yhctToggleCdExpand(this)">Xem thêm</button>
+            </div>`
         : '<div style="color:#9CA3AF;font-size:0.8rem;">Chưa có kiêng kỵ nào được gán cho các vị thuốc trong bài.</div>';
     return `
             <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #E5E7EB;">
@@ -134,6 +138,40 @@ function yhctCongDungBaiThuocHtml(r) {
                     ${kkBlock}
                 </div>
             </div>`;
+}
+
+function yhctToggleCdExpand(btn) {
+    const section = btn && btn.closest && btn.closest('.yhct-cd-section');
+    if (!section) return;
+    const inner = section.querySelector('.yhct-cd-inner');
+    if (!inner) return;
+    const expanded = section.getAttribute('data-expanded') === '1';
+    if (expanded) {
+        inner.classList.add('yhct-cd-collapsed');
+        section.setAttribute('data-expanded', '0');
+        btn.textContent = 'Xem thêm';
+    } else {
+        inner.classList.remove('yhct-cd-collapsed');
+        section.setAttribute('data-expanded', '1');
+        btn.textContent = 'Thu gọn';
+    }
+}
+
+function yhctInitCongDungCollapse() {
+    document.querySelectorAll('.yhct-cd-section').forEach(section => {
+        const inner = section.querySelector('.yhct-cd-inner');
+        const btn = section.querySelector('.yhct-cd-toggle');
+        if (!inner || !btn) return;
+        section.setAttribute('data-expanded', '0');
+        inner.classList.add('yhct-cd-collapsed');
+        const overflow = inner.scrollHeight > inner.clientHeight + 1;
+        if (overflow) {
+            btn.style.display = 'inline-block';
+        } else {
+            inner.classList.remove('yhct-cd-collapsed');
+            btn.style.display = 'none';
+        }
+    });
 }
 
 /** Tính vị thuốc — chỉ các giá trị mặc định (dropdown). */
@@ -1055,6 +1093,21 @@ function yhctBuildAnalysisHtml(r) {
         .yhct-analysis-layout { grid-template-columns: 1fr !important; }
         .yhct-analysis-dosage { position: relative !important; top: auto !important; max-height: none !important; }
     }
+    .yhct-cd-collapsed {
+        max-height: 4.35rem;
+        overflow: hidden;
+        position: relative;
+    }
+    .yhct-cd-collapsed::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1.1rem;
+        background: linear-gradient(to bottom, rgba(255,255,255,0), #ffffff);
+        pointer-events: none;
+    }
     </style>
     <div style="border:1px solid #E5E7EB;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px;">
         <div style="font-weight:700;color:#374151;font-size:0.9rem;margin-bottom:10px;">1) Phân tích Tứ khí</div>
@@ -1108,8 +1161,10 @@ function yhctBuildAnalysisHtml(r) {
             </div>
         </div>
         <div class="yhct-analysis-dosage" style="position:sticky;top:0;align-self:start;border:1px solid #E5E7EB;border-radius:10px;padding:12px 14px;background:#fff;max-height:min(88vh, calc(94vh - 100px));overflow:auto;min-width:0;box-sizing:border-box;">
-            <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:6px;">
-                Quân–Thần–Tá–Sứ <span id="yhct-analysis-total-g" style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
+            <div style="font-weight:700;color:#5B3A1A;font-size:0.88rem;margin-bottom:6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;">
+                <span>Quân–Thần–Tá–Sứ</span>
+                <span id="yhct-analysis-total-g" style="font-weight:400;font-size:0.74rem;color:#9CA3AF;">Tổng ≈ ${r.W.toFixed(1)}g</span>
+                <span style="font-weight:500;font-size:0.72rem;color:#8B6914;font-style:italic;">Gia giảm tùy chỉnh</span>
             </div>
             <div style="font-size:0.68rem;color:#9CA3AF;margin-bottom:10px;line-height:1.35;">Sửa Gram để giả lập; % và radar nét đứt đồng bộ.</div>
             <div style="overflow-x:auto;">
@@ -1173,12 +1228,15 @@ function yhctInitAnalysisCharts(r) {
         _yhctAnalysisCharts.push(chart);
     };
 
-    const getRelPos = (e, chart) => {
-        if (Chart.helpers && typeof Chart.helpers.getRelativePosition === 'function') {
-            return Chart.helpers.getRelativePosition(e, chart);
-        }
-        const rect = chart.canvas.getBoundingClientRect();
-        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    /** Tọa độ theo pixel buffer canvas (trùng với meta.data[].x/y) — tránh lệch DPR / CSS. */
+    const eventToCanvasPixels = (chart, e) => {
+        const cvs = chart.canvas;
+        const rect = cvs.getBoundingClientRect();
+        const cx = e.clientX != null ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const cy = e.clientY != null ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        const sx = cvs.width / Math.max(rect.width, 1);
+        const sy = cvs.height / Math.max(rect.height, 1);
+        return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
     };
 
     const mkInteractiveRadar = (canvasId, labels, baseArr, color, analysisResult, kind) => {
@@ -1223,8 +1281,9 @@ function yhctInitAnalysisCharts(r) {
         _yhctAnalysisCharts.push(chart);
 
         let dragIdx = -1;
+        let activePointerId = null;
 
-        /** Chọn trục radar theo góc (dễ kéo hơn so với bấm đúng nút tròn). */
+        /** Chọn trục theo góc; không dùng dMax cố định (trước đây làm mọi click bị từ chối). */
         const nearestPointIndex = (pos) => {
             const dsIdx = chart.data.datasets[1].hidden ? 0 : 1;
             const meta = chart.getDatasetMeta(dsIdx);
@@ -1233,13 +1292,14 @@ function yhctInitAnalysisCharts(r) {
             const dx = pos.x - center.x;
             const dy = pos.y - center.y;
             const dist = Math.hypot(dx, dy);
-            let dMin = 0;
-            let dMax = 100;
-            try {
-                dMin = scale.getDistanceFromCenterForValue(scale.min);
-                dMax = scale.getDistanceFromCenterForValue(scale.max);
-            } catch (_) {}
-            if (dist < dMin + 4 || dist > dMax + 40) return -1;
+            if (dist < 12) return -1;
+            let maxR = 0;
+            for (let i = 0; i < meta.data.length; i++) {
+                const pt = meta.data[i];
+                if (!pt || pt.skip) continue;
+                maxR = Math.max(maxR, Math.hypot(pt.x - center.x, pt.y - center.y));
+            }
+            if (maxR > 0 && dist > maxR + 72) return -1;
             const clickAng = Math.atan2(dy, dx);
             let bestIdx = -1;
             let bestDiff = Infinity;
@@ -1268,50 +1328,59 @@ function yhctInitAnalysisCharts(r) {
             yhctRefreshInteractiveRadarOverlays(analysisResult);
         };
 
+        const canvas = chart.canvas;
+        chart._yhctRadarKind = kind;
+        chart._yhctAnalysisResult = analysisResult;
+        canvas.style.cursor = 'grab';
+        canvas.style.touchAction = 'none';
+
+        const endDrag = () => {
+            dragIdx = -1;
+            activePointerId = null;
+        };
+
         const onPointerDown = (e) => {
-            if (e.button !== undefined && e.button !== 0) return;
-            const pos = getRelPos(e, chart);
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            e.preventDefault();
+            const pos = eventToCanvasPixels(chart, e);
             const idx = nearestPointIndex(pos);
             if (idx < 0) return;
             dragIdx = idx;
+            activePointerId = e.pointerId;
+            try {
+                if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
+            } catch (_) {}
             applyDragAtIndex(idx, pos);
         };
 
         const onPointerMove = (e) => {
             if (dragIdx < 0) return;
+            if (activePointerId != null && e.pointerId !== activePointerId) return;
             if (e.cancelable) e.preventDefault();
-            const pos = getRelPos(e, chart);
-            applyDragAtIndex(dragIdx, pos);
+            applyDragAtIndex(dragIdx, eventToCanvasPixels(chart, e));
         };
 
-        const endDrag = () => { dragIdx = -1; };
+        const onPointerUp = (e) => {
+            if (activePointerId != null && e.pointerId === activePointerId) {
+                try {
+                    if (typeof canvas.releasePointerCapture === 'function') canvas.releasePointerCapture(e.pointerId);
+                } catch (_) {}
+            }
+            endDrag();
+        };
 
-        const canvas = chart.canvas;
-        chart._yhctRadarKind = kind;
-        chart._yhctAnalysisResult = analysisResult;
-        canvas.style.cursor = 'grab';
-        canvas.addEventListener('mousedown', onPointerDown);
-        window.addEventListener('mousemove', onPointerMove);
-        window.addEventListener('mouseup', endDrag);
-        const onTouchStart = (ev) => {
-            if (ev.touches.length === 1) onPointerDown(ev.touches[0]);
-        };
-        const onTouchMove = (ev) => {
-            if (dragIdx >= 0 && ev.touches.length === 1) onPointerMove(ev.touches[0]);
-        };
-        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-        window.addEventListener('touchmove', onTouchMove, { passive: false });
-        window.addEventListener('touchend', endDrag);
-        window.addEventListener('touchcancel', endDrag);
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        canvas.addEventListener('pointerup', onPointerUp);
+        canvas.addEventListener('pointercancel', onPointerUp);
+        canvas.addEventListener('lostpointercapture', onPointerUp);
 
         chart._yhctDragCleanup = () => {
-            canvas.removeEventListener('mousedown', onPointerDown);
-            window.removeEventListener('mousemove', onPointerMove);
-            window.removeEventListener('mouseup', endDrag);
-            canvas.removeEventListener('touchstart', onTouchStart);
-            window.removeEventListener('touchmove', onTouchMove);
-            window.removeEventListener('touchend', endDrag);
-            window.removeEventListener('touchcancel', endDrag);
+            canvas.removeEventListener('pointerdown', onPointerDown);
+            canvas.removeEventListener('pointermove', onPointerMove);
+            canvas.removeEventListener('pointerup', onPointerUp);
+            canvas.removeEventListener('pointercancel', onPointerUp);
+            canvas.removeEventListener('lostpointercapture', onPointerUp);
             delete chart._yhctRadarKind;
             delete chart._yhctAnalysisResult;
         };
@@ -1342,6 +1411,11 @@ function yhctInitAnalysisCharts(r) {
         r,
         'tgpt'
     );
+
+    requestAnimationFrame(() => {
+        (_yhctAnalysisCharts || []).forEach(ch => { try { ch.resize(); } catch (_) {} });
+        requestAnimationFrame(() => { yhctInitCongDungCollapse(); });
+    });
 }
 
 function renderViThuocTab(el) {

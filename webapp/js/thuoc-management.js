@@ -2028,8 +2028,115 @@ function ptShowPhapTriImportToast({ created, updated, errors, warns }) {
     }
 }
 
+/**
+ * Thay alert / confirm trong luồng nhập Excel pháp trị (cùng phong cách popup).
+ * @param {{ type?: 'alert'|'confirm', title?: string, message: string, variant?: 'info'|'warn'|'error' }} opts
+ * @returns {Promise<boolean|undefined>} confirm → true/false; alert → undefined
+ */
+function ptPhapTriShowDialog(opts) {
+    const type = opts.type || 'alert';
+    const title =
+        opts.title ||
+        (type === 'confirm' ? 'Xác nhận nhập Excel' : 'Pháp trị — Nhập Excel');
+    const message = opts.message || '';
+    const variant = opts.variant || 'info';
+    const border = { info: '#57534e', warn: '#d97706', error: '#dc2626' }[variant] || '#57534e';
+
+    return new Promise((resolve) => {
+        const id = 'pt-phap-tri-dialog';
+        const existing = document.getElementById(id);
+        if (existing) existing.remove();
+
+        let root;
+        const done = (value) => {
+            document.removeEventListener('keydown', onKey);
+            if (root && root.parentNode) root.remove();
+            resolve(value);
+        };
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            if (type === 'confirm') done(false);
+            else done(undefined);
+        };
+        document.addEventListener('keydown', onKey);
+
+        root = document.createElement('div');
+        root.id = id;
+        root.setAttribute('role', type === 'confirm' ? 'dialog' : 'alertdialog');
+        root.setAttribute('aria-modal', 'true');
+        root.setAttribute('aria-label', title);
+        root.style.cssText =
+            'position:fixed;inset:0;z-index:100060;display:flex;flex-direction:column;' +
+            'justify-content:flex-end;align-items:flex-end;padding:20px;box-sizing:border-box;' +
+            'font-family:system-ui,Segoe UI,sans-serif;font-size:14px;';
+
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(15,23,42,0.32);cursor:pointer;';
+        backdrop.addEventListener('click', () => {
+            if (type === 'confirm') done(false);
+            else done(undefined);
+        });
+
+        const card = document.createElement('div');
+        card.style.cssText =
+            'position:relative;z-index:1;width:100%;max-width:440px;border-radius:14px;overflow:hidden;' +
+            'box-shadow:0 22px 55px rgba(0,0,0,0.22);border:1px solid #e7e5e4;background:#fffef8;' +
+            'display:flex;flex-direction:column;';
+        card.addEventListener('click', (ev) => ev.stopPropagation());
+
+        const head = document.createElement('div');
+        head.style.cssText =
+            'padding:12px 16px;border-bottom:1px solid #e7e5e4;border-left:4px solid ' +
+            border +
+            ';font-weight:600;background:linear-gradient(180deg,#fffbeb,#fffef8);';
+        head.textContent = title;
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding:16px;max-height:min(55vh,420px);overflow-y:auto;line-height:1.5;';
+        const p = document.createElement('p');
+        p.style.cssText = 'margin:0;white-space:pre-wrap;word-break:break-word;color:#292524;font-size:14px;';
+        p.textContent = message;
+        body.appendChild(p);
+
+        const foot = document.createElement('div');
+        foot.style.cssText =
+            'padding:12px 16px 14px;border-top:1px solid #e7e5e4;display:flex;gap:8px;' +
+            'justify-content:flex-end;flex-wrap:wrap;flex-shrink:0;';
+
+        function addBtn(text, primary, onClick) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = text;
+            b.className = primary ? 'btn btn-primary' : 'btn btn-outline';
+            b.addEventListener('click', onClick);
+            foot.appendChild(b);
+        }
+
+        if (type === 'confirm') {
+            addBtn('Hủy', false, () => done(false));
+            addBtn('Tiếp tục', true, () => done(true));
+        } else {
+            addBtn('Đóng', true, () => done(undefined));
+        }
+
+        card.appendChild(head);
+        card.appendChild(body);
+        card.appendChild(foot);
+        root.appendChild(backdrop);
+        root.appendChild(card);
+        document.body.appendChild(root);
+    });
+}
+
 function importPhapTriXlsx(e) {
-    if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện');
+    if (typeof XLSX === 'undefined') {
+        void ptPhapTriShowDialog({
+            type: 'alert',
+            variant: 'error',
+            message: 'Chưa tải xong thư viện SheetJS (XLSX). Tải lại trang hoặc kiểm tra mạng.',
+        });
+        return;
+    }
     const file = e.target.files?.[0];
     const inputEl = e.target;
     if (!file) return;
@@ -2041,17 +2148,31 @@ function importPhapTriXlsx(e) {
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' }).map(ptSanitizeExcelImportRow);
             if (!rawRows.length) {
-                alert('File Excel không có dữ liệu.');
+                await ptPhapTriShowDialog({
+                    type: 'alert',
+                    variant: 'warn',
+                    message: 'File Excel không có dữ liệu.',
+                });
                 return;
             }
             const toProcess = rawRows.filter(r => r && typeof r === 'object' && !ptPhapTriImportRowSkippable(r));
             if (!toProcess.length) {
-                alert('Không có dòng dữ liệu hợp lệ (bỏ qua dòng trống).');
+                await ptPhapTriShowDialog({
+                    type: 'alert',
+                    variant: 'warn',
+                    message: 'Không có dòng dữ liệu hợp lệ (bỏ qua dòng trống).',
+                });
                 return;
             }
-            if (!confirm(`Tìm thấy ${toProcess.length} dòng. Ghi vào hệ thống?\n• Cột «id» (nếu có): cập nhật đúng bản ghi.\n• Không có id: tìm bản ghi pháp trị theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.\n• «Chứng trạng» đồng thời so với tieuket (tiểu kết) bệnh Đông y: khớp thì gán liên kết id_benh_dong_y (mỗi bệnh tối đa một pháp trị).`)) {
-                return;
-            }
+            const confirmMsg =
+                'Tìm thấy ' +
+                toProcess.length +
+                ' dòng. Ghi vào hệ thống?\n\n' +
+                '• Cột «id» (nếu có): cập nhật đúng bản ghi.\n' +
+                '• Không có id: tìm bản ghi pháp trị theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.\n' +
+                '• «Chứng trạng» đồng thời so với tieuket (tiểu kết) bệnh Đông y: khớp thì gán liên kết id_benh_dong_y (mỗi bệnh tối đa một pháp trị).';
+            const confirmed = await ptPhapTriShowDialog({ type: 'confirm', variant: 'info', message: confirmMsg });
+            if (!confirmed) return;
 
             ndlNhomImportSetLoading(true, 'Đang đồng bộ dữ liệu pháp trị từ máy chủ…');
             await loadAllThuocData();
@@ -2133,7 +2254,12 @@ function importPhapTriXlsx(e) {
         } catch (err) {
             ndlNhomImportSetLoading(false, '');
             console.error(err);
-            alert('Lỗi đọc Excel: ' + (err && err.message ? err.message : String(err)));
+            await ptPhapTriShowDialog({
+                type: 'alert',
+                variant: 'error',
+                title: 'Lỗi đọc Excel',
+                message: 'Lỗi đọc Excel: ' + (err && err.message ? err.message : String(err)),
+            });
         } finally {
             inputEl.value = '';
         }

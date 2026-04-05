@@ -3,11 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   ManyToMany,
   JoinTable,
   JoinColumn,
 } from 'typeorm';
 import { BaiThuoc } from './bai-thuoc.model';
+import type { BaiThuocPhapTri } from './bai-thuoc-phap-tri.model';
 import { NhomDuocLyNho } from './nhom-duoc-ly-nho.model';
 import { KinhMach } from './kinh-mach.model';
 import { MeridianSyndrome } from './meridian-syndrome.model';
@@ -43,6 +45,10 @@ export class PhapTri {
   @ManyToOne(() => BaiThuoc, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'id_bai_thuoc' })
   bai_thuoc: BaiThuoc | null;
+
+  /** Nhiều bài thuốc tham chiếu (bảng bai_thuoc_phap_tri); id_bai_thuoc trùng bài đầu tiên để tương thích. */
+  @OneToMany('BaiThuocPhapTri', 'phapTri')
+  bai_thuoc_links: BaiThuocPhapTri[];
 
   @ManyToOne(() => NhomDuocLyNho, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'id_nhom_duoc_ly_nho' })

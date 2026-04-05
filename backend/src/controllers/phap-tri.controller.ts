@@ -4,6 +4,7 @@ import { In, QueryFailedError, Repository } from 'typeorm';
 import { PhapTri } from '../models/phap-tri.model';
 import { CreatePhapTriDto, UpdatePhapTriDto } from '../models/phap-tri.dto';
 import { BaiThuoc } from '../models/bai-thuoc.model';
+import { BaiThuocPhapTri } from '../models/bai-thuoc-phap-tri.model';
 import { NhomDuocLyNho } from '../models/nhom-duoc-ly-nho.model';
 import { KinhMach } from '../models/kinh-mach.model';
 import { MeridianSyndrome } from '../models/meridian-syndrome.model';
@@ -12,6 +13,8 @@ import { MeridianSyndrome } from '../models/meridian-syndrome.model';
 export class PhapTriService {
   private static readonly RELATIONS = [
     'bai_thuoc',
+    'bai_thuoc_links',
+    'bai_thuoc_links.baiThuoc',
     'nhom_duoc_ly_nho',
     'nhom_duoc_ly_nho.nhomLon',
     'benh_dong_y',
@@ -29,6 +32,8 @@ export class PhapTriService {
     private readonly kinhRepo: Repository<KinhMach>,
     @InjectRepository(MeridianSyndrome)
     private readonly benhDongYRepo: Repository<MeridianSyndrome>,
+    @InjectRepository(BaiThuocPhapTri)
+    private readonly baiPhapTriLinkRepo: Repository<BaiThuocPhapTri>,
   ) {}
 
   findAll(): Promise<PhapTri[]> {
@@ -72,17 +77,6 @@ export class PhapTriService {
     const touch = (key: keyof CreatePhapTriDto) =>
       mode === 'create' || PhapTriService.has(dto, key as string);
 
-    if (touch('id_bai_thuoc')) {
-      const v = dto.id_bai_thuoc;
-      if (v == null) entity.bai_thuoc = null;
-      else {
-        const bt = await this.baiThuocRepo.findOneBy({ id: v });
-        entity.bai_thuoc = bt ?? null;
-      }
-    } else if (mode === 'create') {
-      entity.bai_thuoc = null;
-    }
-
     if (touch('id_nhom_duoc_ly_nho')) {
       const v = dto.id_nhom_duoc_ly_nho;
       if (v == null) entity.nhom_duoc_ly_nho = null;
@@ -112,6 +106,70 @@ export class PhapTriService {
     }
   }
 
+  /** Chuỗi id bài thuốc; 'unchanged' = không đổi junction (chỉ PUT). */
+  private planBaiThuocIds(
+    dto: CreatePhapTriDto | UpdatePhapTriDto,
+    mode: 'create' | 'update',
+  ): number[] | 'unchanged' {
+    const hasList = PhapTriService.has(dto, 'id_bai_thuoc_list');
+    const hasSingle = PhapTriService.has(dto, 'id_bai_thuoc');
+    if (mode === 'create') {
+      if (hasList) {
+        return [...new Set((dto.id_bai_thuoc_list ?? []).filter((x): x is number => Number.isFinite(x)))];
+      }
+      if (hasSingle) {
+        const v = dto.id_bai_thuoc;
+        return v != null && Number.isFinite(Number(v)) ? [Number(v)] : [];
+      }
+      return [];
+    }
+    if (hasList) {
+      return [...new Set((dto.id_bai_thuoc_list ?? []).filter((x): x is number => Number.isFinite(x)))];
+    }
+    if (hasSingle) {
+      const v = dto.id_bai_thuoc;
+      return v != null && Number.isFinite(Number(v)) ? [Number(v)] : [];
+    }
+    return 'unchanged';
+  }
+
+  private async syncPhapTriBaiThuocLinks(
+    phapTriId: number,
+    dto: CreatePhapTriDto | UpdatePhapTriDto,
+    mode: 'create' | 'update',
+  ): Promise<void> {
+    const plan = this.planBaiThuocIds(dto, mode);
+    if (plan === 'unchanged') {
+      return;
+    }
+    const ids = plan;
+    await this.baiPhapTriLinkRepo.delete({ idPhapTri: phapTriId });
+    let ord = 0;
+    for (const idBt of ids) {
+      const bt = await this.baiThuocRepo.findOneBy({ id: idBt });
+      if (!bt) {
+        continue;
+      }
+      await this.baiPhapTriLinkRepo.save(
+        this.baiPhapTriLinkRepo.create({
+          idBaiThuoc: idBt,
+          idPhapTri: phapTriId,
+          thuTu: ord,
+          doanChungTrang: null,
+        }),
+      );
+      ord += 1;
+    }
+    const item = await this.repo.findOne({ where: { id: phapTriId } });
+    if (!item) {
+      return;
+    }
+    const firstId = ids.length > 0 ? ids[0]! : null;
+    item.bai_thuoc =
+      firstId != null ? ((await this.baiThuocRepo.findOneBy({ id: firstId })) ?? null) : null;
+    await this.repo.save(item);
+  }
+
   async create(dto: CreatePhapTriDto): Promise<PhapTri> {
     const entity = this.repo.create({
       chung_trang: dto.chung_trang ?? null,
@@ -134,6 +192,7 @@ export class PhapTriService {
       }
       throw e;
     }
+    await this.syncPhapTriBaiThuocLinks(entity.id, dto, 'create');
     return this.findOne(entity.id);
   }
 
@@ -158,6 +217,7 @@ export class PhapTriService {
       }
       throw e;
     }
+    await this.syncPhapTriBaiThuocLinks(id, dto, 'update');
     return this.findOne(id);
   }
 

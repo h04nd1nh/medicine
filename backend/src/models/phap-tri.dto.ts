@@ -7,6 +7,8 @@ export class CreatePhapTriDto {
   luc_dam?: string | null;
   trieu_chung_mo_ta?: string | null;
   id_bai_thuoc?: number | null;
+  /** Nhiều bài thuốc tham chiếu (ưu tiên hơn id_bai_thuoc khi có trong body) */
+  id_bai_thuoc_list?: number[];
   id_nhom_duoc_ly_nho?: number | null;
   /** Một chiều FK → benh_dong_y (tiểu kết) */
   id_benh_dong_y?: number | null;
@@ -23,6 +25,7 @@ export class UpdatePhapTriDto {
   luc_dam?: string | null;
   trieu_chung_mo_ta?: string | null;
   id_bai_thuoc?: number | null;
+  id_bai_thuoc_list?: number[];
   id_nhom_duoc_ly_nho?: number | null;
   id_benh_dong_y?: number | null;
   id_kinh_mach_list?: number[];

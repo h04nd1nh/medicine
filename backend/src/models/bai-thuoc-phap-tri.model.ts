@@ -20,7 +20,7 @@ export class BaiThuocPhapTri {
   @JoinColumn({ name: 'id_bai_thuoc' })
   baiThuoc: BaiThuoc;
 
-  @ManyToOne(() => PhapTri, { onDelete: 'CASCADE' })
+  @ManyToOne(() => PhapTri, (pt) => pt.bai_thuoc_links, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_phap_tri' })
   phapTri: PhapTri;
 }

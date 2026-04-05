@@ -1199,6 +1199,26 @@ let _ptChips = {
     trieu_chung_mo_ta: [],
 };
 let _ptKinhIds = [];
+/** Bài thuốc tham chiếu trong form pháp trị — { id, ten_bai_thuoc }[] */
+let _ptBaiThuocDraft = [];
+
+function ptBaiThuocListFromPhapTriRow(r) {
+    if (!r) return [];
+    const links = r.bai_thuoc_links || r.baiThuocLinks;
+    if (Array.isArray(links) && links.length) {
+        return links
+            .slice()
+            .sort((a, b) => (a.thuTu ?? a.thu_tu ?? 0) - (b.thuTu ?? b.thu_tu ?? 0))
+            .map((l) => l.baiThuoc || l.bai_thuoc)
+            .filter(Boolean)
+            .map((bt) => ({ id: bt.id, ten_bai_thuoc: String(bt.ten_bai_thuoc || '').trim() }));
+    }
+    const single = r.bai_thuoc || r.baiThuoc;
+    if (single && single.id != null) {
+        return [{ id: single.id, ten_bai_thuoc: String(single.ten_bai_thuoc || '').trim() }];
+    }
+    return [];
+}
 
 function ptCsvToArr(s) {
     return String(s || '').split(/[,，]/).map(x => x.trim()).filter(Boolean);
@@ -1281,6 +1301,7 @@ function ptNhomNhoOptionsHtml(selectedId) {
 function ptResetChips() {
     _ptChips = { bat_phap: [], bat_cuong: [], luc_dam: [], trieu_chung_mo_ta: [] };
     _ptKinhIds = [];
+    _ptBaiThuocDraft = [];
 }
 
 function ptRemoveChip(field, term) {
@@ -1441,29 +1462,96 @@ function ptRenderKinhChipGroup() {
     }
 }
 
-function ptFillBaiThuocDatalist() {
-    const dl = document.getElementById('pt-datalist-baithuoc');
-    if (!dl) return;
-    dl.innerHTML = '';
-    for (const bt of _thuocData.baiThuoc || []) {
-        const o = document.createElement('option');
-        o.value = String(bt.ten_bai_thuoc || '');
-        dl.appendChild(o);
-    }
+function ptRenderBaiThuocChipsForPhapTri() {
+    const container = document.getElementById('pt-chips-baithuoc');
+    const input = document.getElementById('pt-inp-baithuoc');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_ptBaiThuocDraft || []).forEach((bt) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(String(bt.ten_bai_thuoc || '') + ' '));
+        const x = document.createElement('span');
+        x.className = 'chip-remove';
+        x.textContent = '×';
+        x.onclick = (e) => {
+            e.stopPropagation();
+            _ptBaiThuocDraft = (_ptBaiThuocDraft || []).filter((b) => b.id !== bt.id);
+            ptRenderBaiThuocChipsForPhapTri();
+        };
+        chip.appendChild(x);
+        container.insertBefore(chip, input);
+    });
 }
 
-function ptOnBaiThuocSearchInput() {
+function ptOnPhapTriBaiThuocInputFocus() {
+    ptOnPhapTriBaiThuocInput();
+}
+
+function ptOnPhapTriBaiThuocInput() {
     const inp = document.getElementById('pt-inp-baithuoc');
-    const hid = document.getElementById('pt-hid-baithuoc-id');
-    if (!inp || !hid) return;
-    const v = inp.value.trim();
-    if (!v) {
-        hid.value = '';
+    const box = document.getElementById('pt-baithuoc-suggest');
+    if (!inp || !box) return;
+    const q = inp.value.trim().toLowerCase();
+    if (!q) {
+        box.style.display = 'none';
+        box.innerHTML = '';
         return;
     }
-    const low = v.toLowerCase();
-    const bt = (_thuocData.baiThuoc || []).find(b => String(b.ten_bai_thuoc || '').trim().toLowerCase() === low);
-    hid.value = bt ? String(bt.id) : '';
+    const all = _thuocData.baiThuoc || [];
+    const chosen = new Set((_ptBaiThuocDraft || []).map((b) => b.id));
+    const matches = all
+        .filter((b) => !chosen.has(b.id))
+        .filter((b) => String(b.ten_bai_thuoc || '')
+            .toLowerCase()
+            .includes(q))
+        .slice(0, 12);
+    if (!matches.length) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = matches
+        .map(
+            (bt) =>
+                `<div class="tayy-suggest-item" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #E2D4B8;font-size:0.85rem;" 
+                    onmousedown="event.preventDefault();ptSelectBaiThuocForPhapTriChip(${bt.id})">${escHtml(bt.ten_bai_thuoc || '')}</div>`,
+        )
+        .join('');
+    box.style.display = 'block';
+}
+
+function ptSelectBaiThuocForPhapTriChip(id) {
+    const bt = (_thuocData.baiThuoc || []).find((b) => b.id === id);
+    if (!bt) return;
+    if ((_ptBaiThuocDraft || []).some((b) => b.id === bt.id)) return;
+    _ptBaiThuocDraft.push({ id: bt.id, ten_bai_thuoc: String(bt.ten_bai_thuoc || '').trim() });
+    const inp = document.getElementById('pt-inp-baithuoc');
+    const box = document.getElementById('pt-baithuoc-suggest');
+    if (inp) inp.value = '';
+    if (box) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+    }
+    ptRenderBaiThuocChipsForPhapTri();
+}
+
+function ptOnPhapTriBaiThuocKeydown(ev) {
+    if (ev.key !== 'Enter') return;
+    const inp = document.getElementById('pt-inp-baithuoc');
+    if (!inp) return;
+    const name = inp.value.trim();
+    if (!name) return;
+    ev.preventDefault();
+    const low = name.toLowerCase();
+    const bt = (_thuocData.baiThuoc || []).find(
+        (b) => String(b.ten_bai_thuoc || '').trim().toLowerCase() === low,
+    );
+    if (!bt) {
+        alert('Không tìm thấy bài thuốc trùng khớp «' + name + '». Chọn trong gợi ý hoặc kiểm tra tên.');
+        return;
+    }
+    ptSelectBaiThuocForPhapTriChip(bt.id);
 }
 
 async function renderPhapTriTab(el) {
@@ -1483,8 +1571,16 @@ async function renderPhapTriTab(el) {
         } else {
             ckCell = '<span style="color:#D1D5DB;">—</span>';
         }
-        const btRow = r.bai_thuoc || r.baiThuoc;
-        const bt = (btRow && btRow.ten_bai_thuoc) ? escHtml(btRow.ten_bai_thuoc) : '<span style="color:#D1D5DB;">—</span>';
+        const btList = ptBaiThuocListFromPhapTriRow(r);
+        const bt =
+            btList.length > 0
+                ? `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">${btList
+                      .map(
+                          (b) =>
+                              `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(b.ten_bai_thuoc)}</span>`,
+                      )
+                      .join('')}</div>`
+                : '<span style="color:#D1D5DB;">—</span>';
         const nho = r.nhom_duoc_ly_nho || r.nhomDuocLyNho;
         const lonTen = (nho && (nho.nhomLon || nho.nhom_lon)) ? (nho.nhomLon || nho.nhom_lon).ten_nhom_lon : '';
         const nnRaw = nho ? ((lonTen ? lonTen + ' › ' : '') + (nho.ten_nhom_nho || '')).trim() : '';
@@ -1563,12 +1659,9 @@ async function openPhapTriRowForm(id) {
         if (b && b.id != null) benhSelId = b.id;
         else if (item.id_benh_dong_y != null) benhSelId = item.id_benh_dong_y;
     }
-    const btObj = item && (item.bai_thuoc || item.baiThuoc);
-    const btVal = btObj ? btObj.id : '';
+    _ptBaiThuocDraft = item ? ptBaiThuocListFromPhapTriRow(item) : [];
     const nnObj = item && (item.nhom_duoc_ly_nho || item.nhomDuocLyNho);
     const nnVal = nnObj ? nnObj.id : '';
-
-    const btTenInit = btObj && btObj.ten_bai_thuoc ? String(btObj.ten_bai_thuoc) : '';
 
     showTayyModal(item ? 'Sửa pháp trị (luận trị)' : 'Thêm pháp trị (luận trị)', `
 <div class="pt-form">
@@ -1661,10 +1754,18 @@ async function openPhapTriRowForm(id) {
         <div class="pt-form-grid-2">
             <div>
                 <label class="tayy-form-label">Bài thuốc tham chiếu</label>
-                <input id="pt-inp-baithuoc" type="search" class="tayy-form-input" list="pt-datalist-baithuoc"
-                    value="${escHtml(btTenInit)}" placeholder="Gõ để lọc, chọn đúng tên trong danh mục…"
-                    autocomplete="off" oninput="ptOnBaiThuocSearchInput()" onchange="ptOnBaiThuocSearchInput()" onblur="ptOnBaiThuocSearchInput()">
-                <span class="pt-field-hint">Chỉ gắn được khi tên trùng khớp một bài đã có trong hệ thống.</span>
+                <div style="position:relative;margin-top:6px;">
+                    <div id="pt-chips-baithuoc" class="chips-container" onclick="document.getElementById('pt-inp-baithuoc').focus()">
+                        <input id="pt-inp-baithuoc" type="text" class="chip-input"
+                            placeholder="Gõ tên bài thuốc, Enter hoặc chọn gợi ý…"
+                            autocomplete="off"
+                            onfocus="ptOnPhapTriBaiThuocInputFocus()"
+                            oninput="ptOnPhapTriBaiThuocInput()"
+                            onkeydown="ptOnPhapTriBaiThuocKeydown(event)">
+                    </div>
+                    <div id="pt-baithuoc-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+                </div>
+                <span class="pt-field-hint">Có thể gắn nhiều bài; tên phải trùng danh mục bài thuốc.</span>
             </div>
             <div>
                 <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)</label>
@@ -1673,9 +1774,6 @@ async function openPhapTriRowForm(id) {
             </div>
         </div>
     </section>
-
-    <input type="hidden" id="pt-hid-baithuoc-id" value="${btVal ? escHtml(String(btVal)) : ''}">
-    <datalist id="pt-datalist-baithuoc"></datalist>
 
     <div class="tayy-form-actions pt-form-actions-wrap">
         <button type="button" class="btn" onclick="closeTayyModal()">Hủy</button>
@@ -1687,8 +1785,7 @@ async function openPhapTriRowForm(id) {
         ptRenderChipGroups();
         ptFillKinhMachDatalist();
         ptRenderKinhChipGroup();
-        ptFillBaiThuocDatalist();
-        ptOnBaiThuocSearchInput();
+        ptRenderBaiThuocChipsForPhapTri();
     }, 0);
 }
 
@@ -1711,7 +1808,7 @@ async function savePhapTriRow(id) {
         bat_cuong: ptArrToCsv(_ptChips.bat_cuong) || null,
         luc_dam: ptArrToCsv(_ptChips.luc_dam) || null,
         trieu_chung_mo_ta: ptArrToCsv(_ptChips.trieu_chung_mo_ta) || null,
-        id_bai_thuoc: numOrNull(document.getElementById('pt-hid-baithuoc-id')?.value),
+        id_bai_thuoc_list: (_ptBaiThuocDraft || []).map((b) => b.id),
         id_nhom_duoc_ly_nho: numOrNull(document.getElementById('pt-sel-nhomnho')?.value),
         id_benh_dong_y: (() => {
             const el = document.getElementById('pt-sel-benhdongy');
@@ -1955,6 +2052,20 @@ function ptResolveBaiThuocIdFromExcel(name) {
     return bt ? bt.id : null;
 }
 
+/** Một ô Excel có thể chứa nhiều tên bài, phân tách bằng dấu phẩy / tương tự. */
+function ptResolveBaiThuocIdsFromExcelCell(cell) {
+    const parts = String(cell || '')
+        .split(/[,，、;；]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    const ids = [];
+    for (const p of parts) {
+        const id = ptResolveBaiThuocIdFromExcel(p);
+        if (id != null) ids.push(id);
+    }
+    return [...new Set(ids)];
+}
+
 function ptResolveNhomNhoIdFromExcel(cell) {
     const s = String(cell || '').trim();
     if (!s) return null;
@@ -2017,8 +2128,14 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
     const bai_thuoc = ndlPickNhomCol(row, ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc']);
     const nhom_duoc = ndlPickNhomCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
 
-    const idBt = ptResolveBaiThuocIdFromExcel(bai_thuoc);
-    if (bai_thuoc && !idBt) warnAcc.push('Không khớp bài thuốc: «' + bai_thuoc + '»');
+    let idBtList = [];
+    if (bai_thuoc !== undefined && bai_thuoc !== null) {
+        const trimmedBt = String(bai_thuoc).trim();
+        if (trimmedBt) {
+            idBtList = ptResolveBaiThuocIdsFromExcelCell(bai_thuoc);
+            if (!idBtList.length) warnAcc.push('Không khớp bài thuốc: «' + bai_thuoc + '»');
+        }
+    }
 
     const idNho = ptResolveNhomNhoIdFromExcel(nhom_duoc);
     if (nhom_duoc && !idNho) warnAcc.push('Không khớp nhóm dược: «' + nhom_duoc + '»');
@@ -2043,13 +2160,15 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         bat_cuong: bat_cuong ? bat_cuong : null,
         luc_dam: luc_dam ? luc_dam : null,
         trieu_chung_mo_ta: trieu_chung ? trieu_chung : null,
-        id_bai_thuoc: idBt,
         id_nhom_duoc_ly_nho: idNho,
         id_kinh_mach_list: idKinhList,
     };
     /** Có Chứng trạng → luôn gán FK bệnh: khớp tieuket hoặc null (không cảnh báo khi không tìm thấy). */
     if (chungClean) {
         out.id_benh_dong_y = idBenhDy != null ? idBenhDy : null;
+    }
+    if (bai_thuoc !== undefined && bai_thuoc !== null && String(bai_thuoc).trim()) {
+        out.id_bai_thuoc_list = idBtList;
     }
     return out;
 }
@@ -2066,6 +2185,9 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     };
     dropNullFk('id_bai_thuoc');
     dropNullFk('id_nhom_duoc_ly_nho');
+    if (!Array.isArray(body.id_bai_thuoc_list)) {
+        delete body.id_bai_thuoc_list;
+    }
     const dropEmptyText = k => {
         const v = body[k];
         if (v == null || v === '') delete body[k];
@@ -2160,10 +2282,10 @@ function exportPhapTriXlsx() {
         'Lục dâm': r.luc_dam || '',
         'Tạng phủ': (r.kinh_mach_list || r.kinhMachList || []).map(k => ptKinhMachShortLabel(k)).filter(Boolean).join(', '),
         'Triệu chứng': r.trieu_chung_mo_ta || '',
-        'Bài thuốc': (() => {
-            const bt = r.bai_thuoc || r.baiThuoc;
-            return (bt && bt.ten_bai_thuoc) ? bt.ten_bai_thuoc : '';
-        })(),
+        'Bài thuốc': ptBaiThuocListFromPhapTriRow(r)
+            .map((b) => b.ten_bai_thuoc)
+            .filter(Boolean)
+            .join(', '),
         'Nhóm dược': ptNhomDuocExportLabel(r.nhom_duoc_ly_nho || r.nhomDuocLyNho),
     };
     });

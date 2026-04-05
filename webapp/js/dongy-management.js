@@ -84,50 +84,34 @@ function renderDongyTabContent() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB: DANH MỤC BỆNH (BENH DONG Y) — hiển thị đủ cột bảng benh_dong_y
+// TAB: DANH MỤC BỆNH (BENH DONG Y) — tieuket, trieuchung, benhly, phụyết, giải nghĩa phương huyệt
 // ═══════════════════════════════════════════════════════════
-
-/** Lấy field từ object API (snake_case entity hoặc biến thể). */
-function dyField(item, key) {
-    if (!item || key == null) return undefined;
-    if (Object.prototype.hasOwnProperty.call(item, key)) return item[key];
-    const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-    if (Object.prototype.hasOwnProperty.call(item, camel)) return item[camel];
-    return item[key];
-}
-
-function dyCellNumOrDash(v) {
-    if (v == null || v === '') return '<span style="color:#D1D5DB">—</span>';
-    return `<span style="font-size:0.72rem;">${escHtml(String(v))}</span>`;
-}
 
 function dyCellLongText(v) {
     const s = v == null ? '' : String(v);
     if (!s.trim()) return '<span style="color:#D1D5DB">—</span>';
-    return `<div style="max-height:88px;min-width:96px;max-width:240px;overflow-y:auto;font-size:0.74rem;line-height:1.35;padding-right:4px;white-space:pre-wrap;">${escHtml(s)}</div>`;
+    return `<div style="max-height:100px;min-width:120px;max-width:320px;overflow-y:auto;font-size:0.78rem;line-height:1.4;padding-right:6px;white-space:pre-wrap;">${escHtml(s)}</div>`;
 }
 
 function dyCellShortText(v) {
     const s = v == null ? '' : String(v);
     if (!s.trim()) return '<span style="color:#D1D5DB">—</span>';
-    return `<span style="font-size:0.78rem;">${escHtml(s)}</span>`;
+    return `<span style="font-size:0.82rem;">${escHtml(s)}</span>`;
 }
 
-/** Tiền tố kinh (12 kênh) × (_c8 | trung | _c11) — khớp meridian-syndrome.model.ts */
-const DY_KINH_PREFIXES = [
-    ['tieutruong', 'Tiểu trường'],
-    ['tam', 'Tâm'],
-    ['tamtieu', 'Tam tiêu'],
-    ['tambao', 'Tâm bào'],
-    ['daitrang', 'Đại tràng'],
-    ['phe', 'Phế'],
-    ['bangquang', 'Bàng quang'],
-    ['than', 'Thận'],
-    ['dam', 'Đảm'],
-    ['vi', 'Vị'],
-    ['can', 'Can'],
-    ['ty', 'Tỳ'],
-];
+/** Chuẩn hóa 5 trường từ bản ghi (apiGetModels đã map legacy: ten, phaptri, phuonghuyet…). */
+function dyBenhDisplayFields(item) {
+    if (!item) {
+        return { tieuket: '', trieuchung: '', benhly: '', phuyet_chamcuu: '', giainghia_phuyet: '' };
+    }
+    return {
+        tieuket: String(item.tieuket || item.ten || '').trim(),
+        trieuchung: String(item.trieuchung || '').trim(),
+        benhly: String(item.benhly ?? item.phaptri ?? '').trim(),
+        phuyet_chamcuu: String(item.phuyet_chamcuu ?? item.phuonghuyet ?? '').trim(),
+        giainghia_phuyet: String(item.giainghia_phuyet ?? '').trim(),
+    };
+}
 
 function renderBenhDongYTab(el) {
     if (!_dongyData.benhDongY || _dongyData.benhDongY.length === 0) {
@@ -144,40 +128,17 @@ function renderBenhDongYTab(el) {
         return '';
     };
 
-    const kinhHeaderCells = DY_KINH_PREFIXES.map(([pre, label]) => `
-        <th colspan="3" style="text-align:center;font-size:0.68rem;padding:4px 2px;border-bottom:1px solid var(--border);white-space:normal;max-width:72px;" title="${escHtml(label)}">${escHtml(label)}</th>
-    `).join('');
-
-    const kinhSubHeaderCells = DY_KINH_PREFIXES.map(() => `
-        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;">c8</th>
-        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;" title="Giá trị kinh (cột giữa)">tb</th>
-        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;">c11</th>
-    `).join('');
-
     const rows = _dongyData.benhDongY.map(item => {
         const id = getV(item, 'id', 'id_benh', 'modelId');
-
-        const kinhBodyCells = DY_KINH_PREFIXES.map(([pre]) => {
-            const k8 = `${pre}_c8`;
-            const km = pre;
-            const k11 = `${pre}_c11`;
-            return `
-                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, k8))}</td>
-                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, km))}</td>
-                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, k11))}</td>`;
-        }).join('');
-
+        const f = dyBenhDisplayFields(item);
         return `
             <tr>
                 <td style="text-align:center;font-size:0.72rem;color:#78716c;white-space:nowrap;">${dyCellShortText(id)}</td>
-                <td style="text-align:center;">${dyCellNumOrDash(dyField(item, 'nhomid'))}</td>
-                <td style="min-width:120px;white-space:normal;">${dyCellShortText(dyField(item, 'tieuket') ?? getV(item, 'ten', 'tieuket', 'ten_benh', 'name'))}</td>
-                <td>${dyCellLongText(dyField(item, 'trieuchung') ?? getV(item, 'trieuchung', 'trieu_chung_chinh'))}</td>
-                <td>${dyCellLongText(dyField(item, 'benhly'))}</td>
-                <td>${dyCellLongText(dyField(item, 'phuyet_chamcuu'))}</td>
-                <td>${dyCellLongText(dyField(item, 'giainghia_phuyet'))}</td>
-                <td style="min-width:56px;">${dyCellShortText(dyField(item, 'duyet'))}</td>
-                ${kinhBodyCells}
+                <td style="min-width:140px;white-space:normal;">${dyCellShortText(f.tieuket)}</td>
+                <td>${dyCellLongText(f.trieuchung)}</td>
+                <td>${dyCellLongText(f.benhly)}</td>
+                <td>${dyCellLongText(f.phuyet_chamcuu)}</td>
+                <td>${dyCellLongText(f.giainghia_phuyet)}</td>
                 <td style="text-align:center;width:130px;white-space:nowrap;">
                     <div class="table-actions" style="justify-content:center;">
                         <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏ Sửa</button>
@@ -188,27 +149,20 @@ function renderBenhDongYTab(el) {
     }).join('');
 
     el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-            <span style="font-size:0.8rem;color:#A09580;">Kéo ngang để xem đủ cột kinh (c8 / giữa / c11).</span>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
             <button class="btn btn-primary" onclick="openBenhDongYForm()">+ Thêm bệnh</button>
         </div>
-        <div class="data-table-container" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-            <table style="min-width:2000px;">
-                <thead>
-                    <tr>
-                        <th rowspan="2" style="width:40px;text-align:center;vertical-align:middle;">id</th>
-                        <th rowspan="2" style="width:52px;text-align:center;vertical-align:middle;">nhomid</th>
-                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">tieuket</th>
-                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">trieuchung</th>
-                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">benhly</th>
-                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">phuyet_chamcuu</th>
-                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">giainghia_phuyet</th>
-                        <th rowspan="2" style="width:56px;vertical-align:middle;">duyet</th>
-                        ${kinhHeaderCells}
-                        <th rowspan="2" style="width:130px;text-align:center;vertical-align:middle;">Thao tác</th>
-                    </tr>
-                    <tr>${kinhSubHeaderCells}</tr>
-                </thead>
+        <div class="data-table-container" style="overflow-x:auto;">
+            <table style="min-width:960px;">
+                <thead><tr>
+                    <th style="width:44px;text-align:center;">id</th>
+                    <th style="min-width:140px;">Tiểu kết (tieuket)</th>
+                    <th style="min-width:160px;">Triệu chứng</th>
+                    <th style="min-width:160px;">Bệnh lý</th>
+                    <th style="min-width:160px;">Phụyết châm cứu</th>
+                    <th style="min-width:160px;">Giải nghĩa phương huyệt</th>
+                    <th style="width:130px;text-align:center;">Thao tác</th>
+                </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>
@@ -218,88 +172,33 @@ function renderBenhDongYTab(el) {
 function openBenhDongYForm(givenId) {
     const item = givenId ? _dongyData.benhDongY.find(x => (x.id == givenId || x.id_benh == givenId || x.modelId == givenId)) : null;
     const realId = item ? (item.id || item.id_benh || item.modelId) : null;
-    
-    // Helper lấy giá trị linh hoạt giống render table
-    const getV = (obj, ...keys) => {
-        if (!obj) return '';
-        const lowerKeys = keys.map(k => k.toLowerCase());
-        for (let k in obj) { if (lowerKeys.includes(k.toLowerCase())) return obj[k]; }
-        return '';
-    };
-
-    const valTen = getV(item, 'ten', 'tieuket', 'ten_benh', 'name');
-    const valNhom = getV(item, 'nhomid', 'nhomChinh', 'nhom_benh');
-    const valTc = getV(item, 'trieuchung', 'trieu_chung_chinh');
-
-    // Nạp danh sách bài thuốc/triệu chứng liên quan
-    const allBT = (typeof _thuocData !== 'undefined') ? _thuocData.baiThuoc : [];
-    const btChecks = allBT.map(bt => {
-        const checked = item && (item.baiThuocList || []).some(x => x.id === bt.id) ? 'checked' : '';
-        return `<label class="tayy-check-label"><input type="checkbox" name="dy-bt-ids" value="${bt.id}" ${checked}> ${escHtml(bt.ten_bai_thuoc)}</label>`;
-    }).join('');
-
-    const allTC = (typeof _trieuchungData !== 'undefined') ? _trieuchungData.trieuChung : [];
-    const tcChecks = allTC.map(tc => {
-        const checked = item && (item.trieuChungList || []).some(x => x.id === tc.id) ? 'checked' : '';
-        return `<label class="tayy-check-label"><input type="checkbox" name="dy-tc-ids" value="${tc.id}" ${checked}> ${escHtml(tc.ten_trieu_chung)}</label>`;
-    }).join('');
+    const f = dyBenhDisplayFields(item);
 
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
-        <label class="tayy-form-label">Tên bệnh (Tiêu kết)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${escHtml(valTen)}"></label>
-        <label class="tayy-form-label">ID Nhóm<br><input id="dy-inp-nhom" type="number" class="tayy-form-input" value="${valNhom || ''}"></label>
-        <label class="tayy-form-label">Mô tả triệu chứng (Ghi chú)<br><textarea id="dy-inp-tc" class="tayy-form-input" rows="3">${escHtml(valTc)}</textarea></label>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:15px;">
-            <div class="tayy-form-label">Triệu chứng hệ thống
-                <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
-                    ${tcChecks || '<span style="color:#A09580;">Chưa có triệu chứng</span>'}
-                </div>
-            </div>
-            <div class="tayy-form-label">Bài thuốc liên quan
-                <div class="tayy-check-grid" style="max-height:150px; overflow-y:auto; border:1px solid #D4C5A0; padding:10px; border-radius:8px;">
-                    ${btChecks || '<span style="color:#A09580;">Chưa có bài thuốc</span>'}
-                </div>
-            </div>
-        </div>
-
-        <!-- Thể bệnh & Phương huyệt (mới) -->
-        ${realId ? `
-        <hr style="border:none; border-top:2px solid #E2D4B8; margin:20px 0 0 0;">
-        <div id="tb-section-container">
-            <div style="display:flex; align-items:center; gap:8px; padding:12px 0; color:#8B7355;">
-                <span style="font-size:0.85rem;">⏳ Đang tải thể bệnh...</span>
-            </div>
-        </div>` : `
-        <div style="margin-top:16px; padding:12px; background:#FFF8E1; border-radius:8px; border:1px solid #FFE082;">
-            <span style="font-size:0.82rem; color:#8B5E00;">💡 Lưu thông tin cơ bản trước, sau đó mở lại để thêm thể bệnh & phương huyệt.</span>
-        </div>`}
+        <label class="tayy-form-label">Tiểu kết (tieuket)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${escHtml(f.tieuket)}"></label>
+        <label class="tayy-form-label">Triệu chứng<br><textarea id="dy-inp-trieuchung" class="tayy-form-input" rows="4">${escHtml(f.trieuchung)}</textarea></label>
+        <label class="tayy-form-label">Bệnh lý<br><textarea id="dy-inp-benhly" class="tayy-form-input" rows="4">${escHtml(f.benhly)}</textarea></label>
+        <label class="tayy-form-label">Phụyết châm cứu<br><textarea id="dy-inp-phuyet-chamcuu" class="tayy-form-input" rows="4">${escHtml(f.phuyet_chamcuu)}</textarea></label>
+        <label class="tayy-form-label">Giải nghĩa phương huyệt <span style="font-weight:400;color:#A09580;">(giainghia_phuyet)</span><br><textarea id="dy-inp-giainghia-phuyet" class="tayy-form-input" rows="4">${escHtml(f.giainghia_phuyet)}</textarea></label>
 
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
-            <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu thông tin bệnh</button>
+            <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu</button>
         </div>
     `, 'wide');
-
-    if (realId && typeof tbLoadForBenh === 'function') {
-        setTimeout(async () => {
-            await tbLoadForBenh(realId);
-            tbRenderSection('tb-section-container');
-        }, 50);
-    }
 }
 
 async function saveBenhDongY(id) {
-    const btIds = Array.from(document.querySelectorAll('input[name="dy-bt-ids"]:checked')).map(c => parseInt(c.value));
-    const tcIds = Array.from(document.querySelectorAll('input[name="dy-tc-ids"]:checked')).map(c => parseInt(c.value));
-    
+    const tieuket = document.getElementById('dy-inp-tieuket').value.trim();
+    if (!tieuket) return alert('Thiếu tiểu kết (tieuket)');
+
     const payload = {
-        ten: document.getElementById('dy-inp-tieuket').value.trim(),
-        nhom_chinh: parseInt(document.getElementById('dy-inp-nhom').value) || 0,
-        trieuchung: document.getElementById('dy-inp-tc').value.trim(),
-        bai_thuoc_ids: btIds,
-        trieu_chung_ids: tcIds
+        ten: tieuket,
+        trieuchung: document.getElementById('dy-inp-trieuchung').value.trim(),
+        phaptri: document.getElementById('dy-inp-benhly').value.trim(),
+        phuonghuyet: document.getElementById('dy-inp-phuyet-chamcuu').value.trim(),
+        giainghia_phuyet: document.getElementById('dy-inp-giainghia-phuyet').value.trim(),
     };
-    if (!payload.ten) return alert('Thiếu tên bệnh');
     const res = id ? await apiUpdateModel(id, payload) : await apiCreateModel(payload);
     if (!res.success) return alert('Lỗi: ' + res.error);
 

@@ -298,12 +298,25 @@ function _mapNestModelToLegacy(m) {
 
 function _mapLegacyModelToNest(payload) {
     const dto = {
-        tieuket: payload.ten || '',
-        nhomid: payload.nhom_chinh ? parseInt(payload.nhom_chinh) || null : null,
-        trieuchung: payload.trieuchung || '',
-        benhly: payload.phaptri || '',
-        phuyet_chamcuu: payload.phuonghuyet || '',
+        tieuket: payload.tieuket != null && payload.tieuket !== '' ? payload.tieuket : (payload.ten || ''),
+        trieuchung: payload.trieuchung ?? '',
+        benhly: payload.benhly != null && payload.benhly !== '' ? payload.benhly : (payload.phaptri ?? ''),
+        phuyet_chamcuu:
+            payload.phuyet_chamcuu != null && payload.phuyet_chamcuu !== ''
+                ? payload.phuyet_chamcuu
+                : (payload.phuonghuyet ?? ''),
     };
+    if (Object.prototype.hasOwnProperty.call(payload, 'giainghia_phuyet')) {
+        dto.giainghia_phuyet = payload.giainghia_phuyet ?? '';
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'nhom_chinh') || Object.prototype.hasOwnProperty.call(payload, 'nhomid')) {
+        const nc = payload.nhom_chinh ?? payload.nhomid;
+        if (nc === '' || nc == null) dto.nhomid = null;
+        else {
+            const n = parseInt(nc, 10);
+            dto.nhomid = Number.isNaN(n) ? null : n;
+        }
+    }
     if (payload.kich_hoat_tu_kinh) {
         try {
             const kh = JSON.parse(payload.kich_hoat_tu_kinh);

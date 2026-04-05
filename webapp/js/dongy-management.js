@@ -84,51 +84,131 @@ function renderDongyTabContent() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB: DANH MỤC BỆNH (BENH DONG Y) (Giữ nguyên logic cũ đã fix)
+// TAB: DANH MỤC BỆNH (BENH DONG Y) — hiển thị đủ cột bảng benh_dong_y
 // ═══════════════════════════════════════════════════════════
+
+/** Lấy field từ object API (snake_case entity hoặc biến thể). */
+function dyField(item, key) {
+    if (!item || key == null) return undefined;
+    if (Object.prototype.hasOwnProperty.call(item, key)) return item[key];
+    const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    if (Object.prototype.hasOwnProperty.call(item, camel)) return item[camel];
+    return item[key];
+}
+
+function dyCellNumOrDash(v) {
+    if (v == null || v === '') return '<span style="color:#D1D5DB">—</span>';
+    return `<span style="font-size:0.72rem;">${escHtml(String(v))}</span>`;
+}
+
+function dyCellLongText(v) {
+    const s = v == null ? '' : String(v);
+    if (!s.trim()) return '<span style="color:#D1D5DB">—</span>';
+    return `<div style="max-height:88px;min-width:96px;max-width:240px;overflow-y:auto;font-size:0.74rem;line-height:1.35;padding-right:4px;white-space:pre-wrap;">${escHtml(s)}</div>`;
+}
+
+function dyCellShortText(v) {
+    const s = v == null ? '' : String(v);
+    if (!s.trim()) return '<span style="color:#D1D5DB">—</span>';
+    return `<span style="font-size:0.78rem;">${escHtml(s)}</span>`;
+}
+
+/** Tiền tố kinh (12 kênh) × (_c8 | trung | _c11) — khớp meridian-syndrome.model.ts */
+const DY_KINH_PREFIXES = [
+    ['tieutruong', 'Tiểu trường'],
+    ['tam', 'Tâm'],
+    ['tamtieu', 'Tam tiêu'],
+    ['tambao', 'Tâm bào'],
+    ['daitrang', 'Đại tràng'],
+    ['phe', 'Phế'],
+    ['bangquang', 'Bàng quang'],
+    ['than', 'Thận'],
+    ['dam', 'Đảm'],
+    ['vi', 'Vị'],
+    ['can', 'Can'],
+    ['ty', 'Tỳ'],
+];
+
 function renderBenhDongYTab(el) {
     if (!_dongyData.benhDongY || _dongyData.benhDongY.length === 0) {
         el.innerHTML = '<div style="text-align:center;padding:20px;">Chưa có dữ liệu Bệnh đông y <button class="btn btn-primary btn-sm" onclick="openBenhDongYForm()">+ Thêm mới</button></div>';
         return;
     }
 
+    const getV = (obj, ...keys) => {
+        if (!obj) return '';
+        const lowerKeys = keys.map(k => k.toLowerCase());
+        for (const k in obj) {
+            if (lowerKeys.includes(k.toLowerCase())) return obj[k];
+        }
+        return '';
+    };
+
+    const kinhHeaderCells = DY_KINH_PREFIXES.map(([pre, label]) => `
+        <th colspan="3" style="text-align:center;font-size:0.68rem;padding:4px 2px;border-bottom:1px solid var(--border);white-space:normal;max-width:72px;" title="${escHtml(label)}">${escHtml(label)}</th>
+    `).join('');
+
+    const kinhSubHeaderCells = DY_KINH_PREFIXES.map(() => `
+        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;">c8</th>
+        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;" title="Giá trị kinh (cột giữa)">tb</th>
+        <th style="width:34px;text-align:center;font-size:0.65rem;padding:2px;">c11</th>
+    `).join('');
+
     const rows = _dongyData.benhDongY.map(item => {
-        const getV = (obj, ...keys) => {
-            const lowerKeys = keys.map(k => k.toLowerCase());
-            for (let k in obj) { if (lowerKeys.includes(k.toLowerCase())) return obj[k]; }
-            return '';
-        };
         const id = getV(item, 'id', 'id_benh', 'modelId');
-        const ten = getV(item, 'ten', 'tieuket', 'ten_benh', 'name');
-        const nhom = getV(item, 'nhomid', 'nhomChinh', 'nhom_benh');
-        const tc = getV(item, 'trieuchung', 'trieu_chung_chinh');
+
+        const kinhBodyCells = DY_KINH_PREFIXES.map(([pre]) => {
+            const k8 = `${pre}_c8`;
+            const km = pre;
+            const k11 = `${pre}_c11`;
+            return `
+                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, k8))}</td>
+                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, km))}</td>
+                <td style="text-align:center;padding:2px;vertical-align:middle;">${dyCellNumOrDash(dyField(item, k11))}</td>`;
+        }).join('');
 
         return `
             <tr>
-                <td style="font-weight:700; color:#5B3A1A;">
-                    ${escHtml(ten)}
-                    ${nhom ? `<br><small style="color:#A09580;">ID Nhóm: ${nhom}</small>` : ''}
-                </td>
-                <td style="font-size:0.82rem; line-height:1.45; text-align:left;">
-                    <div style="max-height:100px; overflow-y:auto; padding-right:6px;">${tc || '—'}</div>
-                </td>
-                <td style="text-align:center;width:130px;">
+                <td style="text-align:center;font-size:0.72rem;color:#78716c;white-space:nowrap;">${dyCellShortText(id)}</td>
+                <td style="text-align:center;">${dyCellNumOrDash(dyField(item, 'nhomid'))}</td>
+                <td style="min-width:120px;white-space:normal;">${dyCellShortText(dyField(item, 'tieuket') ?? getV(item, 'ten', 'tieuket', 'ten_benh', 'name'))}</td>
+                <td>${dyCellLongText(dyField(item, 'trieuchung') ?? getV(item, 'trieuchung', 'trieu_chung_chinh'))}</td>
+                <td>${dyCellLongText(dyField(item, 'benhly'))}</td>
+                <td>${dyCellLongText(dyField(item, 'phuyet_chamcuu'))}</td>
+                <td>${dyCellLongText(dyField(item, 'giainghia_phuyet'))}</td>
+                <td style="min-width:56px;">${dyCellShortText(dyField(item, 'duyet'))}</td>
+                ${kinhBodyCells}
+                <td style="text-align:center;width:130px;white-space:nowrap;">
                     <div class="table-actions" style="justify-content:center;">
                         <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏ Sửa</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteBenhDongY(${id})">🗑 Xóa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteBenhDongY(${id})">🗑</button>
                     </div>
                 </td>
-            </tr>
-        `;
+            </tr>`;
     }).join('');
 
     el.innerHTML = `
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <span style="font-size:0.8rem;color:#A09580;">Kéo ngang để xem đủ cột kinh (c8 / giữa / c11).</span>
             <button class="btn btn-primary" onclick="openBenhDongYForm()">+ Thêm bệnh</button>
         </div>
-        <div class="data-table-container">
-            <table>
-                <thead><tr><th>Tên bệnh</th><th>Triệu chứng</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+        <div class="data-table-container" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+            <table style="min-width:2000px;">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width:40px;text-align:center;vertical-align:middle;">id</th>
+                        <th rowspan="2" style="width:52px;text-align:center;vertical-align:middle;">nhomid</th>
+                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">tieuket</th>
+                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">trieuchung</th>
+                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">benhly</th>
+                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">phuyet_chamcuu</th>
+                        <th rowspan="2" style="min-width:120px;vertical-align:middle;">giainghia_phuyet</th>
+                        <th rowspan="2" style="width:56px;vertical-align:middle;">duyet</th>
+                        ${kinhHeaderCells}
+                        <th rowspan="2" style="width:130px;text-align:center;vertical-align:middle;">Thao tác</th>
+                    </tr>
+                    <tr>${kinhSubHeaderCells}</tr>
+                </thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>

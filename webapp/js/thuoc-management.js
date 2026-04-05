@@ -1246,7 +1246,7 @@ function ptTextPreview(raw, maxLen) {
 
 function ptKinhMachListPreview(r) {
     const list = r.kinh_mach_list || r.kinhMachList || [];
-    const parts = list.map(k => ptKinhMachDisplayLabel(k)).filter(Boolean);
+    const parts = list.map(k => ptKinhMachShortLabel(k)).filter(Boolean);
     if (!parts.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
     return ptTextPreview(parts.join(', '), 56);
 }
@@ -1348,6 +1348,14 @@ function ptKinhMachDisplayLabel(k) {
     return tat ? tat + ' — ' + ten : ten;
 }
 
+/** Chỉ tên viết tắt (chip / cột bảng pháp trị); không có tắt thì dùng tên đầy đủ. */
+function ptKinhMachShortLabel(k) {
+    if (!k) return '';
+    const tat = String(k.ten_viet_tat || '').trim();
+    if (tat) return tat;
+    return String(k.ten_kinh_mach || '').trim();
+}
+
 /** Gõ tên / tắt / nhãn đầy đủ → id kinh mạch (ưu tiên khớp chính xác). */
 function ptResolveKinhMachIdFromQuery(raw) {
     const want = ptStrNorm(raw);
@@ -1418,7 +1426,7 @@ function ptRenderKinhChipGroup() {
         if (!k) continue;
         const chip = document.createElement('div');
         chip.className = 'chip';
-        chip.appendChild(document.createTextNode(ptKinhMachDisplayLabel(k) + ' '));
+        chip.appendChild(document.createTextNode(ptKinhMachShortLabel(k) + ' '));
         const x = document.createElement('span');
         x.className = 'chip-remove';
         x.textContent = '×';
@@ -2150,7 +2158,7 @@ function exportPhapTriXlsx() {
         'Bát pháp': r.bat_phap || '',
         'Bát cương': r.bat_cuong || '',
         'Lục dâm': r.luc_dam || '',
-        'Tạng phủ': (r.kinh_mach_list || r.kinhMachList || []).map(k => k.ten_kinh_mach || k.ten_viet_tat || '').filter(Boolean).join(', '),
+        'Tạng phủ': (r.kinh_mach_list || r.kinhMachList || []).map(k => ptKinhMachShortLabel(k)).filter(Boolean).join(', '),
         'Triệu chứng': r.trieu_chung_mo_ta || '',
         'Bài thuốc': (() => {
             const bt = r.bai_thuoc || r.baiThuoc;

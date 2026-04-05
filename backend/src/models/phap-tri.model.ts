@@ -10,6 +10,7 @@ import {
 import { BaiThuoc } from './bai-thuoc.model';
 import { NhomDuocLyNho } from './nhom-duoc-ly-nho.model';
 import { KinhMach } from './kinh-mach.model';
+import { MeridianSyndrome } from './meridian-syndrome.model';
 
 @Entity('phap_tri')
 export class PhapTri {
@@ -46,6 +47,10 @@ export class PhapTri {
   @ManyToOne(() => NhomDuocLyNho, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'id_nhom_duoc_ly_nho' })
   nhom_duoc_ly_nho: NhomDuocLyNho | null;
+
+  @ManyToOne(() => MeridianSyndrome, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'id_benh_dong_y' })
+  benh_dong_y: MeridianSyndrome | null;
 
   @ManyToMany(() => KinhMach)
   @JoinTable({

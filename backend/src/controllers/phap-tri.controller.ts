@@ -6,6 +6,7 @@ import { CreatePhapTriDto, UpdatePhapTriDto } from '../models/phap-tri.dto';
 import { BaiThuoc } from '../models/bai-thuoc.model';
 import { NhomDuocLyNho } from '../models/nhom-duoc-ly-nho.model';
 import { KinhMach } from '../models/kinh-mach.model';
+import { MeridianSyndrome } from '../models/meridian-syndrome.model';
 
 @Injectable()
 export class PhapTriService {
@@ -13,6 +14,7 @@ export class PhapTriService {
     'bai_thuoc',
     'nhom_duoc_ly_nho',
     'nhom_duoc_ly_nho.nhomLon',
+    'benh_dong_y',
     'kinh_mach_list',
   ] as const;
 
@@ -25,6 +27,8 @@ export class PhapTriService {
     private readonly nhomNhoRepo: Repository<NhomDuocLyNho>,
     @InjectRepository(KinhMach)
     private readonly kinhRepo: Repository<KinhMach>,
+    @InjectRepository(MeridianSyndrome)
+    private readonly benhDongYRepo: Repository<MeridianSyndrome>,
   ) {}
 
   findAll(): Promise<PhapTri[]> {
@@ -83,6 +87,17 @@ export class PhapTriService {
       }
     } else if (mode === 'create') {
       entity.nhom_duoc_ly_nho = null;
+    }
+
+    if (touch('id_benh_dong_y')) {
+      const v = dto.id_benh_dong_y;
+      if (v == null) entity.benh_dong_y = null;
+      else {
+        const b = await this.benhDongYRepo.findOneBy({ id: v });
+        entity.benh_dong_y = b ?? null;
+      }
+    } else if (mode === 'create') {
+      entity.benh_dong_y = null;
     }
 
     if (touch('id_kinh_mach_list')) {

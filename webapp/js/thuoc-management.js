@@ -22,6 +22,8 @@ let _thuocData = {
     chuTri: [],
     kiengKy: [],
     phapTriList: [],
+    /** Mô hình bệnh Đông y (apiGetModels) — dùng khi import Excel pháp trị (Chứng trạng ↔ tieuket) */
+    benhDongYModels: [],
     activeTab: 'vi-thuoc',
 };
 
@@ -38,7 +40,7 @@ async function initThuocManagement() {
 
 async function loadAllThuocData() {
     try {
-        const [vt, bt, km, hv, tc, ndl, cd, cn, kk, pt] = await Promise.all([
+        const [vt, bt, km, hv, tc, ndl, cd, cn, kk, pt, models] = await Promise.all([
             apiGetViThuoc(),
             apiGetBaiThuoc(),
             apiGetKinhMach(),
@@ -49,6 +51,7 @@ async function loadAllThuocData() {
             apiGetChuTri(),
             apiGetKiengKy(),
             apiGetPhapTri(),
+            apiGetModels().catch(() => []),
         ]);
         _thuocData.viThuoc = vt || [];
         _thuocData.baiThuoc = bt || [];
@@ -60,6 +63,7 @@ async function loadAllThuocData() {
         _thuocData.chuTri = cn || [];
         _thuocData.kiengKy = kk || [];
         _thuocData.phapTriList = pt || [];
+        _thuocData.benhDongYModels = Array.isArray(models) ? models : [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Thuốc:', e);
     }
@@ -1314,7 +1318,7 @@ async function renderPhapTriTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" title="Cột «Chứng trạng» (text). Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều mục trong một ô: dấu phẩy hoặc dấu + (cùng ý nghĩa)."
+                <button type="button" class="btn btn-outline" title="Cột «Chứng trạng» khớp tieuket (tiểu kết) trong mô hình bệnh Đông y thì tự gán id_benh_dong_y. Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều mục trong một ô: dấu phẩy hoặc dấu + (cùng ý nghĩa)."
                     onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
                 <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
@@ -1665,6 +1669,42 @@ function ptNormTieuKetCompatible(snNorm, tkNorm) {
     return false;
 }
 
+/** Id benh_dong_y (modelId) nếu cột «Chứng trạng» Excel khớp tieuket (tiểu kết) trong danh mục mô hình bệnh. */
+function ptBenhDongYIdFromChungTrangExcel(chungTrangRaw, warnAcc) {
+    const raw = ptCleanChungTrangCell(String(chungTrangRaw || ''));
+    if (!raw) return null;
+    const models = _thuocData.benhDongYModels || [];
+    const scored = [];
+    for (const m of models) {
+        const tk = String(m.ten != null ? m.ten : '').trim();
+        if (!tk) continue;
+        const score = ptChungTrangMatchScore(raw, tk);
+        if (score > 0) scored.push({ id: m.modelId, score });
+    }
+    if (!scored.length) {
+        if (warnAcc) warnAcc.push('Không tìm thấy bệnh Đông y (tieuket) khớp «' + raw + '»');
+        return null;
+    }
+    scored.sort((a, b) => b.score - a.score || a.id - b.id);
+    const tie = scored.length > 1 && scored[1].score === scored[0].score;
+    if (tie && warnAcc) {
+        warnAcc.push('Nhiều bệnh Đông y cùng điểm khớp với «' + raw + '» — chọn id ' + scored[0].id);
+    }
+    return scored[0].id;
+}
+
+/** Trả về id phap_tri đang giữ id_benh_dong_y (ràng buộc UNIQUE), trừ bản ghi excludePhapTriId. */
+function ptPhapTriBenhLinkedByOther(idBenhDongY, excludePhapTriId) {
+    if (idBenhDongY == null) return null;
+    const want = Number(idBenhDongY);
+    for (const p of _thuocData.phapTriList || []) {
+        if (excludePhapTriId != null && Number(p.id) === Number(excludePhapTriId)) continue;
+        const bid = p.id_benh_dong_y ?? p.idBenhDongY ?? (p.benh_dong_y && p.benh_dong_y.id);
+        if (bid != null && Number(bid) === want) return p.id;
+    }
+    return null;
+}
+
 function ptResolveBaiThuocIdFromExcel(name) {
     const s = String(name || '').trim();
     if (!s) return null;
@@ -1749,7 +1789,9 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         warnAcc.push('Một số tạng phủ/kinh không khớp: «' + tang_phu + '»');
     }
 
-    return {
+    const idBenhDy = ptBenhDongYIdFromChungTrangExcel(chungTrang, warnAcc);
+
+    const out = {
         chung_trang: chungTrang ? chungTrang : null,
         nguyen_tac: nguyen_tac ? nguyen_tac : null,
         y_nghia_co_che: y_nghia ? y_nghia : null,
@@ -1761,6 +1803,8 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         id_nhom_duoc_ly_nho: idNho,
         id_kinh_mach_list: idKinhList,
     };
+    if (idBenhDy != null) out.id_benh_dong_y = idBenhDy;
+    return out;
 }
 
 /**
@@ -1774,6 +1818,7 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     };
     dropNullFk('id_bai_thuoc');
     dropNullFk('id_nhom_duoc_ly_nho');
+    dropNullFk('id_benh_dong_y');
     const dropEmptyText = k => {
         const v = body[k];
         if (v == null || v === '') delete body[k];
@@ -1876,7 +1921,7 @@ function importPhapTriXlsx(e) {
                 alert('Không có dòng dữ liệu hợp lệ (bỏ qua dòng trống).');
                 return;
             }
-            if (!confirm(`Tìm thấy ${toProcess.length} dòng. Ghi vào hệ thống?\n• Cột «id» (nếu có): cập nhật đúng bản ghi.\n• Không có id: tìm bản ghi theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.`)) {
+            if (!confirm(`Tìm thấy ${toProcess.length} dòng. Ghi vào hệ thống?\n• Cột «id» (nếu có): cập nhật đúng bản ghi.\n• Không có id: tìm bản ghi pháp trị theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.\n• «Chứng trạng» đồng thời so với tieuket (tiểu kết) bệnh Đông y: khớp thì gán liên kết id_benh_dong_y (mỗi bệnh tối đa một pháp trị).`)) {
                 return;
             }
 
@@ -1896,6 +1941,13 @@ function importPhapTriXlsx(e) {
                 const rowWarn = [];
                 const payload = ptBuildPayloadFromExcelRow(row, rowWarn);
                 const { targetId, via, extraWarn } = ptResolveUpsertPhapTriTarget(row, payload, existingIds);
+                if (payload.id_benh_dong_y != null) {
+                    const occ = ptPhapTriBenhLinkedByOther(payload.id_benh_dong_y, targetId);
+                    if (occ != null) {
+                        rowWarn.push('Bệnh Đông y này đã liên kết pháp trị #' + occ + ' — bỏ qua id_benh_dong_y');
+                        delete payload.id_benh_dong_y;
+                    }
+                }
                 if (rowWarn.length) {
                     allWarn.push('Dòng ~' + idx + ': ' + rowWarn.join('; '));
                 }

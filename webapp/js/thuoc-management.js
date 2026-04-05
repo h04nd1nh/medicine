@@ -1371,7 +1371,7 @@ async function renderPhapTriTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" title="Cột «Chứng trạng» khớp tieuket (tiểu kết) trong mô hình bệnh Đông y thì tự gán id_benh_dong_y. Tùy chọn cột id. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược. Nhiều mục trong một ô: dấu phẩy hoặc dấu + (cùng ý nghĩa)."
+                <button type="button" class="btn btn-outline" title="Không cột id: khớp 100%% phần tiểu kết (trước ngoặc) với tieuket → cập nhật phap_tri có id_benh_dong_y; không khớp → tạo mới. Cột id: cập nhật đúng bản ghi. Có Chứng trạng: gán id_benh_dong_y hoặc null. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược."
                     onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
                 <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
@@ -1737,6 +1737,32 @@ function ptPickChungTrangFromRow(row) {
     return '';
 }
 
+/**
+ * Phần dùng để so khớp 100% với tiểu kết (tieuket): chuẩn hóa + lowercase,
+ * chỉ lấy đoạn trước ngoặc ( hoặc （ đầu tiên — bỏ mô tả trong ngoặc.
+ * Ví dụ tieuket «A (ghi chú)» và ô Excel «A» → cùng base «a».
+ */
+function ptTieuKetCompareBase(raw) {
+    const n = ptStrNorm(ptCleanChungTrangCell(raw));
+    if (!n) return '';
+    const cut = n.split(/[（(]/)[0];
+    return cut.replace(/\s+/g, ' ').trim();
+}
+
+/** Danh sách id mô hình bệnh (modelId) có tieuket trùng base với ô Chứng trạng Excel. */
+function ptBenhIdsMatchingTieuKetBase(excelRaw) {
+    const want = ptTieuKetCompareBase(excelRaw);
+    if (!want) return [];
+    const ids = [];
+    for (const m of _thuocData.benhDongYModels || []) {
+        const tk = String(m.ten != null ? m.ten : '').trim();
+        if (!tk) continue;
+        if (ptTieuKetCompareBase(tk) === want) ids.push(m.modelId);
+    }
+    ids.sort((a, b) => Number(a) - Number(b));
+    return ids;
+}
+
 /** Khớp text chứng trạng Excel ↔ bản ghi đã lưu (đúng chữ, tiền tố có ranh giới khoảng, hoặc cùng chữ sau khi bỏ mọi khoảng trắng). */
 function ptNormTieuKetCompatible(snNorm, tkNorm) {
     if (!snNorm || !tkNorm) return false;
@@ -1749,28 +1775,23 @@ function ptNormTieuKetCompatible(snNorm, tkNorm) {
     return false;
 }
 
-/** Id benh_dong_y (modelId) nếu cột «Chứng trạng» Excel khớp tieuket (tiểu kết) trong danh mục mô hình bệnh. */
+/** Id benh_dong_y khi Chứng trạng Excel trùng base tiểu kết với đúng một tieuket trong danh mục. */
 function ptBenhDongYIdFromChungTrangExcel(chungTrangRaw, warnAcc) {
     const raw = ptCleanChungTrangCell(String(chungTrangRaw || ''));
     if (!raw) return null;
-    const models = _thuocData.benhDongYModels || [];
-    const scored = [];
-    for (const m of models) {
-        const tk = String(m.ten != null ? m.ten : '').trim();
-        if (!tk) continue;
-        const score = ptChungTrangMatchScore(raw, tk);
-        if (score > 0) scored.push({ id: m.modelId, score });
-    }
-    if (!scored.length) {
-        if (warnAcc) warnAcc.push('Không tìm thấy bệnh Đông y (tieuket) khớp «' + raw + '»');
+    const ids = ptBenhIdsMatchingTieuKetBase(chungTrangRaw);
+    if (!ids.length) return null;
+    if (ids.length > 1 && warnAcc) {
+        warnAcc.push(
+            'Nhiều bệnh cùng tiểu kết «' +
+                ptTieuKetCompareBase(chungTrangRaw) +
+                '» (sau ngoặc) — id: ' +
+                ids.join(', ') +
+                ' — không gán id_benh_dong_y',
+        );
         return null;
     }
-    scored.sort((a, b) => b.score - a.score || a.id - b.id);
-    const tie = scored.length > 1 && scored[1].score === scored[0].score;
-    if (tie && warnAcc) {
-        warnAcc.push('Nhiều bệnh Đông y cùng điểm khớp với «' + raw + '» — chọn id ' + scored[0].id);
-    }
-    return scored[0].id;
+    return ids[0];
 }
 
 /** Trả về id phap_tri đang giữ id_benh_dong_y (ràng buộc UNIQUE), trừ bản ghi excludePhapTriId. */
@@ -1869,7 +1890,8 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         warnAcc.push('Một số tạng phủ/kinh không khớp: «' + tang_phu + '»');
     }
 
-    const idBenhDy = ptBenhDongYIdFromChungTrangExcel(chungTrang, warnAcc);
+    const chungClean = ptCleanChungTrangCell(chungTrang);
+    const idBenhDy = chungClean ? ptBenhDongYIdFromChungTrangExcel(chungTrang, warnAcc) : null;
 
     const out = {
         chung_trang: chungTrang ? chungTrang : null,
@@ -1883,13 +1905,17 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         id_nhom_duoc_ly_nho: idNho,
         id_kinh_mach_list: idKinhList,
     };
-    if (idBenhDy != null) out.id_benh_dong_y = idBenhDy;
+    /** Có Chứng trạng → luôn gán FK bệnh: khớp tieuket hoặc null (không cảnh báo khi không tìm thấy). */
+    if (chungClean) {
+        out.id_benh_dong_y = idBenhDy != null ? idBenhDy : null;
+    }
     return out;
 }
 
 /**
- * PUT pháp trị: backend só aplica chaves presentes no JSON. Valores null apagam FK/texto.
- * Excel com ô trống / tên không khớp → não enviar a chave, para não apagar dado já salvo (merge).
+ * PUT pháp trị: backend chỉ đổi các key có trong JSON; null xóa FK/texto.
+ * Import Excel: có Chứng trạng thì gửi id_benh_dong_y (số hoặc null) để đồng bộ tieuket — null vẫn gửi.
+ * Ô Chứng trạng trống → payload không có id_benh_dong_y → không đổi liên kết bệnh cũ.
  */
 function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     const body = { ...payload };
@@ -1898,7 +1924,6 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     };
     dropNullFk('id_bai_thuoc');
     dropNullFk('id_nhom_duoc_ly_nho');
-    dropNullFk('id_benh_dong_y');
     const dropEmptyText = k => {
         const v = body[k];
         if (v == null || v === '') delete body[k];
@@ -1923,24 +1948,57 @@ function ptResolveUpsertPhapTriTarget(row, payload, existingIds) {
         return { targetId: idNum, via: 'id', extraWarn: null };
     }
     const excelChung = payload.chung_trang || '';
-    if (ptCleanChungTrangCell(excelChung)) {
-        const scored = [];
-        for (const p of _thuocData.phapTriList || []) {
-            const ct = p.chung_trang != null ? p.chung_trang : p.chungTrang;
-            const score = ptChungTrangMatchScore(excelChung, String(ct || ''));
-            if (score > 0) scored.push({ p, score });
-        }
-        if (scored.length > 0) {
-            scored.sort((a, b) => b.score - a.score || a.p.id - b.p.id);
-            const chosen = scored[0].p;
-            const tie = scored.length > 1 && scored[1].score === scored[0].score;
-            const extraWarn = tie
-                ? 'Nhiều bản ghi khớp chứng trạng (cùng điểm khớp) — cập nhật id ' + chosen.id
-                : null;
-            return { targetId: chosen.id, via: 'chung_trang_text', extraWarn };
-        }
+    if (!ptCleanChungTrangCell(excelChung)) {
+        return { targetId: null, via: 'create', extraWarn: null };
     }
-    return { targetId: null, via: 'create', extraWarn: null };
+    const wantBase = ptTieuKetCompareBase(excelChung);
+    if (!wantBase) {
+        return { targetId: null, via: 'create', extraWarn: null };
+    }
+    const matchedBenhIds = ptBenhIdsMatchingTieuKetBase(excelChung);
+    if (!matchedBenhIds.length) {
+        return { targetId: null, via: 'create', extraWarn: null };
+    }
+    const ptRows = (_thuocData.phapTriList || []).filter(p => {
+        const rid = p.id_benh_dong_y ?? p.idBenhDongY ?? (p.benh_dong_y && p.benh_dong_y.id);
+        if (rid == null) return false;
+        return matchedBenhIds.some(mid => Number(mid) === Number(rid));
+    });
+    if (matchedBenhIds.length === 1) {
+        if (ptRows.length === 1) {
+            return { targetId: ptRows[0].id, via: 'tieuket_exact', extraWarn: null };
+        }
+        if (ptRows.length === 0) {
+            return { targetId: null, via: 'create', extraWarn: null };
+        }
+        return {
+            targetId: null,
+            via: 'create',
+            extraWarn:
+                'Nhiều dòng pháp trị cùng id_benh_dong_y = ' +
+                matchedBenhIds[0] +
+                ' (bất thường) — không tự chọn; dùng cột id.',
+        };
+    }
+    if (ptRows.length === 1) {
+        return {
+            targetId: ptRows[0].id,
+            via: 'tieuket_exact',
+            extraWarn:
+                'Nhiều bệnh cùng tiểu kết «' +
+                wantBase +
+                '» nhưng chỉ một pháp trị liên kết — cập nhật id ' +
+                ptRows[0].id,
+        };
+    }
+    return {
+        targetId: null,
+        via: 'create',
+        extraWarn:
+            'Nhiều bệnh cùng tiểu kết «' +
+            wantBase +
+            '» — dùng cột id trong Excel hoặc phân biệt tieuket trong CSDL.',
+    };
 }
 
 function exportPhapTriXlsx() {
@@ -2255,8 +2313,8 @@ function importPhapTriXlsx(e) {
                 toProcess.length +
                 ' dòng. Ghi vào hệ thống?\n\n' +
                 '• Cột «id» (nếu có): cập nhật đúng bản ghi.\n' +
-                '• Không có id: tìm bản ghi pháp trị theo «Chứng trạng» (khớp cả khi khác dấu / thừa khoảng trắng / gần giống); không tìm thấy thì tạo mới.\n' +
-                '• «Chứng trạng» đồng thời so với tieuket (tiểu kết) bệnh Đông y: khớp thì gán liên kết id_benh_dong_y (mỗi bệnh tối đa một pháp trị).';
+                '• Không có id: tìm bản ghi pháp trị theo tiểu kết — so khớp 100%% phần trước ngoặc () với tieuket mô hình bệnh; cập nhật đúng dòng có id_benh_dong_y tương ứng; không khớp bệnh nào thì tạo mới.\n' +
+                '• Có «Chứng trạng»: gán id_benh_dong_y khi trùng base tiểu kết; không khớp hoặc trùng nhiều bệnh không rõ → null. Mỗi bệnh tối đa một pháp trị.';
             const confirmed = await ptPhapTriShowDialog({ type: 'confirm', variant: 'info', message: confirmMsg });
             if (!confirmed) return;
 
@@ -2294,7 +2352,17 @@ function importPhapTriXlsx(e) {
                         const updateBody = ptPayloadOmitEmptyForPhapTriUpdate(payload);
                         const res = await apiUpdatePhapTri(targetId, updateBody);
                         if (!res.success) {
-                            errors.push('Dòng ' + idx + (via === 'id' ? ' (id ' + targetId + ')' : ' (chứng trạng → id ' + targetId + ')') + ': ' + (res.error || 'Lỗi'));
+                            errors.push(
+                                'Dòng ' +
+                                    idx +
+                                    (via === 'id'
+                                        ? ' (id ' + targetId + ')'
+                                        : via === 'tieuket_exact'
+                                          ? ' (tiểu kết → id ' + targetId + ')'
+                                          : ' (→ id ' + targetId + ')') +
+                                    ': ' +
+                                    (res.error || 'Lỗi'),
+                            );
                             continue;
                         }
                         updated++;

@@ -17,6 +17,78 @@ let _dhDraftPhuongHuyet = [];
 // Mỗi dòng = 1 huyệt
 let _pdDraftPhuongHuyet = [];
 
+/** Triệu chứng dạng chip trong form danh mục bệnh Đông y (đồng bộ cách tách với backend sync → phap_tri) */
+let _dyTrieuChungChips = [];
+
+function dyTrieuChungTextToChips(raw) {
+    if (raw == null) return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    const parts = s
+        .split(/[\n\r,;，、]+/)
+        .map((t) => t.replace(/^\s*[-•*·]\s+/, '').trim())
+        .filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const p of parts) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        out.push(p);
+    }
+    return out;
+}
+
+function dyTrieuChungChipsToString() {
+    return (_dyTrieuChungChips || []).map((x) => String(x).trim()).filter(Boolean).join(', ');
+}
+
+function dyRemoveTrieuChungChip(term) {
+    _dyTrieuChungChips = (_dyTrieuChungChips || []).filter((x) => x !== term);
+    dyRenderTrieuChungChips();
+}
+
+function dyOnTrieuChungChipKeydown(ev) {
+    if (ev.key === 'Enter' && ev.target.value.trim()) {
+        ev.preventDefault();
+        const inp = document.getElementById('dy-inp-trieuchung');
+        if (!inp) return;
+        const v = inp.value.trim();
+        if (!v) return;
+        if (!_dyTrieuChungChips.includes(v)) _dyTrieuChungChips.push(v);
+        inp.value = '';
+        dyRenderTrieuChungChips();
+    }
+}
+
+function dyRenderTrieuChungChips() {
+    const container = document.getElementById('dy-chips-trieuchung');
+    const input = document.getElementById('dy-inp-trieuchung');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_dyTrieuChungChips || []).forEach((term) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(term + ' '));
+        const x = document.createElement('span');
+        x.className = 'chip-remove';
+        x.textContent = '×';
+        x.onclick = (e) => {
+            e.stopPropagation();
+            dyRemoveTrieuChungChip(term);
+        };
+        chip.appendChild(x);
+        container.insertBefore(chip, input);
+    });
+}
+
+function dyTrieuChungTablePreview(raw) {
+    const parts = dyTrieuChungTextToChips(raw);
+    if (!parts.length) return '<span style="color:#D1D5DB">—</span>';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:320px;align-items:flex-start;">${parts
+        .map((p) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(p)}</span>`)
+        .join('')}</div>`;
+}
+
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initDongyManagement() {
     await loadAllDongyData();
@@ -135,7 +207,7 @@ function renderBenhDongYTab(el) {
             <tr>
                 <td style="text-align:center;font-size:0.72rem;color:#78716c;white-space:nowrap;">${dyCellShortText(id)}</td>
                 <td style="min-width:140px;white-space:normal;">${dyCellShortText(f.tieuket)}</td>
-                <td>${dyCellLongText(f.trieuchung)}</td>
+                <td>${dyTrieuChungTablePreview(f.trieuchung)}</td>
                 <td>${dyCellLongText(f.benhly)}</td>
                 <td>${dyCellLongText(f.phuyet_chamcuu)}</td>
                 <td>${dyCellLongText(f.giainghia_phuyet)}</td>
@@ -173,10 +245,19 @@ function openBenhDongYForm(givenId) {
     const item = givenId ? _dongyData.benhDongY.find(x => (x.id == givenId || x.id_benh == givenId || x.modelId == givenId)) : null;
     const realId = item ? (item.id || item.id_benh || item.modelId) : null;
     const f = dyBenhDisplayFields(item);
+    _dyTrieuChungChips = dyTrieuChungTextToChips(f.trieuchung);
 
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tiểu kết (tieuket)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${escHtml(f.tieuket)}"></label>
-        <label class="tayy-form-label">Triệu chứng<br><textarea id="dy-inp-trieuchung" class="tayy-form-input" rows="4">${escHtml(f.trieuchung)}</textarea></label>
+        <label class="tayy-form-label">Triệu chứng <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(chip — Enter để thêm)</span>
+            <div style="position:relative;margin-top:6px;">
+                <div id="dy-chips-trieuchung" class="chips-container" onclick="document.getElementById('dy-inp-trieuchung').focus()">
+                    <input id="dy-inp-trieuchung" type="text" class="chip-input"
+                        placeholder="Gõ triệu chứng, Enter để thêm chip..."
+                        onkeydown="dyOnTrieuChungChipKeydown(event)">
+                </div>
+            </div>
+        </label>
         <label class="tayy-form-label">Bệnh lý<br><textarea id="dy-inp-benhly" class="tayy-form-input" rows="4">${escHtml(f.benhly)}</textarea></label>
         <label class="tayy-form-label">Phụyết châm cứu<br><textarea id="dy-inp-phuyet-chamcuu" class="tayy-form-input" rows="4">${escHtml(f.phuyet_chamcuu)}</textarea></label>
         <label class="tayy-form-label">Giải nghĩa phương huyệt <span style="font-weight:400;color:#A09580;">(giainghia_phuyet)</span><br><textarea id="dy-inp-giainghia-phuyet" class="tayy-form-input" rows="4">${escHtml(f.giainghia_phuyet)}</textarea></label>
@@ -186,6 +267,7 @@ function openBenhDongYForm(givenId) {
             <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu</button>
         </div>
     `, 'wide');
+    dyRenderTrieuChungChips();
 }
 
 async function saveBenhDongY(id) {
@@ -194,7 +276,7 @@ async function saveBenhDongY(id) {
 
     const payload = {
         ten: tieuket,
-        trieuchung: document.getElementById('dy-inp-trieuchung').value.trim(),
+        trieuchung: dyTrieuChungChipsToString(),
         phaptri: document.getElementById('dy-inp-benhly').value.trim(),
         phuonghuyet: document.getElementById('dy-inp-phuyet-chamcuu').value.trim(),
         giainghia_phuyet: document.getElementById('dy-inp-giainghia-phuyet').value.trim(),

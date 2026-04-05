@@ -13,6 +13,7 @@ import type { BaiThuocPhapTri } from './bai-thuoc-phap-tri.model';
 import { NhomDuocLyNho } from './nhom-duoc-ly-nho.model';
 import { KinhMach } from './kinh-mach.model';
 import { MeridianSyndrome } from './meridian-syndrome.model';
+import { TrieuChung } from './trieu-chung.model';
 
 @Entity('phap_tri')
 export class PhapTri {
@@ -65,4 +66,13 @@ export class PhapTri {
     inverseJoinColumn: { name: 'id_kinh_mach', referencedColumnName: 'idKinhMach' },
   })
   kinh_mach_list: KinhMach[];
+
+  /** Liên kết cứng tới bảng trieu_chung; trieu_chung_mo_ta được đồng bộ từ tên (và phần không khớp vẫn giữ trong text). */
+  @ManyToMany(() => TrieuChung)
+  @JoinTable({
+    name: 'phap_tri_trieu_chung',
+    joinColumn: { name: 'id_phap_tri', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_trieu_chung', referencedColumnName: 'id' },
+  })
+  trieu_chung_list: TrieuChung[];
 }

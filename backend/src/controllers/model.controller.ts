@@ -39,19 +39,46 @@ export class ModelsService {
     return ordered.join(', ');
   }
 
-  /** Đồng bộ tiểu kết / triệu chứng / bệnh lý sang mọi pháp trị gắn id_benh_dong_y */
+  /** Đồng bộ tiểu kết / triệu chứng / bệnh lý sang mọi pháp trị gắn id_benh_dong_y (kèm quan hệ trieu_chung_list). */
   private async syncLinkedPhapTriFromBenh(b: MeridianSyndrome): Promise<void> {
     const chipCsv = this.trieuchungToChipCsv(b.trieuchung);
-    await this.phapTriRepo
-      .createQueryBuilder()
-      .update(PhapTri)
-      .set({
-        chung_trang: b.tieuket ?? null,
-        trieu_chung_mo_ta: chipCsv,
-        nguyen_tac: b.benhly ?? null,
-      })
-      .where('id_benh_dong_y = :id', { id: b.id })
-      .execute();
+    const pts = await this.phapTriRepo.find({
+      where: { benh_dong_y: { id: b.id } },
+      relations: ['trieu_chung_list'],
+    });
+    if (!pts.length) return;
+    const allTc = await this.trieuChungRepo.find();
+    const byLower = new Map(allTc.map((t) => [t.ten_trieu_chung.trim().toLowerCase(), t]));
+    const parts = chipCsv
+      ? chipCsv
+          .split(/[\n\r,;，、]+/)
+          .map((t) => t.replace(/^\s*[-•*·]\s+/, '').trim())
+          .filter(Boolean)
+      : [];
+    const seenPart = new Set<string>();
+    const orderedParts: string[] = [];
+    for (const p of parts) {
+      const k = p.toLowerCase();
+      if (seenPart.has(k)) continue;
+      seenPart.add(k);
+      orderedParts.push(p);
+    }
+    const seenId = new Set<number>();
+    const triList: TrieuChung[] = [];
+    for (const p of orderedParts) {
+      const hit = byLower.get(p.toLowerCase());
+      if (hit && !seenId.has(hit.id)) {
+        seenId.add(hit.id);
+        triList.push(hit);
+      }
+    }
+    for (const pt of pts) {
+      pt.chung_trang = b.tieuket ?? null;
+      pt.nguyen_tac = b.benhly ?? null;
+      pt.trieu_chung_mo_ta = chipCsv;
+      pt.trieu_chung_list = triList;
+      await this.phapTriRepo.save(pt);
+    }
   }
 
   findAll(): Promise<MeridianSyndrome[]> {

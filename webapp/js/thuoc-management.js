@@ -1196,11 +1196,34 @@ let _ptChips = {
     bat_phap: [],
     bat_cuong: [],
     luc_dam: [],
-    trieu_chung_mo_ta: [],
 };
 let _ptKinhIds = [];
 /** Bài thuốc tham chiếu trong form pháp trị — { id, ten_bai_thuoc }[] */
 let _ptBaiThuocDraft = [];
+/** Triệu chứng pháp trị — { id, ten_trieu_chung }; id null = legacy chưa khớp danh mục */
+let _ptDraftTrieuChung = [];
+
+function ptTrieuChungDraftFromPhapTriItem(item) {
+    if (!item) return [];
+    const list = item.trieu_chung_list || item.trieuChungList;
+    if (Array.isArray(list) && list.length) {
+        return list
+            .map((t) => ({
+                id: t.id,
+                ten_trieu_chung: String(t.ten_trieu_chung || '').trim(),
+            }))
+            .filter((x) => x.id != null && x.ten_trieu_chung);
+    }
+    const names = ptCsvToArr(item.trieu_chung_mo_ta);
+    return names.map((n) => {
+        const hit = (_thuocData.trieuChung || []).find(
+            (tc) => String(tc.ten_trieu_chung || '').trim().toLowerCase() === n.toLowerCase(),
+        );
+        return hit
+            ? { id: hit.id, ten_trieu_chung: String(hit.ten_trieu_chung || '').trim() }
+            : { id: null, ten_trieu_chung: n };
+    });
+}
 
 function ptBaiThuocListFromPhapTriRow(r) {
     if (!r) return [];
@@ -1299,9 +1322,10 @@ function ptNhomNhoOptionsHtml(selectedId) {
 }
 
 function ptResetChips() {
-    _ptChips = { bat_phap: [], bat_cuong: [], luc_dam: [], trieu_chung_mo_ta: [] };
+    _ptChips = { bat_phap: [], bat_cuong: [], luc_dam: [] };
     _ptKinhIds = [];
     _ptBaiThuocDraft = [];
+    _ptDraftTrieuChung = [];
 }
 
 function ptRemoveChip(field, term) {
@@ -1316,7 +1340,6 @@ function ptOnChipKeydown(field, ev) {
             bat_phap: 'pt-inp-batphap',
             bat_cuong: 'pt-inp-batcuong',
             luc_dam: 'pt-inp-lucdam',
-            trieu_chung_mo_ta: 'pt-inp-tcmota',
         };
         const inp = document.getElementById(idMap[field]);
         if (!inp) return;
@@ -1333,7 +1356,6 @@ function ptRenderChipGroups() {
         { field: 'bat_phap', box: 'pt-chips-batphap', inp: 'pt-inp-batphap' },
         { field: 'bat_cuong', box: 'pt-chips-batcuong', inp: 'pt-inp-batcuong' },
         { field: 'luc_dam', box: 'pt-chips-lucdam', inp: 'pt-inp-lucdam' },
-        { field: 'trieu_chung_mo_ta', box: 'pt-chips-tcmota', inp: 'pt-inp-tcmota' },
     ];
     for (const { field, box, inp } of spec) {
         const container = document.getElementById(box);
@@ -1352,6 +1374,164 @@ function ptRenderChipGroups() {
             container.insertBefore(chip, input);
         });
     }
+}
+
+// ─── Pháp trị: triệu chứng từ danh mục trieu_chung + soft create (giống form bài thuốc) ───
+function ptRenderTrieuChungChipsPhapTri() {
+    const container = document.getElementById('pt-chips-trieuchung');
+    const input = document.getElementById('pt-inp-trieuchung');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_ptDraftTrieuChung || []).forEach((row) => {
+        const label = String(row.ten_trieu_chung || '').trim();
+        if (!label) return;
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(label + ' '));
+        const x = document.createElement('span');
+        x.className = 'chip-remove';
+        x.textContent = '×';
+        x.onclick = (e) => {
+            e.stopPropagation();
+            ptRemoveTrieuChungChipPhapTri(row.id, label);
+        };
+        chip.appendChild(x);
+        container.insertBefore(chip, input);
+    });
+}
+
+function ptRemoveTrieuChungChipPhapTri(id, ten) {
+    const t = String(ten || '').trim();
+    if (id != null && Number.isFinite(Number(id))) {
+        _ptDraftTrieuChung = (_ptDraftTrieuChung || []).filter((x) => x.id !== id);
+    } else {
+        _ptDraftTrieuChung = (_ptDraftTrieuChung || []).filter((x) => x.ten_trieu_chung !== t);
+    }
+    ptRenderTrieuChungChipsPhapTri();
+}
+
+function ptDraftHasTrieuChungRow(id, ten) {
+    const low = String(ten || '').trim().toLowerCase();
+    return (_ptDraftTrieuChung || []).some((x) => {
+        if (id != null && Number.isFinite(Number(id)) && x.id === id) return true;
+        return String(x.ten_trieu_chung || '').trim().toLowerCase() === low;
+    });
+}
+
+function ptSelectTrieuChungPhapTriPick(id, name) {
+    const ten = String(name || '').trim();
+    if (!ten || ptDraftHasTrieuChungRow(id, ten)) return;
+    _ptDraftTrieuChung.push({ id: id != null && Number.isFinite(Number(id)) ? Number(id) : null, ten_trieu_chung: ten });
+    const inp = document.getElementById('pt-inp-trieuchung');
+    const suggestEl = document.getElementById('pt-trieuchung-suggest');
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    if (suggestEl) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+    }
+    ptRenderTrieuChungChipsPhapTri();
+}
+
+function ptOnTrieuChungPhapTriInput() {
+    const inp = document.getElementById('pt-inp-trieuchung');
+    const suggestEl = document.getElementById('pt-trieuchung-suggest');
+    if (!suggestEl || !inp) return;
+    const val = inp.value || '';
+    const query = val.trim().toLowerCase();
+    if (!query) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+        return;
+    }
+
+    const allRows = _thuocData.trieuChung || [];
+    const allNames = allRows.map((t) => String(t.ten_trieu_chung || '').trim()).filter(Boolean);
+    const filtered = allRows
+        .filter((t) => {
+            const n = String(t.ten_trieu_chung || '').trim();
+            return n.toLowerCase().includes(query) && !ptDraftHasTrieuChungRow(t.id, n);
+        })
+        .slice(0, 12);
+    const hasExact = allNames.some((n) => n.toLowerCase() === query);
+
+    let html = '';
+    if (filtered.length > 0) {
+        html += filtered
+            .map(
+                (t) =>
+                    `<div class="tayy-suggest-item" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #F0E8D8;font-size:0.85rem;" 
+                        onmousedown="event.preventDefault();ptSelectTrieuChungPhapTriPick(${t.id},${JSON.stringify(String(t.ten_trieu_chung || '').trim())})">${escHtml(String(t.ten_trieu_chung || '').trim())}</div>`,
+            )
+            .join('');
+    } else {
+        html += `<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không tìm thấy triệu chứng có sẵn</div>`;
+    }
+    if (!hasExact && val.trim()) {
+        const shown = escHtml(val.trim());
+        html += `<div style="padding:8px 10px;cursor:pointer;background:#FAF6EE;border-top:1px dashed #D4C5A0;margin-top:4px;font-size:0.82rem;" 
+            onmousedown="event.preventDefault();ptSoftCreateTrieuChungPhapTriFromInput()">
+            <strong style="color:#CA6222;">+</strong> Thêm triệu chứng «${shown}» vào danh mục
+        </div>`;
+    }
+    suggestEl.innerHTML = html;
+    suggestEl.style.display = 'block';
+}
+
+function ptOnTrieuChungPhapTriInputFocus() {
+    ptOnTrieuChungPhapTriInput();
+}
+
+function ptOnTrieuChungPhapTriKeydown(ev) {
+    if (ev.key !== 'Enter') return;
+    const inp = document.getElementById('pt-inp-trieuchung');
+    if (!inp) return;
+    const raw = inp.value.trim();
+    if (!raw) return;
+    ev.preventDefault();
+    const low = raw.toLowerCase();
+    const fromCat = (_thuocData.trieuChung || []).find(
+        (t) => String(t.ten_trieu_chung || '').trim().toLowerCase() === low,
+    );
+    if (fromCat) {
+        ptSelectTrieuChungPhapTriPick(fromCat.id, String(fromCat.ten_trieu_chung).trim());
+        return;
+    }
+    ptSoftCreateTrieuChungPhapTri(raw);
+}
+
+function ptSoftCreateTrieuChungPhapTriFromInput() {
+    const inp = document.getElementById('pt-inp-trieuchung');
+    const name = (inp?.value || '').trim();
+    if (!name) return;
+    return ptSoftCreateTrieuChungPhapTri(name);
+}
+
+async function ptSoftCreateTrieuChungPhapTri(name) {
+    if (!name) return;
+    const inp = document.getElementById('pt-inp-trieuchung');
+    const suggestEl = document.getElementById('pt-trieuchung-suggest');
+    if (inp) {
+        inp.disabled = true;
+        inp.value = 'Đang thêm...';
+    }
+    if (suggestEl) suggestEl.style.display = 'none';
+
+    const res = await apiCreateTrieuChung({ ten_trieu_chung: name });
+    if (inp) {
+        inp.disabled = false;
+        inp.value = '';
+        inp.focus();
+    }
+    if (!res.success) {
+        alert('Lỗi khi thêm triệu chứng: ' + (res.error || ''));
+        return;
+    }
+    _thuocData.trieuChung = _thuocData.trieuChung || [];
+    _thuocData.trieuChung.push({ id: res.id, ten_trieu_chung: name, ...(res.data || {}) });
+    ptSelectTrieuChungPhapTriPick(res.id, name);
 }
 
 function ptToggleKinhId(kid, on) {
@@ -1649,7 +1829,7 @@ async function openPhapTriRowForm(id) {
         _ptChips.bat_phap = ptCsvToArr(item.bat_phap);
         _ptChips.bat_cuong = ptCsvToArr(item.bat_cuong);
         _ptChips.luc_dam = ptCsvToArr(item.luc_dam);
-        _ptChips.trieu_chung_mo_ta = ptCsvToArr(item.trieu_chung_mo_ta);
+        _ptDraftTrieuChung = ptTrieuChungDraftFromPhapTriItem(item);
         _ptKinhIds = (item.kinh_mach_list || item.kinhMachList || []).map(k => kmRowId(k)).filter(n => Number.isFinite(n));
     }
     const chungInit = item ? String(item.chung_trang || item.chungTrang || '').trim() : '';
@@ -1738,12 +1918,18 @@ async function openPhapTriRowForm(id) {
                 <span class="pt-field-hint">Chọn gợi ý hoặc Enter; mỗi kinh một chip.</span>
             </div>
             <div>
-                <label class="tayy-form-label">Triệu chứng / mô tả lâm sàng</label>
-                <div id="pt-chips-tcmota" class="chips-container" onclick="document.getElementById('pt-inp-tcmota').focus()">
-                    <input id="pt-inp-tcmota" type="text" class="chip-input" placeholder="Mỗi triệu chứng — Enter…"
-                        onkeydown="ptOnChipKeydown('trieu_chung_mo_ta', event)">
+                <label class="tayy-form-label">Triệu chứng <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(danh mục triệu chứng)</span></label>
+                <div style="position:relative;margin-top:6px;">
+                    <div id="pt-chips-trieuchung" class="chips-container" onclick="document.getElementById('pt-inp-trieuchung').focus()">
+                        <input id="pt-inp-trieuchung" type="text" class="chip-input" placeholder="Gõ để tìm, Enter hoặc chọn gợi ý…"
+                            autocomplete="off"
+                            onfocus="ptOnTrieuChungPhapTriInputFocus()"
+                            oninput="ptOnTrieuChungPhapTriInput()"
+                            onkeydown="ptOnTrieuChungPhapTriKeydown(event)">
+                    </div>
+                    <div id="pt-trieuchung-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
                 </div>
-                <span class="pt-field-hint">Tự do gõ; Enter để tách từng triệu chứng.</span>
+                <span class="pt-field-hint">Chọn từ danh mục hoặc «+ Thêm» để tạo mới (soft create); nhiều chip.</span>
             </div>
         </div>
         <datalist id="pt-datalist-kinh"></datalist>
@@ -1786,6 +1972,7 @@ async function openPhapTriRowForm(id) {
         ptFillKinhMachDatalist();
         ptRenderKinhChipGroup();
         ptRenderBaiThuocChipsForPhapTri();
+        ptRenderTrieuChungChipsPhapTri();
     }, 0);
 }
 
@@ -1807,7 +1994,19 @@ async function savePhapTriRow(id) {
         bat_phap: ptArrToCsv(_ptChips.bat_phap) || null,
         bat_cuong: ptArrToCsv(_ptChips.bat_cuong) || null,
         luc_dam: ptArrToCsv(_ptChips.luc_dam) || null,
-        trieu_chung_mo_ta: ptArrToCsv(_ptChips.trieu_chung_mo_ta) || null,
+        ...(() => {
+            const tc = _ptDraftTrieuChung || [];
+            const allId =
+                tc.length > 0 &&
+                tc.every((t) => t.id != null && Number.isFinite(Number(t.id)));
+            if (!tc.length) {
+                return { id_trieu_chung_list: [] };
+            }
+            if (allId) {
+                return { id_trieu_chung_list: tc.map((t) => Number(t.id)) };
+            }
+            return { trieu_chung_mo_ta: ptArrToCsv(tc.map((t) => t.ten_trieu_chung)) || null };
+        })(),
         id_bai_thuoc_list: (_ptBaiThuocDraft || []).map((b) => b.id),
         id_nhom_duoc_ly_nho: numOrNull(document.getElementById('pt-sel-nhomnho')?.value),
         id_benh_dong_y: (() => {
@@ -2066,6 +2265,20 @@ function ptResolveBaiThuocIdsFromExcelCell(cell) {
     return [...new Set(ids)];
 }
 
+/** Chuẩn hóa từng mục triệu chứng theo tên trong danh mục `trieu_chung` (không phân biệt hoa thường). */
+function ptNormalizeTrieuChungMoTaForCatalog(csvLike) {
+    if (!csvLike || !String(csvLike).trim()) return '';
+    const parts = ptCsvToArr(String(csvLike));
+    if (!parts.length) return '';
+    const tc = _thuocData.trieuChung || [];
+    const normalized = parts.map((p) => {
+        const low = p.toLowerCase();
+        const hit = tc.find((t) => String(t.ten_trieu_chung || '').trim().toLowerCase() === low);
+        return hit ? String(hit.ten_trieu_chung).trim() : p;
+    });
+    return ptArrToCsv(normalized);
+}
+
 function ptResolveNhomNhoIdFromExcel(cell) {
     const s = String(cell || '').trim();
     if (!s) return null;
@@ -2124,7 +2337,9 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
     const bat_cuong = bat_cuongRaw ? ptExcelCellToCsvList(bat_cuongRaw) : '';
     const luc_dam = luc_damRaw ? ptExcelCellToCsvList(luc_damRaw) : '';
     const tang_phu = tang_phuRaw ? ptExcelCellToCsvList(tang_phuRaw) : '';
-    const trieu_chung = trieu_chungRaw ? ptExcelCellToCsvList(trieu_chungRaw) : '';
+    const trieu_chung = trieu_chungRaw
+        ? ptNormalizeTrieuChungMoTaForCatalog(ptExcelCellToCsvList(trieu_chungRaw))
+        : '';
     const bai_thuoc = ndlPickNhomCol(row, ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc']);
     const nhom_duoc = ndlPickNhomCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
 
@@ -2188,6 +2403,9 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     if (!Array.isArray(body.id_bai_thuoc_list)) {
         delete body.id_bai_thuoc_list;
     }
+    if (!Array.isArray(body.id_trieu_chung_list)) {
+        delete body.id_trieu_chung_list;
+    }
     const dropEmptyText = k => {
         const v = body[k];
         if (v == null || v === '') delete body[k];
@@ -2202,6 +2420,7 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     if (Array.isArray(body.id_kinh_mach_list) && body.id_kinh_mach_list.length === 0) {
         delete body.id_kinh_mach_list;
     }
+    /* id_trieu_chung_list: [] vẫn gửi để xóa hết triệu chứng quan hệ */
     return body;
 }
 

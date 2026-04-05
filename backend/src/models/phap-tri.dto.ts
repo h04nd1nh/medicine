@@ -14,6 +14,8 @@ export class CreatePhapTriDto {
   id_benh_dong_y?: number | null;
   /** Danh sách id kinh mạch (tạng phủ) */
   id_kinh_mach_list?: number[];
+  /** Danh sách id triệu chứng (bảng trieu_chung) — ưu tiên đồng bộ quan hệ + trieu_chung_mo_ta */
+  id_trieu_chung_list?: number[];
 }
 
 export class UpdatePhapTriDto {
@@ -29,4 +31,5 @@ export class UpdatePhapTriDto {
   id_nhom_duoc_ly_nho?: number | null;
   id_benh_dong_y?: number | null;
   id_kinh_mach_list?: number[];
+  id_trieu_chung_list?: number[];
 }

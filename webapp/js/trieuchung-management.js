@@ -3,6 +3,10 @@
 
 let _trieuchungData = {
     trieuChung: [],
+    baiThuoc: [],
+    phapTri: [],
+    benhKinhLac: [],
+    benhTayY: [],
 };
 
 async function initTrieuchungManagement() {
@@ -12,11 +16,78 @@ async function initTrieuchungManagement() {
 
 async function loadAllTrieuchungData() {
     try {
-        const tc = await apiGetTrieuChung();
+        const [tc, bt, pt, bkl, bty] = await Promise.all([
+            apiGetTrieuChung(),
+            apiGetBaiThuoc(),
+            apiGetPhapTri(),
+            apiGetModels(),
+            apiGetBenhTayY(),
+        ]);
         _trieuchungData.trieuChung = tc || [];
+        _trieuchungData.baiThuoc = bt || [];
+        _trieuchungData.phapTri = pt || [];
+        _trieuchungData.benhKinhLac = bkl || [];
+        _trieuchungData.benhTayY = bty || [];
     } catch (e) {
         console.error('Lỗi tải dữ liệu Triệu chứng:', e);
     }
+}
+
+function tcNorm(v) {
+    return String(v || '').trim().toLowerCase();
+}
+
+function tcCsvToSet(v) {
+    return new Set(
+        String(v || '')
+            .split(/[,;\n\r]+/)
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .map((x) => x.toLowerCase()),
+    );
+}
+
+function tcJoinNames(arr, max = 3) {
+    const list = Array.from(new Set((arr || []).map((x) => String(x || '').trim()).filter(Boolean)));
+    if (!list.length) return '—';
+    if (list.length <= max) return list.join(', ');
+    return list.slice(0, max).join(', ') + ` (+${list.length - max})`;
+}
+
+function tcBuildRelated(item) {
+    const name = String(item?.ten_trieu_chung || '').trim();
+    const key = tcNorm(name);
+    if (!key) return { baiThuoc: [], benhDongY: [], benhKinhLac: [], benhTayY: [] };
+
+    const baiThuoc = (_trieuchungData.baiThuoc || [])
+        .filter((b) => tcCsvToSet(b.trieu_chung).has(key))
+        .map((b) => b.ten_bai_thuoc || b.tenBaiThuoc || `#${b.id}`);
+
+    const benhKinhLac = (_trieuchungData.benhKinhLac || [])
+        .filter((m) => tcCsvToSet(m.trieuchung).has(key))
+        .map((m) => m.tieuket || m.ten || `#${m.id}`);
+
+    const benhDongY = (_trieuchungData.phapTri || [])
+        .flatMap((p) => {
+            const list = p.trieu_chung_list || p.trieuChungList || [];
+            const hasInList = Array.isArray(list)
+                ? list.some((t) => tcNorm(t?.ten_trieu_chung) === key)
+                : false;
+            const hasInText = tcCsvToSet(p.trieu_chung_mo_ta).has(key);
+            if (!hasInList && !hasInText) return [];
+            const benh = p.benh_dong_y || p.benhDongY;
+            const benhName = benh?.tieuket || benh?.ten;
+            return benhName ? [benhName] : [];
+        });
+
+    const benhTayY = (_trieuchungData.benhTayY || [])
+        .filter((b) => {
+            const list = b.trieuChungList || b.trieu_chung_list || [];
+            return Array.isArray(list) && list.some((t) => tcNorm(t?.ten_trieu_chung) === key);
+        })
+        .map((b) => b.ten_benh || b.tenBenh || b.name || `#${b.id}`);
+
+    return { baiThuoc, benhDongY, benhKinhLac, benhTayY };
 }
 
 function renderTrieuchungSection() {
@@ -44,9 +115,15 @@ function renderTrieuchungTable() {
     const el = document.getElementById('trieuchung-table-container');
     if (!el) return;
 
-    const rows = _trieuchungData.trieuChung.map(item => `
+    const rows = _trieuchungData.trieuChung.map(item => {
+        const related = tcBuildRelated(item);
+        return `
         <tr>
             <td><strong>${escHtml(item.ten_trieu_chung)}</strong></td>
+            <td style="font-size:0.82rem;">${escHtml(tcJoinNames(related.baiThuoc))}</td>
+            <td style="font-size:0.82rem;">${escHtml(tcJoinNames(related.benhDongY))}</td>
+            <td style="font-size:0.82rem;">${escHtml(tcJoinNames(related.benhKinhLac))}</td>
+            <td style="font-size:0.82rem;">${escHtml(tcJoinNames(related.benhTayY))}</td>
             <td style="text-align:center;width:160px;">
                 <div class="table-actions" style="justify-content:center;">
                     <button class="btn btn-sm btn-outline" onclick="openTrieuChungForm(${item.id})">✏ Sửa</button>
@@ -54,16 +131,21 @@ function renderTrieuchungTable() {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 
     el.innerHTML = `
         <div class="data-table-container">
-            <table>
+            <table style="min-width:1180px;">
                 <thead><tr>
                     <th>Tên triệu chứng</th>
+                    <th>Bài thuốc liên quan</th>
+                    <th>Bệnh Đông y liên quan</th>
+                    <th>Bệnh Kinh Lạc liên quan</th>
+                    <th>Bệnh Tây y liên quan</th>
                     <th style="text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="2" style="text-align:center;color:#A09580;">Chưa có dữ liệu triệu chứng</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#A09580;">Chưa có dữ liệu triệu chứng</td></tr>'}</tbody>
             </table>
         </div>
     `;

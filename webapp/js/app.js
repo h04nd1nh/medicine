@@ -73,7 +73,7 @@ async function _startApp() {
         } else if (parts[0] === 'patients') {
             showSection('patients');
         } else if (parts[0] === 'models') {
-            showSection('models');
+            showSection('dashboard');
         } else {
             showSection('dashboard');
         }
@@ -518,7 +518,6 @@ const _sections = {
     'new-record':   { title: 'Khám bệnh mới',   parent: 'patient-profile' },
     analysis:       { title: 'Phân tích',        parent: 'patient-profile' },
     reports:        { title: 'Báo cáo',          parent: 'dashboard' },
-    models:         { title: 'Mô hình bệnh',    parent: 'dashboard' },
     tayy:           { title: 'Bệnh Tây Y',       parent: 'dashboard' },
     dongy:          { title: 'Bệnh Kinh Lạc',     parent: 'dashboard' },
     appointments:   { title: 'Quản lý Lịch Khám', parent: 'dashboard' },
@@ -580,7 +579,6 @@ function _updateBreadcrumb(currentId) {
         'new-record': `/new-record`,
         analysis: `/analysis/${activeAnalysisRecord?.phieukhamId || ''}`,
         reports: '/reports',
-        models: '/models',
         tayy: '/tayy',
         dongy: '/dongy',
         appointments: '/appointments',

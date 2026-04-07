@@ -688,6 +688,212 @@ function pdcHieuLucShortForRow(item, max = 10) {
     return names.slice(0, max).join(', ') + ` (+${names.length - max})`;
 }
 
+function pdcNormText(v) {
+    return String(v || '').trim().toLowerCase();
+}
+
+function pdcFindBenhByTieuket(tieuket) {
+    const want = pdcNormText(tieuket);
+    if (!want) return null;
+    return (_dongyData.benhDongY || []).find((b) => {
+        const name = b.tieuket || b.ten || '';
+        return pdcNormText(name) === want;
+    }) || null;
+}
+
+function pdcFindPhacDoByTen(ten) {
+    const want = pdcNormText(ten);
+    if (!want) return null;
+    return (_dongyData.phacDoChuan || []).find((p) => pdcNormText(p.ten) === want) || null;
+}
+
+function pdcFindHuyetByToken(token) {
+    const raw = String(token || '').trim();
+    if (!raw) return null;
+    const asNum = parseInt(raw, 10);
+    if (Number.isFinite(asNum)) {
+        const byId = (_dongyData.huyetVi || []).find((h) => (h.idHuyet ?? h.id) == asNum);
+        if (byId) return byId;
+    }
+    const want = pdcNormText(raw);
+    return (_dongyData.huyetVi || []).find((h) => pdcNormText(h.ten_huyet || h.name) === want) || null;
+}
+
+function pdcExportExcel() {
+    if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
+    const rows = (_dongyData.phacDoChuan || []).map((item) => {
+        const benh = item.benhDongY || item.benh_dong_y;
+        const keThua = item.keThua || item.ke_thua;
+        const huyet = (item.huyetDong || item.huyet_dong || [])
+            .slice()
+            .sort((a, b) => (a.thuTu ?? a.thu_tu ?? 0) - (b.thuTu ?? b.thu_tu ?? 0))
+            .map((ln) => ({
+                id_huyet: ln.idHuyet ?? ln.id_huyet,
+                ten_huyet: ln?.huyetVi?.ten_huyet || ln?.huyet_vi?.ten_huyet || '',
+                phuong_phap_tac_dong: ln.phuong_phap_tac_dong || '',
+                vai_tro_huyet: ln.vai_tro_huyet || '',
+                ghi_chu_ky_thuat: ln.ghi_chu_ky_thuat || '',
+            }));
+        return {
+            id: item.id,
+            ten: item.ten || '',
+            id_benh_dong_y: item.idBenhDongY ?? item.id_benh_dong_y ?? '',
+            tieuket_benh_dong_y: benh?.tieuket || benh?.ten || '',
+            id_ke_thua: item.idKeThua ?? item.id_ke_thua ?? '',
+            ten_ke_thua: keThua?.ten || '',
+            ghi_chu: item.ghi_chu || '',
+            thu_tu_hien_thi: item.thuTuHienThi ?? item.thu_tu_hien_thi ?? 0,
+            'huyet_rieng_json': JSON.stringify(huyet),
+            'huyet_rieng_ids_hoac_ten': huyet.map((x) => x.id_huyet || x.ten_huyet).filter(Boolean).join(', '),
+        };
+    });
+    const emptyRow = {
+        id: '',
+        ten: '',
+        id_benh_dong_y: '',
+        tieuket_benh_dong_y: '',
+        id_ke_thua: '',
+        ten_ke_thua: '',
+        ghi_chu: '',
+        thu_tu_hien_thi: 0,
+        huyet_rieng_json: '[]',
+        huyet_rieng_ids_hoac_ten: '',
+    };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [emptyRow]), 'PhacDoDieuTri');
+    XLSX.writeFile(wb, 'Phac_Do_Dieu_Tri_Dong_Y.xlsx');
+}
+
+function pdcExtractHuyetLinesFromRow(row) {
+    const out = [];
+    const pushLine = (idHuyet, pp, vt, gc) => {
+        const hid = Number(idHuyet);
+        if (!Number.isFinite(hid)) return;
+        if (out.some((x) => x.id_huyet === hid)) return;
+        out.push({
+            id_huyet: hid,
+            thu_tu: out.length,
+            phuong_phap_tac_dong: pp || undefined,
+            vai_tro_huyet: vt || undefined,
+            ghi_chu_ky_thuat: gc || undefined,
+        });
+    };
+
+    const rawJson = row.huyet_rieng_json ?? row['huyet_rieng_json'] ?? row['Huyệt riêng JSON'] ?? '';
+    if (String(rawJson || '').trim()) {
+        try {
+            const arr = JSON.parse(String(rawJson));
+            if (Array.isArray(arr)) {
+                for (const it of arr) {
+                    const hv = pdcFindHuyetByToken(it?.id_huyet ?? it?.idHuyet ?? it?.ten_huyet ?? it?.tenHuyet ?? '');
+                    if (!hv) continue;
+                    pushLine(hv.idHuyet ?? hv.id, it?.phuong_phap_tac_dong, it?.vai_tro_huyet, it?.ghi_chu_ky_thuat);
+                }
+            }
+        } catch {
+            // fallback về cột text thường
+        }
+    }
+
+    if (!out.length) {
+        const rawText = row.huyet_rieng_ids_hoac_ten ?? row['huyet_rieng_ids_hoac_ten'] ?? row['Huyệt riêng'] ?? '';
+        const parts = String(rawText || '').split(/[,;\n\r]+/).map((x) => x.trim()).filter(Boolean);
+        for (const p of parts) {
+            const hv = pdcFindHuyetByToken(p);
+            if (!hv) continue;
+            pushLine(hv.idHuyet ?? hv.id, '', '', '');
+        }
+    }
+
+    return out;
+}
+
+async function importPhacDoChuanXlsx(e) {
+    if (typeof XLSX === 'undefined') return alert('Chưa tải xong thư viện Excel.');
+    const file = e.target.files?.[0];
+    const inputEl = e.target;
+    if (!file) return;
+    try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const validRows = (rows || []).filter((r) => String(r?.ten || '').trim());
+        if (!validRows.length) {
+            alert('File không có dòng hợp lệ (cần cột "ten").');
+            return;
+        }
+        if (!confirm(`Tìm thấy ${validRows.length} dòng. Tiếp tục nhập/cập nhật?`)) return;
+
+        await loadAllDongyData();
+        let created = 0;
+        let updated = 0;
+        const errors = [];
+
+        for (let i = 0; i < validRows.length; i++) {
+            const row = validRows[i];
+            const ten = String(row.ten || '').trim();
+            if (!ten) {
+                errors.push(`Dòng ${i + 2}: thiếu "ten".`);
+                continue;
+            }
+
+            const rowId = parseInt(row.id, 10);
+            const foundById = Number.isFinite(rowId) ? (_dongyData.phacDoChuan || []).find((x) => x.id === rowId) : null;
+            const foundByTen = !foundById ? pdcFindPhacDoByTen(ten) : null;
+            const target = foundById || foundByTen || null;
+
+            let idBenh = null;
+            const benhIdRaw = parseInt(row.id_benh_dong_y, 10);
+            if (Number.isFinite(benhIdRaw)) idBenh = benhIdRaw;
+            else if (String(row.tieuket_benh_dong_y || '').trim()) {
+                const benh = pdcFindBenhByTieuket(row.tieuket_benh_dong_y);
+                if (benh) idBenh = benh.modelId || benh.id || benh.id_benh || null;
+            }
+
+            let idKeThua = null;
+            const keIdRaw = parseInt(row.id_ke_thua, 10);
+            if (Number.isFinite(keIdRaw)) idKeThua = keIdRaw;
+            else if (String(row.ten_ke_thua || '').trim()) {
+                const ke = pdcFindPhacDoByTen(row.ten_ke_thua);
+                if (ke) idKeThua = ke.id;
+            }
+
+            const thuTu = parseInt(row.thu_tu_hien_thi, 10);
+            const body = {
+                ten,
+                id_ke_thua: Number.isFinite(idKeThua) ? idKeThua : null,
+                id_benh_dong_y: Number.isFinite(idBenh) ? idBenh : null,
+                ghi_chu: String(row.ghi_chu || '').trim() || null,
+                thu_tu_hien_thi: Number.isFinite(thuTu) ? thuTu : 0,
+                huyet: pdcExtractHuyetLinesFromRow(row),
+            };
+            if (target && target.id === body.id_ke_thua) body.id_ke_thua = null;
+
+            const res = target
+                ? await apiUpdatePhacDoChuan(target.id, body)
+                : await apiCreatePhacDoChuan(body);
+            if (!res.success) {
+                errors.push(`Dòng ${i + 2}: ${res.error || 'Lỗi không xác định'}`);
+                continue;
+            }
+            if (target) updated += 1;
+            else created += 1;
+            await loadAllDongyData();
+        }
+
+        renderDongySection();
+        const msg = [`Nhập Excel xong. Tạo mới: ${created}, Cập nhật: ${updated}.`];
+        if (errors.length) msg.push(`Lỗi (${errors.length}):\n- ${errors.join('\n- ')}`);
+        alert(msg.join('\n\n'));
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi đọc file Excel: ' + (err?.message || err));
+    } finally {
+        if (inputEl) inputEl.value = '';
+    }
+}
+
 function renderPhacDoChuanTab(el) {
     const list = _dongyData.phacDoChuan || [];
     const rows = list.map((item) => {
@@ -719,7 +925,10 @@ function renderPhacDoChuanTab(el) {
             Mỗi phác đồ có <strong>tên</strong>, tùy chọn <strong>kế thừa</strong> từ phác đồ khác (B = A + huyệt thêm),
             và danh sách <strong>huyệt riêng</strong> của dòng này. Cột «Huyệt hiệu lực» = gộp từ gốc kế thừa + riêng (trùng huyệt thì lấy bản sau).
         </p>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <button class="btn btn-outline" onclick="pdcExportExcel()">⬇ Xuất Excel</button>
+            <button class="btn btn-outline" onclick="document.getElementById('pdc-import-xlsx').click()">⬆ Nhập Excel</button>
+            <input type="file" id="pdc-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhacDoChuanXlsx(event)">
             <button class="btn btn-primary" onclick="openPhacDoChuanForm()">+ Thêm phác đồ</button>
         </div>
         <div class="data-table-container" style="overflow-x:auto;">

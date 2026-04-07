@@ -735,6 +735,43 @@ async function pdcFindOrCreateHuyetByName(name) {
     return item;
 }
 
+function pdcSetImportLoading(isLoading, message) {
+    const id = 'pdc-import-loading';
+    const old = document.getElementById(id);
+    if (!isLoading) {
+        if (old) old.remove();
+        return;
+    }
+    if (old) {
+        const msgEl = old.querySelector('[data-pdc-loading-msg]');
+        if (msgEl) msgEl.textContent = message || 'Đang xử lý...';
+        return;
+    }
+    const root = document.createElement('div');
+    root.id = id;
+    root.style.cssText =
+        'position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,0.28);' +
+        'display:flex;align-items:center;justify-content:center;padding:16px;';
+    root.innerHTML = `
+        <div style="min-width:320px;max-width:520px;background:#FFFDF7;border:1px solid #D4C5A0;border-radius:12px;padding:16px 18px;box-shadow:0 18px 42px rgba(0,0,0,0.25);">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:16px;height:16px;border:2px solid #D4C5A0;border-top-color:#8B1A1A;border-radius:50%;animation:pdcSpin 0.8s linear infinite;"></div>
+                <strong style="font-size:0.92rem;color:#5B3A1A;">Đang nhập Excel phác đồ</strong>
+            </div>
+            <div data-pdc-loading-msg style="margin-top:10px;color:#6B5A45;font-size:0.84rem;line-height:1.45;">
+                ${escHtml(message || 'Đang xử lý...')}
+            </div>
+        </div>
+    `;
+    if (!document.getElementById('pdc-spin-style')) {
+        const st = document.createElement('style');
+        st.id = 'pdc-spin-style';
+        st.textContent = '@keyframes pdcSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+        document.head.appendChild(st);
+    }
+    document.body.appendChild(root);
+}
+
 function pdcExportExcel() {
     if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
     const rows = (_dongyData.phacDoChuan || []).map((item) => {
@@ -819,12 +856,14 @@ async function importPhacDoChuanXlsx(e) {
         }
         if (!confirm(`Tìm thấy ${validRows.length} dòng. Tiếp tục nhập/cập nhật?`)) return;
 
+        pdcSetImportLoading(true, 'Đang đồng bộ dữ liệu hiện tại...');
         await loadAllDongyData();
         let created = 0;
         let updated = 0;
         const errors = [];
 
         for (let i = 0; i < validRows.length; i++) {
+            pdcSetImportLoading(true, `Đang xử lý dòng ${i + 1}/${validRows.length}...`);
             const row = validRows[i];
             const ten = String(row.ten || '').trim();
             if (!ten) {
@@ -870,6 +909,7 @@ async function importPhacDoChuanXlsx(e) {
             }
             if (target) updated += 1;
             else created += 1;
+            pdcSetImportLoading(true, `Đang làm mới dữ liệu... (${i + 1}/${validRows.length})`);
             await loadAllDongyData();
         }
 
@@ -881,6 +921,7 @@ async function importPhacDoChuanXlsx(e) {
         console.error(err);
         alert('Lỗi đọc file Excel: ' + (err?.message || err));
     } finally {
+        pdcSetImportLoading(false);
         if (inputEl) inputEl.value = '';
     }
 }

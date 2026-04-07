@@ -18,6 +18,7 @@ export class PhapTriService {
     'bai_thuoc_links.baiThuoc',
     'nhom_duoc_ly_nho',
     'nhom_duoc_ly_nho.nhomLon',
+    'nhom_duoc_ly_nho_list',
     'benh_dong_y',
     'kinh_mach_list',
     'trieu_chung_list',
@@ -67,6 +68,11 @@ export class PhapTriService {
     return this.kinhRepo.findBy({ idKinhMach: In(ids) });
   }
 
+  private async resolveNhomNho(ids?: number[] | null): Promise<NhomDuocLyNho[]> {
+    if (!ids?.length) return [];
+    return this.nhomNhoRepo.findBy({ id: In(ids) });
+  }
+
   /** PG 23505 = unique_violation (vd. id_benh_dong_y UNIQUE) */
   private static isPostgresUniqueViolation(err: unknown): boolean {
     return err instanceof QueryFailedError && (err as QueryFailedError & { driverError?: { code?: string } }).driverError?.code === '23505';
@@ -81,15 +87,24 @@ export class PhapTriService {
     const touch = (key: keyof CreatePhapTriDto) =>
       mode === 'create' || PhapTriService.has(dto, key as string);
 
-    if (touch('id_nhom_duoc_ly_nho')) {
+    if (touch('id_nhom_duoc_ly_nho_list')) {
+      const ids = [...new Set((dto.id_nhom_duoc_ly_nho_list ?? []).filter((x): x is number => Number.isFinite(x)))];
+      const list = await this.resolveNhomNho(ids);
+      entity.nhom_duoc_ly_nho_list = list;
+      entity.nhom_duoc_ly_nho = list.length > 0 ? list[0] : null;
+    } else if (touch('id_nhom_duoc_ly_nho')) {
       const v = dto.id_nhom_duoc_ly_nho;
-      if (v == null) entity.nhom_duoc_ly_nho = null;
-      else {
+      if (v == null) {
+        entity.nhom_duoc_ly_nho = null;
+        entity.nhom_duoc_ly_nho_list = [];
+      } else {
         const n = await this.nhomNhoRepo.findOneBy({ id: v });
         entity.nhom_duoc_ly_nho = n ?? null;
+        entity.nhom_duoc_ly_nho_list = n ? [n] : [];
       }
     } else if (mode === 'create') {
       entity.nhom_duoc_ly_nho = null;
+      entity.nhom_duoc_ly_nho_list = [];
     }
 
     if (touch('id_benh_dong_y')) {
@@ -274,6 +289,7 @@ export class PhapTriService {
       trieu_chung_mo_ta: dto.trieu_chung_mo_ta ?? null,
       kinh_mach_list: [],
       trieu_chung_list: [],
+      nhom_duoc_ly_nho_list: [],
     });
     await this.applyRefs(entity, dto, 'create');
     try {

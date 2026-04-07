@@ -55,6 +55,15 @@ export class PhapTri {
   @JoinColumn({ name: 'id_nhom_duoc_ly_nho' })
   nhom_duoc_ly_nho: NhomDuocLyNho | null;
 
+  /** Cho phép gắn nhiều nhóm nhỏ. */
+  @ManyToMany(() => NhomDuocLyNho)
+  @JoinTable({
+    name: 'phap_tri_nhom_duoc_ly_nho',
+    joinColumn: { name: 'id_phap_tri', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_nhom_duoc_ly_nho', referencedColumnName: 'id' },
+  })
+  nhom_duoc_ly_nho_list: NhomDuocLyNho[];
+
   @ManyToOne(() => MeridianSyndrome, (b) => b.phap_tri_list, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'id_benh_dong_y' })
   benh_dong_y: MeridianSyndrome | null;

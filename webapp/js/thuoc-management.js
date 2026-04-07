@@ -1229,6 +1229,8 @@ let _ptChips = {
 let _ptKinhIds = [];
 /** Bài thuốc tham chiếu trong form pháp trị — { id, ten_bai_thuoc }[] */
 let _ptBaiThuocDraft = [];
+/** Nhóm dược lý nhỏ trong form pháp trị — { id, ten_nhom_nho }[] (tối đa 2) */
+let _ptNhomNhoDraft = [];
 /** Triệu chứng pháp trị — { id, ten_trieu_chung }; id null = legacy chưa khớp danh mục */
 let _ptDraftTrieuChung = [];
 
@@ -1339,10 +1341,9 @@ function ptBenhDongYOptionsHtml(selectedId) {
 function ptNhomNhoOptionsHtml(selectedId) {
     let html = '<option value="">— Nhóm dược lý —</option>';
     for (const lon of _thuocData.nhomDuocLy || []) {
-        const tLon = lon.ten_nhom_lon || '';
         for (const nho of lon.nhomNho || []) {
             const id = nho.id;
-            const lab = (tLon ? tLon + ' › ' : '') + (nho.ten_nhom_nho || '');
+            const lab = nho.ten_nhom_nho || '';
             const sel = String(selectedId) === String(id) ? ' selected' : '';
             html += `<option value="${id}"${sel}>${escHtml(lab)}</option>`;
         }
@@ -1354,6 +1355,7 @@ function ptResetChips() {
     _ptChips = { bat_phap: [], bat_cuong: [], luc_dam: [] };
     _ptKinhIds = [];
     _ptBaiThuocDraft = [];
+    _ptNhomNhoDraft = [];
     _ptDraftTrieuChung = [];
 }
 
@@ -1763,6 +1765,104 @@ function ptOnPhapTriBaiThuocKeydown(ev) {
     ptSelectBaiThuocForPhapTriChip(bt.id);
 }
 
+function ptAllNhomNhoRows() {
+    const out = [];
+    for (const lon of _thuocData.nhomDuocLy || []) {
+        for (const nho of lon.nhomNho || []) {
+            if (!Number.isFinite(Number(nho?.id))) continue;
+            out.push({ id: Number(nho.id), ten_nhom_nho: String(nho.ten_nhom_nho || '').trim() });
+        }
+    }
+    return out;
+}
+
+function ptRenderNhomNhoChipsForPhapTri() {
+    const container = document.getElementById('pt-chips-nhomnho');
+    const input = document.getElementById('pt-inp-nhomnho');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_ptNhomNhoDraft || []).forEach((nho) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(String(nho.ten_nhom_nho || '') + ' '));
+        const x = document.createElement('span');
+        x.className = 'chip-remove';
+        x.textContent = '×';
+        x.onclick = (e) => {
+            e.stopPropagation();
+            _ptNhomNhoDraft = (_ptNhomNhoDraft || []).filter((x) => x.id !== nho.id);
+            ptRenderNhomNhoChipsForPhapTri();
+        };
+        chip.appendChild(x);
+        container.insertBefore(chip, input);
+    });
+}
+
+function ptOnPhapTriNhomNhoInputFocus() {
+    ptOnPhapTriNhomNhoInput();
+}
+
+function ptOnPhapTriNhomNhoInput() {
+    const inp = document.getElementById('pt-inp-nhomnho');
+    const box = document.getElementById('pt-nhomnho-suggest');
+    if (!inp || !box) return;
+    const q = inp.value.trim().toLowerCase();
+    if (!q) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+    const all = ptAllNhomNhoRows();
+    const chosen = new Set((_ptNhomNhoDraft || []).map((x) => x.id));
+    const matches = all
+        .filter((n) => !chosen.has(n.id))
+        .filter((n) => String(n.ten_nhom_nho || '').toLowerCase().includes(q))
+        .slice(0, 12);
+    if (!matches.length) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = matches
+        .map(
+            (n) =>
+                `<div class="tayy-suggest-item" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #E2D4B8;font-size:0.85rem;" onmousedown="event.preventDefault();ptSelectNhomNhoForPhapTriChip(${n.id})">${escHtml(n.ten_nhom_nho || '')}</div>`,
+        )
+        .join('');
+    box.style.display = 'block';
+}
+
+function ptSelectNhomNhoForPhapTriChip(id) {
+    const nho = ptAllNhomNhoRows().find((x) => x.id === Number(id));
+    if (!nho) return;
+    if ((_ptNhomNhoDraft || []).some((x) => x.id === nho.id)) return;
+    _ptNhomNhoDraft.push({ id: nho.id, ten_nhom_nho: String(nho.ten_nhom_nho || '').trim() });
+    const inp = document.getElementById('pt-inp-nhomnho');
+    const box = document.getElementById('pt-nhomnho-suggest');
+    if (inp) inp.value = '';
+    if (box) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+    }
+    ptRenderNhomNhoChipsForPhapTri();
+}
+
+function ptOnPhapTriNhomNhoKeydown(ev) {
+    if (ev.key !== 'Enter') return;
+    const inp = document.getElementById('pt-inp-nhomnho');
+    if (!inp) return;
+    const name = inp.value.trim();
+    if (!name) return;
+    ev.preventDefault();
+    const low = name.toLowerCase();
+    const hit = ptAllNhomNhoRows().find((x) => String(x.ten_nhom_nho || '').toLowerCase() === low);
+    if (!hit) {
+        alert('Không tìm thấy nhóm dược lý trùng khớp «' + name + '». Chọn trong gợi ý.');
+        return;
+    }
+    ptSelectNhomNhoForPhapTriChip(hit.id);
+}
+
 async function renderPhapTriTab(el) {
     const rows = (_thuocData.phapTriList || []).map(r => {
         const id = r.id;
@@ -1790,9 +1890,12 @@ async function renderPhapTriTab(el) {
                       )
                       .join('')}</div>`
                 : '<span style="color:#D1D5DB;">—</span>';
-        const nho = r.nhom_duoc_ly_nho || r.nhomDuocLyNho;
-        const lonTen = (nho && (nho.nhomLon || nho.nhom_lon)) ? (nho.nhomLon || nho.nhom_lon).ten_nhom_lon : '';
-        const nnRaw = nho ? ((lonTen ? lonTen + ' › ' : '') + (nho.ten_nhom_nho || '')).trim() : '';
+        const nhoList = r.nhom_duoc_ly_nho_list || r.nhomDuocLyNhoList || [];
+        const nhoSingle = r.nhom_duoc_ly_nho || r.nhomDuocLyNho;
+        const nhoNames = (Array.isArray(nhoList) && nhoList.length
+            ? nhoList.map((x) => x?.ten_nhom_nho).filter(Boolean)
+            : (nhoSingle ? [nhoSingle.ten_nhom_nho] : []));
+        const nnRaw = nhoNames.join(', ').trim();
         const nnCell = nnRaw ? ptTextPreview(nnRaw, 40) : '<span style="color:#D1D5DB;">—</span>';
         return `<tr>
             <td style="text-align:center;font-size:0.72rem;color:#78716c;white-space:nowrap;">${id}</td>
@@ -1869,8 +1972,18 @@ async function openPhapTriRowForm(id) {
         else if (item.id_benh_dong_y != null) benhSelId = item.id_benh_dong_y;
     }
     _ptBaiThuocDraft = item ? ptBaiThuocListFromPhapTriRow(item) : [];
-    const nnObj = item && (item.nhom_duoc_ly_nho || item.nhomDuocLyNho);
-    const nnVal = nnObj ? nnObj.id : '';
+    const nnList = item
+        ? (item.nhom_duoc_ly_nho_list || item.nhomDuocLyNhoList || [])
+        : [];
+    const nnSingle = item ? (item.nhom_duoc_ly_nho || item.nhomDuocLyNho) : null;
+    const nnIds = (Array.isArray(nnList) && nnList.length
+        ? nnList.map((x) => x?.id).filter((x) => Number.isFinite(Number(x)))
+        : (nnSingle ? [nnSingle.id] : []));
+    const byIdNho = new Map(ptAllNhomNhoRows().map((x) => [x.id, x]));
+    _ptNhomNhoDraft = nnIds
+        .map((idVal) => byIdNho.get(Number(idVal)))
+        .filter(Boolean)
+        .map((x) => ({ id: x.id, ten_nhom_nho: x.ten_nhom_nho }));
 
     showTayyModal(item ? 'Sửa pháp trị (luận trị)' : 'Thêm pháp trị (luận trị)', `
 <div class="pt-form">
@@ -1984,8 +2097,18 @@ async function openPhapTriRowForm(id) {
             </div>
             <div>
                 <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)</label>
-                <select id="pt-sel-nhomnho" class="tayy-form-input">${ptNhomNhoOptionsHtml(nnVal)}</select>
-                <span class="pt-field-hint">Phục vụ phân loại công dụng / họ thuốc.</span>
+                <div style="position:relative;margin-top:6px;">
+                    <div id="pt-chips-nhomnho" class="chips-container" onclick="document.getElementById('pt-inp-nhomnho').focus()">
+                        <input id="pt-inp-nhomnho" type="text" class="chip-input"
+                            placeholder="Gõ tên nhóm nhỏ, Enter hoặc chọn gợi ý…"
+                            autocomplete="off"
+                            onfocus="ptOnPhapTriNhomNhoInputFocus()"
+                            oninput="ptOnPhapTriNhomNhoInput()"
+                            onkeydown="ptOnPhapTriNhomNhoKeydown(event)">
+                    </div>
+                    <div id="pt-nhomnho-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+                </div>
+                <span class="pt-field-hint">Chỉ hiển thị tên nhóm nhỏ.</span>
             </div>
         </div>
     </section>
@@ -2001,6 +2124,7 @@ async function openPhapTriRowForm(id) {
         ptFillKinhMachDatalist();
         ptRenderKinhChipGroup();
         ptRenderBaiThuocChipsForPhapTri();
+        ptRenderNhomNhoChipsForPhapTri();
         ptRenderTrieuChungChipsPhapTri();
     }, 0);
 }
@@ -2037,7 +2161,16 @@ async function savePhapTriRow(id) {
             return { trieu_chung_mo_ta: ptArrToCsv(tc.map((t) => t.ten_trieu_chung)) || null };
         })(),
         id_bai_thuoc_list: (_ptBaiThuocDraft || []).map((b) => b.id),
-        id_nhom_duoc_ly_nho: numOrNull(document.getElementById('pt-sel-nhomnho')?.value),
+        ...(() => {
+            const ids = (_ptNhomNhoDraft || [])
+                .map((x) => Number(x.id))
+                .filter((x) => Number.isFinite(x));
+            const unique = Array.from(new Set(ids));
+            return {
+                id_nhom_duoc_ly_nho_list: unique,
+                id_nhom_duoc_ly_nho: unique.length ? unique[0] : null,
+            };
+        })(),
         id_benh_dong_y: (() => {
             const el = document.getElementById('pt-sel-benhdongy');
             if (!el || el.value === '') return null;
@@ -2062,11 +2195,7 @@ async function deletePhapTriRow(id) {
 
 function ptNhomDuocExportLabel(nho) {
     if (!nho) return '';
-    const lon = nho.nhomLon || nho.nhom_lon;
-    const lonTen = lon ? String(lon.ten_nhom_lon || '').trim() : '';
-    const nhoTen = String(nho.ten_nhom_nho || '').trim();
-    if (lonTen && nhoTen) return lonTen + ' › ' + nhoTen;
-    return nhoTen;
+    return String(nho.ten_nhom_nho || '').trim();
 }
 
 function ptKinhIdsFromTangPhuCell(raw, kinhList) {
@@ -2534,7 +2663,13 @@ function exportPhapTriXlsx() {
             .map((b) => b.ten_bai_thuoc)
             .filter(Boolean)
             .join(', '),
-        'Nhóm dược': ptNhomDuocExportLabel(r.nhom_duoc_ly_nho || r.nhomDuocLyNho),
+        'Nhóm dược': (() => {
+            const list = r.nhom_duoc_ly_nho_list || r.nhomDuocLyNhoList || [];
+            if (Array.isArray(list) && list.length) {
+                return list.map((x) => ptNhomDuocExportLabel(x)).filter(Boolean).join(', ');
+            }
+            return ptNhomDuocExportLabel(r.nhom_duoc_ly_nho || r.nhomDuocLyNho);
+        })(),
     };
     });
     const emptyRow = {

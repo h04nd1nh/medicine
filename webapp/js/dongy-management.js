@@ -719,6 +719,22 @@ function pdcFindHuyetByToken(token) {
     return (_dongyData.huyetVi || []).find((h) => pdcNormText(h.ten_huyet || h.name) === want) || null;
 }
 
+async function pdcFindOrCreateHuyetByName(name) {
+    const clean = String(name || '').trim();
+    if (!clean) return null;
+    const found = pdcFindHuyetByToken(clean);
+    if (found) return found;
+    const res = await apiCreateHuyetVi({ ten_huyet: clean });
+    if (!res?.success) return null;
+    const data = res.data || {};
+    const newId = data.idHuyet || data.id;
+    if (!newId) return null;
+    const item = { id: newId, idHuyet: newId, ten_huyet: clean, ...data };
+    _dongyData.huyetVi = _dongyData.huyetVi || [];
+    _dongyData.huyetVi.push(item);
+    return item;
+}
+
 function pdcExportExcel() {
     if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
     const rows = (_dongyData.phacDoChuan || []).map((item) => {
@@ -735,7 +751,6 @@ function pdcExportExcel() {
                 ghi_chu_ky_thuat: ln.ghi_chu_ky_thuat || '',
             }));
         return {
-            id: item.id,
             ten: item.ten || '',
             id_benh_dong_y: item.idBenhDongY ?? item.id_benh_dong_y ?? '',
             tieuket_benh_dong_y: benh?.tieuket || benh?.ten || '',
@@ -747,7 +762,6 @@ function pdcExportExcel() {
         };
     });
     const emptyRow = {
-        id: '',
         ten: '',
         id_benh_dong_y: '',
         tieuket_benh_dong_y: '',
@@ -762,7 +776,7 @@ function pdcExportExcel() {
     XLSX.writeFile(wb, 'Phac_Do_Dieu_Tri_Dong_Y.xlsx');
 }
 
-function pdcExtractHuyetLinesFromRow(row) {
+async function pdcExtractHuyetLinesFromRow(row) {
     const out = [];
     const pushLine = (idHuyet, pp, vt, gc) => {
         const hid = Number(idHuyet);
@@ -780,7 +794,7 @@ function pdcExtractHuyetLinesFromRow(row) {
     const rawText = row.huyet_rieng ?? row['huyet_rieng'] ?? row['Huyệt riêng'] ?? '';
     const parts = String(rawText || '').split(/[,;\n\r]+/).map((x) => x.trim()).filter(Boolean);
     for (const p of parts) {
-        const hv = pdcFindHuyetByToken(p);
+        const hv = await pdcFindOrCreateHuyetByName(p);
         if (!hv) continue;
         pushLine(hv.idHuyet ?? hv.id, '', '', '');
     }
@@ -818,10 +832,7 @@ async function importPhacDoChuanXlsx(e) {
                 continue;
             }
 
-            const rowId = parseInt(row.id, 10);
-            const foundById = Number.isFinite(rowId) ? (_dongyData.phacDoChuan || []).find((x) => x.id === rowId) : null;
-            const foundByTen = !foundById ? pdcFindPhacDoByTen(ten) : null;
-            const target = foundById || foundByTen || null;
+            const target = pdcFindPhacDoByTen(ten);
 
             let idBenh = null;
             const benhIdRaw = parseInt(row.id_benh_dong_y, 10);
@@ -846,7 +857,7 @@ async function importPhacDoChuanXlsx(e) {
                 id_benh_dong_y: Number.isFinite(idBenh) ? idBenh : null,
                 ghi_chu: String(row.ghi_chu || '').trim() || null,
                 thu_tu_hien_thi: Number.isFinite(thuTu) ? thuTu : 0,
-                huyet: pdcExtractHuyetLinesFromRow(row),
+                huyet: await pdcExtractHuyetLinesFromRow(row),
             };
             if (target && target.id === body.id_ke_thua) body.id_ke_thua = null;
 

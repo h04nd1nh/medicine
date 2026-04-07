@@ -40,6 +40,23 @@ async function initThuocManagement() {
     renderThuocSection();
 }
 
+async function initPhapTriManagement() {
+    await loadAllThuocData();
+    const container = document.getElementById('phaptri-section');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="section">
+            <div class="section-header">
+                <h2 style="color: var(--secondary); margin:0;">Quản Lý Pháp Trị</h2>
+            </div>
+            <div id="phaptri-tab-content"></div>
+        </div>
+    `;
+    const host = document.getElementById('phaptri-tab-content');
+    if (!host) return;
+    await renderPhapTriTab(host);
+}
+
 async function loadAllThuocData() {
     try {
         const [vt, bt, km, hv, tc, ndl, cd, cn, kk, pt, models] = await Promise.all([
@@ -90,7 +107,6 @@ function renderThuocSection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border); overflow-x:auto; white-space:nowrap;">
                 <button class="tayy-tab ${tab === 'vi-thuoc' ? 'active' : ''}" onclick="switchThuocTab('vi-thuoc')">Danh mục Vị thuốc</button>
                 <button class="tayy-tab ${tab === 'bai-thuoc' ? 'active' : ''}" onclick="switchThuocTab('bai-thuoc')">Danh mục Bài thuốc</button>
-                <button class="tayy-tab ${tab === 'phap-tri' ? 'active' : ''}" onclick="switchThuocTab('phap-tri')">Pháp trị</button>
                 <button class="tayy-tab ${tab === 'nhom-duoc-ly' ? 'active' : ''}" onclick="switchThuocTab('nhom-duoc-ly')">Nhóm dược lý</button>
                 <button class="tayy-tab ${tab === 'cong-dung' ? 'active' : ''}" onclick="switchThuocTab('cong-dung')">Công dụng</button>
                 <button class="tayy-tab ${tab === 'chu-tri' ? 'active' : ''}" onclick="switchThuocTab('chu-tri')">Chủ trị</button>
@@ -105,6 +121,7 @@ function renderThuocSection() {
 }
 
 function switchThuocTab(tab) {
+    if (tab === 'phap-tri') tab = 'bai-thuoc';
     _thuocData.activeTab = tab;
     renderThuocSection();
 }
@@ -116,12 +133,24 @@ function renderThuocTabContent() {
     switch (_thuocData.activeTab) {
         case 'vi-thuoc': renderViThuocTab(el); break;
         case 'bai-thuoc': renderBaiThuocTab(el); break;
-        case 'phap-tri': renderPhapTriTab(el); break;
         case 'nhom-duoc-ly': renderNhomDuocLyTab(el); break;
         case 'cong-dung': renderCongDungTab(el); break;
         case 'chu-tri': renderChuTriTab(el); break;
         case 'kieng-ky': renderKiengKyTab(el); break;
     }
+}
+
+function rerenderPhapTriHost() {
+    try {
+        const inPhapTriSection =
+            document.getElementById('phaptri-section')?.style.display !== 'none' &&
+            typeof initPhapTriManagement === 'function';
+        if (inPhapTriSection) {
+            initPhapTriManagement();
+            return;
+        }
+    } catch (_) {}
+    renderThuocSection();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2020,7 +2049,7 @@ async function savePhapTriRow(id) {
     if (!res.success && res.error) return alert('Lỗi: ' + res.error);
     closeTayyModal();
     await loadAllThuocData();
-    renderThuocSection();
+    rerenderPhapTriHost();
 }
 
 async function deletePhapTriRow(id) {
@@ -2028,7 +2057,7 @@ async function deletePhapTriRow(id) {
     const res = await apiDeletePhapTri(id);
     if (!res.success && res.error) return alert('Lỗi: ' + res.error);
     await loadAllThuocData();
-    renderThuocSection();
+    rerenderPhapTriHost();
 }
 
 function ptNhomDuocExportLabel(nho) {

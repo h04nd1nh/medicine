@@ -72,6 +72,8 @@ async function _startApp() {
             viewPatient(parseInt(parts[1]));
         } else if (parts[0] === 'patients') {
             showSection('patients');
+        } else if (parts[0] === 'phaptri') {
+            showSection('phaptri');
         } else if (parts[0] === 'models') {
             showSection('dashboard');
         } else {
@@ -520,6 +522,9 @@ const _sections = {
     reports:        { title: 'Báo cáo',          parent: 'dashboard' },
     tayy:           { title: 'Bệnh Tây Y',       parent: 'dashboard' },
     dongy:          { title: 'Bệnh Kinh Lạc',     parent: 'dashboard' },
+    thuoc:          { title: 'Quản lý Thuốc',     parent: 'dashboard' },
+    trieuchung:     { title: 'Quản lý Triệu chứng', parent: 'dashboard' },
+    phaptri:        { title: 'Quản lý Pháp trị',  parent: 'dashboard' },
     appointments:   { title: 'Quản lý Lịch Khám', parent: 'dashboard' },
 };
 
@@ -581,6 +586,9 @@ function _updateBreadcrumb(currentId) {
         reports: '/reports',
         tayy: '/tayy',
         dongy: '/dongy',
+        thuoc: '/thuoc',
+        trieuchung: '/trieuchung',
+        phaptri: '/phaptri',
         appointments: '/appointments',
     };
     const hash = hashMap[currentId] || '/' + currentId;
@@ -625,6 +633,9 @@ function _showSectionInternal(id) {
             break;
         case 'trieuchung':
             if (typeof initTrieuchungManagement === 'function') initTrieuchungManagement();
+            break;
+        case 'phaptri':
+            if (typeof initPhapTriManagement === 'function') initPhapTriManagement();
             break;
         case 'appointments':
             if (typeof initAppointmentsManagement === 'function') initAppointmentsManagement();

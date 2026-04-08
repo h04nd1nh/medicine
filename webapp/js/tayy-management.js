@@ -174,6 +174,69 @@ function _tyGetTrieuChungFromBaiThuoc(baiThuocList) {
     return allTC.length > 0 ? allTC.join(', ') : '—';
 }
 
+function _tyParseLieuLuongToGram(raw) {
+    if (!raw) return 9;
+    const s = String(raw).trim().toLowerCase();
+    if (!s) return 9;
+    if (s === '*') return 2.25;
+    if (s === '#') return 22.5;
+    let m = s.match(/^([\d.]+)\s*tiền?/);
+    if (m) return parseFloat(m[1]) * 3;
+    m = s.match(/^([\d.]+)\s*lư?ợng/);
+    if (m) return parseFloat(m[1]) * 30;
+    m = s.match(/^([\d.]+)/);
+    if (m) return parseFloat(m[1]);
+    return 9;
+}
+
+async function openBenhTayYTongBaiThuocAnalysis(benhId) {
+    const benh = (_tayyData.benhTayY || []).find(x => (x.id || x.id_benh) == benhId);
+    if (!benh) return alert('Không tìm thấy bệnh Tây Y.');
+    if (typeof yhctAnalyzeLocalSimple !== 'function' || typeof yhctBuildAnalysisHtml !== 'function') {
+        return alert('Chức năng phân tích chưa sẵn sàng.');
+    }
+
+    const linkedIds = (benh.baiThuocList || []).map(bt => bt.id).filter(Boolean);
+    const linkedBaiThuoc = linkedIds
+        .map(id => (_tayyData.baiThuoc || []).find(bt => bt.id === id))
+        .filter(Boolean);
+    if (!linkedBaiThuoc.length) return alert('Bệnh này chưa gán bài thuốc.');
+
+    const mergedByViThuoc = new Map();
+    for (const bt of linkedBaiThuoc) {
+        for (const d of (bt.chiTietViThuoc || [])) {
+            const idViThuoc = d.idViThuoc || d.id_vi_thuoc || d.viThuoc?.id;
+            if (!idViThuoc) continue;
+            const gram = _tyParseLieuLuongToGram(d.lieu_luong);
+            const prev = mergedByViThuoc.get(idViThuoc) || { gram: 0, viThuoc: d.viThuoc || null };
+            prev.gram += Number.isFinite(gram) ? gram : 0;
+            if (!prev.viThuoc && d.viThuoc) prev.viThuoc = d.viThuoc;
+            mergedByViThuoc.set(idViThuoc, prev);
+        }
+    }
+
+    const chiTietViThuoc = Array.from(mergedByViThuoc.entries()).map(([idViThuoc, row]) => ({
+        idViThuoc: Number(idViThuoc),
+        id_vi_thuoc: Number(idViThuoc),
+        lieu_luong: String(Math.round((row.gram || 0) * 10) / 10),
+        viThuoc: row.viThuoc
+            || (_tayyData.baiThuoc || []).flatMap(bt => bt.chiTietViThuoc || []).map(d => d.viThuoc).find(v => v && v.id === Number(idViThuoc))
+            || (typeof _thuocData !== 'undefined' ? (_thuocData.viThuoc || []).find(v => v.id === Number(idViThuoc)) : null)
+            || null,
+    }));
+    if (!chiTietViThuoc.length) return alert('Không có dữ liệu vị thuốc để phân tích.');
+
+    const combined = {
+        ten_bai_thuoc: `${benh.ten_benh || 'Bệnh'} (tổng hợp)`,
+        chiTietViThuoc,
+        chung_trang: linkedBaiThuoc.map(x => x.chung_trang || '').filter(Boolean).join(', '),
+        phapTriLinks: linkedBaiThuoc.flatMap(x => x.phapTriLinks || []),
+    };
+    const result = yhctAnalyzeLocalSimple(combined);
+    showTayyModal(`Phân tích tổng: ${escHtml(benh.ten_benh || 'Bệnh Tây Y')}`, yhctBuildAnalysisHtml(result), 'analysis');
+    setTimeout(() => yhctInitAnalysisCharts(result), 0);
+}
+
 function renderBenhTayYTab(el) {
     const rows = _tayyData.benhTayY.map(item => {
         const id = item.id || item.id_benh || '';
@@ -191,8 +254,10 @@ function renderBenhTayYTab(el) {
                 <td style="font-size:0.82rem; max-width:150px; overflow:hidden; text-overflow:ellipsis;">${escHtml(tcFromBT)}</td>
                 <td style="font-size:0.82rem;">${thietChanStr}</td>
                 <td style="font-size:0.82rem;">${machChanStr}</td>
-                <td style="text-align:center;width:160px;">
-                    <div class="table-actions">
+                <td style="text-align:center;width:220px;">
+                    <div class="table-actions" style="justify-content:center;flex-wrap:wrap;gap:4px;">
+                        <button class="btn btn-sm" style="background:#F5F0E8;color:#5B3A1A;border:1px solid #D4C5A0;"
+                            onclick="openBenhTayYTongBaiThuocAnalysis(${id})">Phân tích</button>
                         <button class="btn btn-sm btn-outline" onclick="openBenhTayYForm(${id})">✏ Sửa</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteBenhTayY(${id})">🗑 Xóa</button>
                     </div>
@@ -214,7 +279,7 @@ function renderBenhTayYTab(el) {
                     <th>Triệu chứng (từ bài thuốc)</th>
                     <th>Thiệt chẩn</th>
                     <th>Mạch chẩn</th>
-                    <th style="width:160px;">Thao tác</th>
+                    <th style="width:220px;">Thao tác</th>
                 </tr></thead>
                 <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#A09580;">Chưa có dữ liệu</td></tr>'}</tbody>
             </table>

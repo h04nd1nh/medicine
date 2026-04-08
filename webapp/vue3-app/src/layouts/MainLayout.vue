@@ -4,11 +4,14 @@ import { useUiStore } from '../stores/uiStore'
 const uiStore = useUiStore()
 
 const navItems = [
-  { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Trang chủ', to: '/dashboard' },
   { label: 'Bệnh nhân', to: '/patients' },
-  { label: 'Lịch hẹn', to: '/appointments' },
-  { label: 'Mô hình bệnh', to: '/models' },
-  { label: 'Phân tích', to: '/analysis' },
+  { label: 'Quản lý Lịch Khám', to: '/appointments' },
+  { label: 'Bệnh Tây Y', to: '/tayy' },
+  { label: 'Bệnh Kinh Lạc', to: '/dongy' },
+  { label: 'Quản lý Thuốc', to: '/thuoc' },
+  { label: 'Quản lý Triệu chứng', to: '/trieuchung' },
+  { label: 'Quản lý Pháp trị', to: '/phaptri' },
 ]
 </script>
 
@@ -25,7 +28,10 @@ const navItems = [
 
     <div class="app-main">
       <header class="app-header">
-        <h1>{{ uiStore.appTitle }}</h1>
+        <div class="header-main">
+          <h1>{{ uiStore.appTitle }}</h1>
+          <a class="switch-link" href="../index.html?vue3=0">Ve giao dien Legacy</a>
+        </div>
       </header>
       <main class="app-content">
         <RouterView />

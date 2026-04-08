@@ -360,6 +360,7 @@
                 </div>
                 <div id="user-info" style="font-weight: 600;">
                     <span id="user-display">Bác sĩ: <span id="user-name">---</span></span>
+                    <a href="?vue3=1" style="margin-left:10px;font-size:0.8rem;color:#0c4a6e;text-decoration:none;border:1px solid #bae6fd;padding:4px 8px;border-radius:6px;background:#e0f2fe;">Mở Vue3</a>
                     <button id="btn-logout" onclick="doLogout()" style="display:none;"></button>
                 </div>
             </header>
@@ -1055,6 +1056,39 @@
         </div>
     </div>
 
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var vueFlag = params.get('vue3');
+
+            if (vueFlag === '1') localStorage.setItem('use_vue3_shell', '1');
+            if (vueFlag === '0') localStorage.removeItem('use_vue3_shell');
+
+            var useVue3Shell = localStorage.getItem('use_vue3_shell') === '1';
+            if (!useVue3Shell) return;
+
+            var legacyRoot = document.getElementById('app');
+            if (!legacyRoot) return;
+
+            legacyRoot.style.display = 'none';
+
+            var mount = document.createElement('div');
+            mount.id = 'vue3-shell-bridge';
+            mount.style.width = '100%';
+            mount.style.height = '100vh';
+            mount.style.background = '#f3f4f6';
+
+            var iframe = document.createElement('iframe');
+            iframe.src = './vue3-app/';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = '0';
+            iframe.setAttribute('title', 'Vue3 Shell');
+
+            mount.appendChild(iframe);
+            document.body.appendChild(mount);
+        })();
+    </script>
 </body>
 
 </html>

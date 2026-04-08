@@ -8,20 +8,41 @@
 - Chốt chiến lược triển khai: **incremental migration** (chạy song song cũ/mới, không big-bang).
 - Chốt kiến trúc giai đoạn đầu: dùng sớm **Vue Router 4 + Pinia**.
 - Xác định rủi ro chính cần giữ tương thích: auth token/localStorage, contract API, semantics payload.
+- Đã scaffold `webapp/vue3-app` (Vite + Vue 3 + TypeScript), build thành công.
+- Đã tích hợp `Vue Router` + `Pinia`, có auth guard cơ bản.
+- Đã tạo bridge bật/tắt Vue3 từ legacy (`?vue3=1` / `?vue3=0`) trong `webapp/index.html`.
+- Đã đồng bộ sidebar Vue theo **đúng 8 tab** của legacy.
+- Đã migrate typed API bước đầu: `auth`, `patients`, `examinations`, `appointments`.
+- Đã có CRUD bước đầu cho `patients` và `examinations` trên Vue shell (tạo/sửa/xóa + tìm kiếm/phân trang cơ bản).
 
 ### Đang làm
-- Phase 0: xây baseline parity checklist để đo “không đổi UI/behavior”.
-- Hoàn thiện planning chi tiết theo phase, ưu tiên, điều kiện nghiệm thu.
+- Hoàn thiện parity UI/UX theo từng module khi chuyển từ placeholder sang feature thật.
+- Migrate dần các tab còn lại theo đúng thứ tự nghiệp vụ legacy.
 
 ### Chưa làm
-- Chưa scaffold dự án Vue 3 + TS trong `webapp`.
-- Chưa migrate API layer typed từ `webapp/js/api.js`.
-- Chưa migrate module UI nào sang Vue component.
-- Chưa thiết lập test tự động (contract test/E2E smoke).
+- Chưa hoàn tất typed services cho toàn bộ domain trong `api.js`.
+- Chưa migrate sâu các tab: Tây Y, Kinh Lạc, Thuốc, Triệu chứng, Pháp trị.
+- Chưa triển khai test tự động (contract test/E2E smoke).
+- Chưa đạt parity visual cuối cùng để cutover production.
 
 ### Blockers / phụ thuộc
 - Hiện **không có blocker kỹ thuật**.
 - Phụ thuộc chính: cần giữ thứ tự/behavior legacy trong suốt giai đoạn chạy song song.
+
+### Cập nhật tiến độ thực tế (latest)
+- Vue shell đã có điều hướng đúng 8 tab sidebar theo legacy.
+- Legacy và Vue đã chuyển đổi qua lại được bằng cờ `?vue3=1` / `?vue3=0`.
+- Màn `Bệnh nhân` và `Phiếu khám` đã có CRUD bước đầu trên Vue.
+- Màn `Lịch khám` đã có xem danh sách + cập nhật trạng thái.
+- Màn `Quản lý Thuốc` đã migrate tab `Vị thuốc` theo hướng parity:
+  - Bảng + popup thêm/sửa/xóa hoạt động theo flow legacy.
+  - Form chi tiết `Vị thuốc` có `Tên gọi khác`, link `Công dụng/Chủ trị/Kiêng kỵ` (danh mục + ghi chú).
+  - Input `Vị` và `Quy kinh` đã dùng chips + gợi ý (auto-suggest) như source cũ.
+  - Trường `Tính` đã chuyển sang dropdown canonical: `Bình`, `Đại Hàn`, `Hàn`, `Hơi Hàn`, `Hơi Ôn`, `Lương`, `Nóng`, `Ôn`.
+  - Đã bỏ fallback text fields không có trong form gốc (`cong_dung`, `chu_tri`, `kieng_ky` dạng text).
+- Đã tinh chỉnh style parity cho modal `Vị thuốc`:
+  - Đồng bộ input/select/chips/suggest box (border, spacing, focus, hover) theo tone legacy.
+  - Build + lint pass sau mỗi vòng chỉnh.
 
 ---
 
@@ -217,15 +238,16 @@ vue3-medicine-app/
 - Có tài liệu ngắn mô tả cách chạy dev/build cho cả legacy và Vue shell.
 
 #### Phase 1 - Checklist kỹ thuật
-- [ ] Tạo cấu trúc thư mục Vue song song trong `webapp`
-- [ ] Khởi tạo Vite + Vue 3 + TypeScript
-- [ ] Cài `vue-router` và `pinia`
-- [ ] Cấu hình `tsconfig`, alias path, lint/format cơ bản
-- [ ] Tạo `main.ts`, `App.vue`, `router/index.ts`, `stores/authStore.ts`, `stores/uiStore.ts`
-- [ ] Tạo layout khung `MainLayout.vue` parity với layout cũ
-- [ ] Tạo page placeholders theo route chính
-- [ ] Thiết kế interface cho compatibility bridge (chưa cần migrate logic nặng)
-- [ ] Xác minh chạy song song: legacy OK + Vue shell mount OK
+- [ ] Cập nhật tài liệu run/deploy tạm thời cho giai đoạn song song
+- [x] Tạo cấu trúc thư mục Vue song song trong `webapp`
+- [x] Khởi tạo Vite + Vue 3 + TypeScript
+- [x] Cài `vue-router` và `pinia`
+- [x] Cấu hình `tsconfig`, alias path, lint/format cơ bản
+- [x] Tạo `main.ts`, `App.vue`, `router/index.ts`, `stores/authStore.ts`, `stores/uiStore.ts`
+- [x] Tạo layout khung `MainLayout.vue` parity với layout cũ
+- [x] Tạo page placeholders theo route chính
+- [x] Thiết kế interface cho compatibility bridge (chưa cần migrate logic nặng)
+- [x] Xác minh chạy song song: legacy OK + Vue shell mount OK
 - [ ] Cập nhật tài liệu run/deploy tạm thời cho giai đoạn song song
 
 #### Phase 1 - Rủi ro và cách giảm thiểu
@@ -267,11 +289,11 @@ vue3-medicine-app/
 - Không còn dùng `any` ở các luồng chính của API/store khung.
 
 #### Phase 2 - Checklist kỹ thuật
-- [ ] Tạo thư mục `types/` theo domain
-- [ ] Tạo type `ApiResponse`, `ApiError`, `Pagination`, `QueryParams`
-- [ ] Tạo payload types cho create/update từng domain chính
-- [ ] Định nghĩa rõ nullable/optional fields theo contract hiện tại
-- [ ] Tạo mapper `dtoToModel` / `modelToDto` cho domain cốt lõi
+- [x] Tạo thư mục `types/` theo domain
+- [x] Tạo type `ApiResponse`, `ApiError`, `Pagination`, `QueryParams`
+- [x] Tạo payload types cho create/update từng domain chính
+- [x] Định nghĩa rõ nullable/optional fields theo contract hiện tại
+- [x] Tạo mapper `dtoToModel` / `modelToDto` cho domain cốt lõi
 - [ ] Viết unit test cho mapper quan trọng
 - [ ] Soát và loại bỏ `any` ở lớp service/store nền
 
@@ -319,11 +341,11 @@ vue3-medicine-app/
 - Contract tests của endpoint core pass.
 
 #### Phase 3 - Checklist kỹ thuật
-- [ ] Tạo `apiClient` typed wrapper
-- [ ] Giữ nguyên base URL strategy local/prod
-- [ ] Tích hợp auth token từ storage/store hiện tại
-- [ ] Tách services theo domain từ `api.js`
-- [ ] Chuẩn hóa error object và parser lỗi
+- [x] Tạo `apiClient` typed wrapper
+- [x] Giữ nguyên base URL strategy local/prod
+- [x] Tích hợp auth token từ storage/store hiện tại
+- [x] Tách services theo domain từ `api.js`
+- [x] Chuẩn hóa error object và parser lỗi
 - [ ] Viết contract tests cho endpoint core
 - [ ] Chạy smoke test API flow với dữ liệu thật/staging
 
@@ -332,7 +354,7 @@ vue3-medicine-app/
 - Sai khác auth behavior -> test lại toàn bộ login/refresh/logout trước khi migrate UI.
 - Backend response không đồng nhất -> parser phòng thủ + mapper chặt + logging.
 
-### Phase 4: State Management (**Pending**)
+### Phase 4: State Management (**In Progress**)
 1. Implement Pinia stores for each domain
 2. Create actions for API calls
 3. Setup getters for computed state
@@ -378,7 +400,7 @@ vue3-medicine-app/
 - Race condition khi gọi API song song -> chuẩn hóa cancel/debounce theo use case.
 - State leak sau logout -> reset store tập trung và test explicit.
 
-### Phase 5: Components (**Pending**)
+### Phase 5: Components (**In Progress**)
 1. Create layout components (Sidebar, Header)
 2. Convert each page/section to Vue component
 3. Implement form components with validation
@@ -418,11 +440,11 @@ vue3-medicine-app/
 - Module đã bật Vue không còn phụ thuộc trực tiếp DOM manipulation legacy.
 
 #### Phase 5 - Checklist kỹ thuật
-- [ ] Hoàn thiện layout components parity
+- [x] Hoàn thiện layout components parity (mức nền, tiếp tục fine-tune theo module)
 - [ ] Migrate pages rủi ro thấp trước
 - [ ] Tạo reusable form components + validation schema
 - [ ] Tạo wrapper components cho libs bên thứ ba
-- [ ] Bật feature flag/route switch cho từng module migrate
+- [x] Bật feature flag/route switch cho từng module migrate (đang dùng bridge `?vue3=1`)
 - [ ] Chạy parity test trước khi cắt fallback legacy
 
 #### Phase 5 - Rủi ro và cách giảm thiểu
@@ -430,7 +452,7 @@ vue3-medicine-app/
 - Re-render nặng ở bảng/danh sách lớn -> phân trang, virtualize nếu cần, memo hóa computed.
 - Wrapper bên thứ ba thiếu event tương thích -> định nghĩa contract props/events từ đầu.
 
-### Phase 6: Routing (**Pending**)
+### Phase 6: Routing (**In Progress**)
 1. Setup Vue Router with all routes
 2. Implement route guards for authentication
 3. Setup lazy loading for pages
@@ -476,7 +498,7 @@ vue3-medicine-app/
 - Mất tương thích hash legacy -> thêm bridge redirect rule giai đoạn chuyển tiếp.
 - Chunk load fail trong môi trường thật -> error boundary + retry nhẹ.
 
-### Phase 7: Styling (**Pending**)
+### Phase 7: Styling (**In Progress**)
 1. Migrate CSS to Vue components
 2. Setup scoped styles where appropriate
 3. Maintain CSS variables and theme
@@ -504,9 +526,9 @@ vue3-medicine-app/
 - CSS variables/theme hoạt động ổn định như ban đầu.
 
 #### Phase 7 - Checklist kỹ thuật
-- [ ] Giữ global styles chuẩn từ legacy
+- [x] Giữ global styles chuẩn từ legacy (đã import CSS legacy vào Vue app)
 - [ ] Tách scoped styles có kiểm soát
-- [ ] Kiểm thử parity UI theo màn hình trọng yếu
+- [ ] Kiểm thử parity UI theo màn hình trọng yếu (đang làm sâu module Thuốc)
 - [ ] Rà soát xung đột class và specificity
 - [ ] Chốt convention style cho phần còn lại của dự án
 
@@ -581,18 +603,19 @@ vue3-medicine-app/
 - [x] Chốt dùng sớm Vue Router + Pinia
 - [x] Hoàn thành phân tích hiện trạng frontend legacy
 - [ ] Baseline parity checklist hoàn chỉnh
-- [ ] Project initialization
-- [ ] TypeScript configuration
-- [ ] Type definitions created
-- [ ] API composables implemented
-- [ ] Pinia stores setup
-- [ ] Layout components created
-- [ ] Page components created
-- [ ] Routing configured
-- [ ] CSS migrated
-- [ ] Authentication flow tested
-- [ ] Patient management tested
-- [ ] Record management tested
+- [x] Project initialization
+- [x] TypeScript configuration
+- [x] Type definitions created
+- [x] API composables implemented
+- [x] Pinia stores setup
+- [x] Layout components created
+- [x] Page components created
+- [x] Routing configured
+- [ ] CSS migrated (đang parity dần theo module)
+- [ ] CSS migrated (đã parity sâu `Vị thuốc`, còn các tab/module khác)
+- [x] Authentication flow tested
+- [x] Patient management tested
+- [x] Record management tested
 - [ ] Model management tested
 - [ ] UI consistency verified
 - [ ] Performance optimized

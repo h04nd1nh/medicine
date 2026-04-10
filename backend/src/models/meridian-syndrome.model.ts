@@ -26,6 +26,12 @@ export class MeridianSyndrome {
   @Column({ type: 'text', nullable: true })
   giainghia_phuyet: string;
 
+  @Column({ type: 'text', nullable: true })
+  bai_thuoc: string;
+
+  @Column({ type: 'text', nullable: true })
+  chung_trang: string;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   duyet: string;
 

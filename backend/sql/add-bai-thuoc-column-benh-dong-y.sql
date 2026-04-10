@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE benh_dong_y
+ADD COLUMN IF NOT EXISTS bai_thuoc TEXT;
+
+ALTER TABLE benh_dong_y
+ADD COLUMN IF NOT EXISTS chung_trang TEXT;
+
+COMMIT;

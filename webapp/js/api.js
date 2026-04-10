@@ -287,6 +287,8 @@ function _mapNestModelToLegacy(m) {
         phaptri: m.benhly || '',
         phuonghuyet: m.phuyet_chamcuu || '',
         giainghia_phuyet: m.giainghia_phuyet || '',
+        bai_thuoc: m.bai_thuoc || '',
+        chung_trang: m.chung_trang || '',
     };
     _MERID_KEYS.forEach(k => {
         obj[k] = m[k] ?? 0;
@@ -306,6 +308,12 @@ function _mapLegacyModelToNest(payload) {
                 ? payload.phuyet_chamcuu
                 : (payload.phuonghuyet ?? ''),
     };
+    if (Object.prototype.hasOwnProperty.call(payload, 'bai_thuoc')) {
+        dto.bai_thuoc = payload.bai_thuoc ?? '';
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'chung_trang')) {
+        dto.chung_trang = payload.chung_trang ?? '';
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'giainghia_phuyet')) {
         dto.giainghia_phuyet = payload.giainghia_phuyet ?? '';
     }

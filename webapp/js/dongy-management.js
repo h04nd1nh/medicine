@@ -19,6 +19,8 @@ let _pdcDraftPhuongHuyet = [];
 
 /** Triệu chứng dạng chip trong form danh mục bệnh Đông y (đồng bộ cách tách với backend sync → phap_tri) */
 let _dyTrieuChungChips = [];
+/** Bài thuốc dạng chip trong form danh mục bệnh Đông y */
+let _dyBaiThuocChips = [];
 
 function dyTrieuChungTextToChips(raw) {
     if (raw == null) return [];
@@ -83,6 +85,75 @@ function dyRenderTrieuChungChips() {
 
 function dyTrieuChungTablePreview(raw) {
     const parts = dyTrieuChungTextToChips(raw);
+    if (!parts.length) return '<span style="color:#D1D5DB">—</span>';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:320px;align-items:flex-start;">${parts
+        .map((p) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(p)}</span>`)
+        .join('')}</div>`;
+}
+
+function dyBaiThuocTextToChips(raw) {
+    if (raw == null) return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    const parts = s
+        .split(/[\n\r,;，、]+/)
+        .map((t) => t.replace(/^\s*[-•*·]\s+/, '').trim())
+        .filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const p of parts) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        out.push(p);
+    }
+    return out;
+}
+
+function dyBaiThuocChipsToString() {
+    return (_dyBaiThuocChips || []).map((x) => String(x).trim()).filter(Boolean).join(', ');
+}
+
+function dyRemoveBaiThuocChip(term) {
+    _dyBaiThuocChips = (_dyBaiThuocChips || []).filter((x) => x !== term);
+    dyRenderBaiThuocChips();
+}
+
+function dyOnBaiThuocChipKeydown(ev) {
+    if (ev.key === 'Enter' && ev.target.value.trim()) {
+        ev.preventDefault();
+        const inp = document.getElementById('dy-inp-baithuoc');
+        if (!inp) return;
+        const v = inp.value.trim();
+        if (!v) return;
+        if (!_dyBaiThuocChips.includes(v)) _dyBaiThuocChips.push(v);
+        inp.value = '';
+        dyRenderBaiThuocChips();
+    }
+}
+
+function dyRenderBaiThuocChips() {
+    const container = document.getElementById('dy-chips-baithuoc');
+    const input = document.getElementById('dy-inp-baithuoc');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_dyBaiThuocChips || []).forEach((term) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(term + ' '));
+        const x = document.createElement('span');
+        x.className = 'chip-remove';
+        x.textContent = '×';
+        x.onclick = (e) => {
+            e.stopPropagation();
+            dyRemoveBaiThuocChip(term);
+        };
+        chip.appendChild(x);
+        container.insertBefore(chip, input);
+    });
+}
+
+function dyBaiThuocTablePreview(raw) {
+    const parts = dyBaiThuocTextToChips(raw);
     if (!parts.length) return '<span style="color:#D1D5DB">—</span>';
     return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:320px;align-items:flex-start;">${parts
         .map((p) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(p)}</span>`)
@@ -176,7 +247,7 @@ function dyCellShortText(v) {
 /** Chuẩn hóa 5 trường từ bản ghi (apiGetModels đã map legacy: ten, phaptri, phuonghuyet…). */
 function dyBenhDisplayFields(item) {
     if (!item) {
-        return { tieuket: '', trieuchung: '', benhly: '', phuyet_chamcuu: '', giainghia_phuyet: '' };
+        return { tieuket: '', trieuchung: '', benhly: '', phuyet_chamcuu: '', giainghia_phuyet: '', bai_thuoc: '', chung_trang: '' };
     }
     return {
         tieuket: String(item.tieuket || item.ten || '').trim(),
@@ -184,6 +255,8 @@ function dyBenhDisplayFields(item) {
         benhly: String(item.benhly ?? item.phaptri ?? '').trim(),
         phuyet_chamcuu: String(item.phuyet_chamcuu ?? item.phuonghuyet ?? '').trim(),
         giainghia_phuyet: String(item.giainghia_phuyet ?? '').trim(),
+        bai_thuoc: String(item.bai_thuoc ?? '').trim(),
+        chung_trang: String(item.chung_trang ?? '').trim(),
     };
 }
 
@@ -213,6 +286,8 @@ function renderBenhDongYTab(el) {
                 <td>${dyCellLongText(f.benhly)}</td>
                 <td>${dyCellLongText(f.phuyet_chamcuu)}</td>
                 <td>${dyCellLongText(f.giainghia_phuyet)}</td>
+                <td>${dyCellLongText(f.chung_trang)}</td>
+                <td>${dyBaiThuocTablePreview(f.bai_thuoc)}</td>
                 <td style="text-align:center;width:130px;white-space:nowrap;">
                     <div class="table-actions" style="justify-content:center;">
                         <button class="btn btn-sm btn-outline" onclick="openBenhDongYForm(${id})">✏ Sửa</button>
@@ -235,6 +310,8 @@ function renderBenhDongYTab(el) {
                     <th style="min-width:160px;">Bệnh lý</th>
                     <th style="min-width:160px;">Phụyết châm cứu</th>
                     <th style="min-width:160px;">Giải nghĩa phương huyệt</th>
+                    <th style="min-width:160px;">Chứng trạng</th>
+                    <th style="min-width:170px;">Bài thuốc</th>
                     <th style="width:130px;text-align:center;">Thao tác</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
@@ -248,6 +325,7 @@ function openBenhDongYForm(givenId) {
     const realId = item ? (item.id || item.id_benh || item.modelId) : null;
     const f = dyBenhDisplayFields(item);
     _dyTrieuChungChips = dyTrieuChungTextToChips(f.trieuchung);
+    _dyBaiThuocChips = dyBaiThuocTextToChips(f.bai_thuoc);
 
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tiểu kết (tieuket)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${escHtml(f.tieuket)}"></label>
@@ -263,6 +341,16 @@ function openBenhDongYForm(givenId) {
         <label class="tayy-form-label">Bệnh lý<br><textarea id="dy-inp-benhly" class="tayy-form-input" rows="4">${escHtml(f.benhly)}</textarea></label>
         <label class="tayy-form-label">Phụyết châm cứu<br><textarea id="dy-inp-phuyet-chamcuu" class="tayy-form-input" rows="4">${escHtml(f.phuyet_chamcuu)}</textarea></label>
         <label class="tayy-form-label">Giải nghĩa phương huyệt <span style="font-weight:400;color:#A09580;">(giainghia_phuyet)</span><br><textarea id="dy-inp-giainghia-phuyet" class="tayy-form-input" rows="4">${escHtml(f.giainghia_phuyet)}</textarea></label>
+        <label class="tayy-form-label">Chứng trạng <span style="font-weight:400;color:#A09580;">(text)</span><br><textarea id="dy-inp-chungtrang" class="tayy-form-input" rows="3">${escHtml(f.chung_trang)}</textarea></label>
+        <label class="tayy-form-label">Bài thuốc <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(chip — Enter để thêm)</span>
+            <div style="position:relative;margin-top:6px;">
+                <div id="dy-chips-baithuoc" class="chips-container" onclick="document.getElementById('dy-inp-baithuoc').focus()">
+                    <input id="dy-inp-baithuoc" type="text" class="chip-input"
+                        placeholder="Gõ bài thuốc, Enter để thêm chip..."
+                        onkeydown="dyOnBaiThuocChipKeydown(event)">
+                </div>
+            </div>
+        </label>
 
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
@@ -270,6 +358,7 @@ function openBenhDongYForm(givenId) {
         </div>
     `, 'wide');
     dyRenderTrieuChungChips();
+    dyRenderBaiThuocChips();
 }
 
 async function saveBenhDongY(id) {
@@ -282,6 +371,8 @@ async function saveBenhDongY(id) {
         phaptri: document.getElementById('dy-inp-benhly').value.trim(),
         phuonghuyet: document.getElementById('dy-inp-phuyet-chamcuu').value.trim(),
         giainghia_phuyet: document.getElementById('dy-inp-giainghia-phuyet').value.trim(),
+        chung_trang: document.getElementById('dy-inp-chungtrang').value.trim(),
+        bai_thuoc: dyBaiThuocChipsToString(),
     };
     const res = id ? await apiUpdateModel(id, payload) : await apiCreateModel(payload);
     if (!res.success) return alert('Lỗi: ' + res.error);

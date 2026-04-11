@@ -1496,24 +1496,40 @@ function renderViThuocTab(el) {
 }
 
 function renderBaiThuocTab(el) {
-    const rows = _thuocData.baiThuoc.map(item => {
-        const ings = (item.chiTietViThuoc||[]).map(d=>{
-            const ten = d?.viThuoc?.ten_vi_thuoc||'';
-            const lieuText = btGetGramPreviewText((d?.lieu_luong||'').trim());
-            return ten+(lieuText?` (${lieuText})`:'');
-        }).filter(Boolean).join(', ');
-        const ptCell = typeof btFormatPhapTriLinksCell === 'function'
-            ? btFormatPhapTriLinksCell(item)
-            : '—';
-        return `<tr>
+    const list =
+        typeof btGetBaiThuocListFilteredForTable === 'function'
+            ? btGetBaiThuocListFilteredForTable()
+            : [...(_thuocData.baiThuoc || [])];
+    const fv =
+        typeof _btBaiThuocFilterPhapTri !== 'undefined' ? escHtml(_btBaiThuocFilterPhapTri) : '';
+    const rows =
+        list.length === 0
+            ? `<tr><td colspan="9" style="text-align:center;padding:18px;color:#A09580;">${
+                  (_thuocData.baiThuoc || []).length
+                      ? 'Không có bài thuốc khớp bộ lọc pháp trị.'
+                      : 'Chưa có dữ liệu'
+              }</td></tr>`
+            : list
+                  .map((item) => {
+                      const ings = (item.chiTietViThuoc || [])
+                          .map((d) => {
+                              const ten = d?.viThuoc?.ten_vi_thuoc || '';
+                              const lieuText = btGetGramPreviewText((d?.lieu_luong || '').trim());
+                              return ten + (lieuText ? ` (${lieuText})` : '');
+                          })
+                          .filter(Boolean)
+                          .join(', ');
+                      const ptCell =
+                          typeof btFormatPhapTriLinksCell === 'function' ? btFormatPhapTriLinksCell(item) : '—';
+                      return `<tr>
             <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
-            <td>${escHtml(item.nguon_goc||'—')}</td>
-            <td style="font-size:0.78rem;">${escHtml(item.chung_trang||'—')}</td>
-            <td style="font-size:0.75rem;color:#5B3A1A;">${ptCell}</td>
-            <td style="font-size:0.78rem;">${escHtml(item.trieu_chung||'—')}</td>
-            <td style="font-size:0.78rem;">${escHtml(item.cach_dung||'—')}</td>
-            <td style="font-size:0.78rem;">${escHtml(item.ghi_chu||'—')}</td>
-            <td style="font-size:0.75rem;color:#6B5A3A;">${escHtml(ings||'Chưa có vị thuốc')}</td>
+            <td>${escHtml(item.nguon_goc || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.chung_trang || '—')}</td>
+            <td style="font-size:0.75rem;color:#5B3A1A;max-width:280px;">${ptCell}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.trieu_chung || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.cach_dung || '—')}</td>
+            <td style="font-size:0.78rem;">${escHtml(item.ghi_chu || '—')}</td>
+            <td style="font-size:0.75rem;color:#6B5A3A;">${escHtml(ings || 'Chưa có vị thuốc')}</td>
             <td style="text-align:center;width:180px;">
                 <div class="table-actions" style="justify-content:center;flex-wrap:wrap;gap:4px;">
                     <button class="btn btn-sm" style="background:#F5F0E8;color:#5B3A1A;border:1px solid #D4C5A0;"
@@ -1523,26 +1539,34 @@ function renderBaiThuocTab(el) {
                 </div>
             </td>
         </tr>`;
-    }).join('');
+                  })
+                  .join('');
 
     el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div style="display:flex;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline" onclick="yhctExportBaiThuocXlsx()">📥 Xuất Excel</button>
                 <button class="btn btn-outline" onclick="document.getElementById('yhct-import-bt').click()">📤 Nhập Excel</button>
                 <input type="file" id="yhct-import-bt" accept=".xlsx, .xls, .csv" style="display:none;" onchange="yhctImportBaiThuocXlsx(event)">
             </div>
             <button class="btn btn-primary" onclick="openBaiThuocForm()">+ Thêm bài thuốc</button>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;padding:10px 12px;background:#FFFBF2;border:1px solid #E8DCC4;border-radius:8px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:#57534e;min-width:220px;flex:1;max-width:360px;">Tìm theo pháp trị
+                <input type="text" class="tayy-form-input" style="margin:0;" value="${fv}"
+                    oninput="btSetBaiThuocPhapTriFilter(this.value)"
+                    placeholder="Theo nội dung pháp trị đã gắn (nguyen_tac)…">
+            </label>
+        </div>
         <div class="data-table-container">
             <table>
                 <thead><tr>
                     <th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th>
-                    <th>Pháp trị (danh mục)</th>
+                    <th>Pháp trị</th>
                     <th>Triệu chứng</th><th>Cách dùng</th><th>Ghi chú</th><th>Thành phần</th>
                     <th style="width:180px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows||'<tr><td colspan="9" style="text-align:center;color:#9CA3AF;padding:20px;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <tbody>${rows}</tbody>
             </table>
         </div>`;
 }

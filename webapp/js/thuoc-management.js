@@ -33,6 +33,8 @@ let _btDraftChiTiet = [];
 let _btDraftTrieuChung = [];
 /** Thứ tự = thứ tự gửi phap_tri_ids (liên kết danh mục pháp trị) */
 let _btDraftPhapTriIds = [];
+/** Lọc danh sách bài thuốc theo tên / nội dung pháp trị (nguyen_tac của các pháp trị đã gắn) */
+let _btBaiThuocFilterPhapTri = '';
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initThuocManagement() {
@@ -535,6 +537,15 @@ function btGetGramPreviewText(lieu) {
 // ═══════════════════════════════════════════════════════════
 // TAB: BÀI THUỐC
 // ═══════════════════════════════════════════════════════════
+function btPhapTriFold(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
 function btPhapTriLinksToOrderedIds(item) {
     const links = item?.phapTriLinks || [];
     return [...links]
@@ -543,33 +554,72 @@ function btPhapTriLinksToOrderedIds(item) {
         .filter(id => Number.isFinite(id));
 }
 
+/** Danh sách bài thuốc sau lọc «pháp trị» (dùng chung tab Thuốc và màn YHCT nếu có). */
+function btGetBaiThuocListFilteredForTable() {
+    const all = _thuocData.baiThuoc || [];
+    const fq = btPhapTriFold(_btBaiThuocFilterPhapTri);
+    if (!fq) return [...all];
+    return all.filter((item) => {
+        const links = item?.phapTriLinks || [];
+        return links.some((l) => {
+            const pt = l.phapTri || l.phap_tri;
+            const np = btPhapTriFold(pt?.nguyen_tac || '');
+            return np && (np.includes(fq) || np === fq);
+        });
+    });
+}
+
+/** HTML (chip) — hiển thị theo nội dung pháp trị nguyen_tac, thứ tự liên kết. */
 function btFormatPhapTriLinksCell(item) {
     const links = item?.phapTriLinks || [];
-    if (!links.length) return '—';
+    if (!links.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
     const labels = [...links]
         .sort((a, b) => (a.thuTu ?? a.thu_tu ?? 0) - (b.thuTu ?? b.thu_tu ?? 0))
-        .map(l => (l.phapTri?.chung_trang || l.phap_tri?.chung_trang || '').trim())
+        .map((l) => {
+            const pt = l.phapTri || l.phap_tri;
+            const np = String(pt?.nguyen_tac || '').trim();
+            if (np) return np;
+            const id = pt?.id ?? l.idPhapTri ?? l.id_phap_tri;
+            return id != null ? '#' + id : '';
+        })
         .filter(Boolean);
-    return labels.length ? escHtml(labels.join(' · ')) : '—';
+    return labels.length ? tayyChipsFromStrings(labels) : '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
+}
+
+function btSetBaiThuocPhapTriFilter(val) {
+    _btBaiThuocFilterPhapTri = String(val ?? '');
+    const tel = document.getElementById('thuoc-tab-content');
+    if (tel && _thuocData.activeTab === 'bai-thuoc') renderBaiThuocTab(tel);
 }
 
 function renderBaiThuocTab(el) {
-    const rows = _thuocData.baiThuoc.map(item => {
-        const ingredients = (item.chiTietViThuoc || []).map(d => {
-            const ten = d?.viThuoc?.ten_vi_thuoc || '';
-            const lieu = (d?.lieu_luong || '').trim();
-            const displayLieu = btGetGramPreviewText(lieu);
-            return `${ten} (${displayLieu})`;
-        }).filter(Boolean).join(', ');
-        const chungTrangStr = escHtml(item.chung_trang || '—');
-        const trieuChungStr = escHtml(item.trieu_chung || '—');
-        const ptLinkStr = btFormatPhapTriLinksCell(item);
-        return `
+    const list = btGetBaiThuocListFilteredForTable();
+    const fv = escHtml(_btBaiThuocFilterPhapTri);
+    const rows =
+        list.length === 0
+            ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#A09580;">${
+                  (_thuocData.baiThuoc || []).length ? 'Không có bài thuốc khớp bộ lọc pháp trị.' : 'Chưa có dữ liệu'
+              }</td></tr>`
+            : list
+                  .map((item) => {
+                      const ingredients = (item.chiTietViThuoc || [])
+                          .map((d) => {
+                              const ten = d?.viThuoc?.ten_vi_thuoc || '';
+                              const lieu = (d?.lieu_luong || '').trim();
+                              const displayLieu = btGetGramPreviewText(lieu);
+                              return `${ten} (${displayLieu})`;
+                          })
+                          .filter(Boolean)
+                          .join(', ');
+                      const chungTrangStr = escHtml(item.chung_trang || '—');
+                      const trieuChungStr = escHtml(item.trieu_chung || '—');
+                      const ptLinkStr = btFormatPhapTriLinksCell(item);
+                      return `
             <tr>
                 <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
                 <td>${escHtml(item.nguon_goc || '—')}</td>
                 <td style="font-size:0.8rem;">${chungTrangStr}</td>
-                <td style="font-size:0.75rem;color:#5B3A1A;">${ptLinkStr}</td>
+                <td style="font-size:0.75rem;color:#5B3A1A;max-width:280px;">${ptLinkStr}</td>
                 <td style="font-size:0.8rem;">${trieuChungStr}</td>
                 <td style="font-size:0.8rem;">${escHtml(ingredients || 'Chưa có vị thuốc')}</td>
                 <td style="text-align:center;width:130px;">
@@ -580,15 +630,23 @@ function renderBaiThuocTab(el) {
                 </td>
             </tr>
         `;
-    }).join('');
+                  })
+                  .join('');
     el.innerHTML = `
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
             <button class="btn btn-primary" onclick="openBaiThuocForm()">+ Thêm bài thuốc</button>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;padding:10px 12px;background:#FFFBF2;border:1px solid #E8DCC4;border-radius:8px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:#57534e;min-width:220px;flex:1;max-width:360px;">Tìm theo pháp trị
+                <input type="text" class="tayy-form-input" style="margin:0;" value="${fv}"
+                    oninput="btSetBaiThuocPhapTriFilter(this.value)"
+                    placeholder="Theo nội dung pháp trị đã gắn (nguyen_tac)…">
+            </label>
+        </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th><th>Pháp trị (danh mục)</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th><th>Pháp trị</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows}</tbody>
             </table>
         </div>`;
 }
@@ -625,11 +683,11 @@ function openBaiThuocForm(id) {
         <label class="tayy-form-label">Chứng trạng<br><textarea id="bt-inp-chungtrang" class="tayy-form-input" rows="3" placeholder="Biện chứng, pháp trị… (tự do)">${item ? escHtml(item.chung_trang || '') : ''}</textarea></label>
 
         <label class="tayy-form-label">
-            Liên kết pháp trị (danh mục)
+            Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — chọn từ danh mục Pháp trị; tìm theo <strong>tên / nội dung pháp trị</strong> <code>nguyen_tac</code>)</span>
             <div style="position:relative; margin-top:6px;">
                 <div id="bt-phaptri-chips" class="chips-container" onclick="document.getElementById('bt-inp-phaptri-search').focus()">
                     <input id="bt-inp-phaptri-search" type="text" class="chip-input"
-                        placeholder="Gõ chứng trạng / id để thêm từ tab Pháp trị…"
+                        placeholder="Gõ pháp trị hoặc #id, Enter để chọn…"
                         oninput="btOnPhapTriLinkSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); btTrySelectPhapTriFromSearch();}">
                 </div>
@@ -638,7 +696,7 @@ function openBaiThuocForm(id) {
                     box-shadow:0 10px 30px rgba(0,0,0,0.12);
                     max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
-            <div style="font-size:0.72rem;color:#8B7355;margin-top:6px;line-height:1.35;">Khớp với cột chứng trạng trong danh mục Pháp trị; thứ tự chip = thứ tự lưu.</div>
+            <div style="font-size:0.72rem;color:#8B7355;margin-top:6px;line-height:1.35;">Thứ tự chip = thứ tự lưu trên bài thuốc.</div>
         </label>
 
         <!-- Triệu chứng -->
@@ -1056,7 +1114,8 @@ function btRenderPhapTriLinkChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     (_btDraftPhapTriIds || []).forEach(ptId => {
         const pt = btGetPhapTriById(ptId);
-        const label = (pt?.chung_trang || '').trim() || ('#' + ptId);
+        const np = String(pt?.nguyen_tac || '').trim();
+        const label = np || (pt?.chung_trang || '').trim() || ('#' + ptId);
         const chip = document.createElement('div');
         chip.className = 'chip';
         chip.innerHTML = `${escHtml(label)} <span class="chip-remove" onclick="btRemovePhapTriLinkChip(${ptId}); event.stopPropagation();">×</span>`;
@@ -1080,41 +1139,60 @@ function btSelectPhapTriLink(ptId) {
     if (suggestEl) suggestEl.style.display = 'none';
 }
 
+function btPhapTriCatalogMatchesQuery(qRaw, p) {
+    const q = (qRaw || '').trim();
+    if (!q) return false;
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    if (Number.isFinite(idNum) && p.id === idNum) return true;
+    const fq = btPhapTriFold(q);
+    if (!fq) return false;
+    const np = btPhapTriFold(p.nguyen_tac || '');
+    return np && np.includes(fq);
+}
+
 function btOnPhapTriLinkSearchInput(val) {
     const suggestEl = document.getElementById('bt-phaptri-suggest');
     if (!suggestEl) return;
     const q = (val || '').trim();
     if (!q) { suggestEl.style.display = 'none'; return; }
 
-    const qLow = q.toLowerCase();
     const selected = new Set(_btDraftPhapTriIds || []);
     const all = _thuocData.phapTriList || [];
 
-    const idNum = /^\d+$/.test(q) ? parseInt(q, 10) : NaN;
-    const filtered = all.filter(p => {
-        if (selected.has(p.id)) return false;
-        if (Number.isFinite(idNum) && p.id === idNum) return true;
-        const ct = (p.chung_trang || '').trim().toLowerCase();
-        return ct && ct.includes(qLow);
-    }).slice(0, 12);
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    const filtered = all
+        .filter((p) => !selected.has(p.id))
+        .filter((p) => {
+            if (Number.isFinite(idNum) && idNum > 0) {
+                return p.id === idNum || String(p.id).includes(idStr);
+            }
+            return btPhapTriCatalogMatchesQuery(q, p);
+        })
+        .slice(0, 12);
 
     if (filtered.length === 0) {
-        suggestEl.innerHTML = '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có mục pháp trị phù hợp</div>';
+        suggestEl.innerHTML =
+            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị phù hợp — tìm theo <code>nguyen_tac</code> hoặc #id.</div>';
         suggestEl.style.display = 'block';
         return;
     }
 
-    suggestEl.innerHTML = filtered.map(p => {
-        const lab = (p.chung_trang || '').trim() || ('#' + p.id);
-        return `
+    suggestEl.innerHTML = filtered
+        .map((p) => {
+            const lab = String(p.nguyen_tac || '').trim() || ('#' + p.id);
+            const sub = (p.chung_trang || '').trim();
+            return `
             <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
                  onmouseover="this.style.background='#F5F0E8'"
                  onmouseout="this.style.background='transparent'"
                  onclick="btSelectPhapTriLink(${p.id})">
-                <span style="font-weight:600;">${escHtml(lab)}</span>
-                <span style="font-size:0.72rem;color:#9CA3AF;margin-left:6px;">id ${p.id}</span>
+                <div style="font-weight:600;">${escHtml(lab.length > 120 ? lab.slice(0, 120) + '…' : lab)}</div>
+                <div style="font-size:0.7rem;color:#9CA3AF;margin-top:2px;">id ${p.id}${sub ? ` · ${escHtml(sub.slice(0, 60))}${sub.length > 60 ? '…' : ''}` : ''}</div>
             </div>`;
-    }).join('');
+        })
+        .join('');
     suggestEl.style.display = 'block';
 }
 
@@ -1122,15 +1200,28 @@ function btTrySelectPhapTriFromSearch() {
     const inp = document.getElementById('bt-inp-phaptri-search');
     const q = (inp?.value || '').trim();
     if (!q) return;
-    const idNum = /^\d+$/.test(q) ? parseInt(q, 10) : NaN;
-    const all = _thuocData.phapTriList || [];
-    let p = Number.isFinite(idNum) ? all.find(x => x.id === idNum) : null;
+    const selected = new Set(_btDraftPhapTriIds || []);
+    const all = (_thuocData.phapTriList || []).filter((x) => !selected.has(x.id));
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    let p = Number.isFinite(idNum) && idNum > 0 ? all.find((x) => x.id === idNum) : null;
     if (!p) {
         const qLow = q.toLowerCase();
-        const cand = all.filter(x => (x.chung_trang || '').trim().toLowerCase() === qLow);
-        if (cand.length === 1) p = cand[0];
+        const exact = all.find((x) => String(x.nguyen_tac || '').trim().toLowerCase() === qLow);
+        if (exact) p = exact;
     }
-    if (p) btSelectPhapTriLink(p.id);
+    if (!p) {
+        const fq = btPhapTriFold(q);
+        const exactFold = all.find((x) => btPhapTriFold(x.nguyen_tac || '') === fq);
+        if (exactFold) p = exactFold;
+    }
+    if (p) {
+        btSelectPhapTriLink(p.id);
+        return;
+    }
+    const sub = all.filter((x) => btPhapTriCatalogMatchesQuery(q, x));
+    if (sub.length === 1) btSelectPhapTriLink(sub[0].id);
+    else btOnPhapTriLinkSearchInput(q);
 }
 
 // ═══════════════════════════════════════════════════════════

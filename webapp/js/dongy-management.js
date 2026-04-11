@@ -489,10 +489,15 @@ function dyRenderBaiThuocSuggest(query) {
     const suggestEl = document.getElementById('dy-baithuoc-suggest');
     if (!suggestEl) return;
     const q = String(query || '').trim().toLowerCase();
+    if (!q) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+        return;
+    }
     const selected = new Set((_dyBaiThuocChips || []).map((x) => String(x).trim().toLowerCase()));
     const names = dyGetAllBaiThuocNames()
         .filter((n) => !selected.has(n.toLowerCase()))
-        .filter((n) => !q || n.toLowerCase().includes(q))
+        .filter((n) => n.toLowerCase().includes(q))
         .slice(0, 10);
 
     if (!names.length) {
@@ -782,19 +787,6 @@ function openBenhDongYForm(givenId) {
         <label class="tayy-form-label">Bệnh lý<br><textarea id="dy-inp-benhly" class="tayy-form-input" rows="4">${escHtml(f.benhly)}</textarea></label>
         <label class="tayy-form-label">Phụyết châm cứu<br><textarea id="dy-inp-phuyet-chamcuu" class="tayy-form-input" rows="4">${escHtml(f.phuyet_chamcuu)}</textarea></label>
         <label class="tayy-form-label">Giải nghĩa phương huyệt <span style="font-weight:400;color:#A09580;">(giainghia_phuyet)</span><br><textarea id="dy-inp-giainghia-phuyet" class="tayy-form-input" rows="4">${escHtml(f.giainghia_phuyet)}</textarea></label>
-        <label class="tayy-form-label">Thể bệnh <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — gõ để <strong>tìm</strong> trong danh mục «Thể bệnh» của bệnh này; Enter thêm chip; lưu <code>chung_trang</code> dạng CSV)</span>
-            <div style="position:relative;margin-top:6px;">
-                <div id="dy-chips-thebenh" class="chips-container" onclick="document.getElementById('dy-inp-thebenh-search').focus()">
-                    <input id="dy-inp-thebenh-search" type="text" class="chip-input"
-                        placeholder="Tìm tên thể bệnh hoặc Enter để thêm…"
-                        oninput="dyOnTheBenhSearchInput(this.value)"
-                        onkeydown="dyOnTheBenhChipKeydown(event)"
-                        onfocus="dyOnTheBenhSearchInput(this.value)"
-                        onblur="dyHideTheBenhSuggestSoon()">
-                </div>
-                <div id="dy-thebenh-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 6px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
-            </div>
-        </label>
         <label class="tayy-form-label">Bài thuốc <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(chip — Enter để thêm)</span>
             <div style="position:relative;margin-top:6px;">
                 <div id="dy-chips-baithuoc" class="chips-container" onclick="document.getElementById('dy-inp-baithuoc').focus()">
@@ -808,7 +800,19 @@ function openBenhDongYForm(givenId) {
                 <div id="dy-baithuoc-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 6px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
             </div>
         </label>
-
+        <label class="tayy-form-label">Thể bệnh <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — gõ để <strong>tìm</strong> trong danh mục «Thể bệnh» của bệnh này; Enter thêm chip; lưu <code>chung_trang</code> dạng CSV)</span>
+            <div style="position:relative;margin-top:6px;">
+                <div id="dy-chips-thebenh" class="chips-container" onclick="document.getElementById('dy-inp-thebenh-search').focus()">
+                    <input id="dy-inp-thebenh-search" type="text" class="chip-input"
+                        placeholder="Tìm tên thể bệnh hoặc Enter để thêm…"
+                        oninput="dyOnTheBenhSearchInput(this.value)"
+                        onkeydown="dyOnTheBenhChipKeydown(event)"
+                        onfocus="dyOnTheBenhSearchInput(this.value)"
+                        onblur="dyHideTheBenhSuggestSoon()">
+                </div>
+                <div id="dy-thebenh-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 6px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+            </div>
+        </label>
         <label class="tayy-form-label" style="margin-top:10px;">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều — tìm theo <strong>nội dung pháp trị</strong> / <code>nguyen_tac</code>; tab Thuốc → Pháp trị)</span>
             <div style="position:relative;margin-top:6px;">
                 <div id="dy-chips-phaptri" class="chips-container" onclick="document.getElementById('dy-inp-phaptri-search').focus()">

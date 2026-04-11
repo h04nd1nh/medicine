@@ -4,6 +4,7 @@
 let _dongyData = {
     benhDongY: [],
     baiThuoc: [],
+    phapTri: [], // danh mục pháp trị — chip theo tên thể bệnh (chung_trang)
     kinhMach: [],
     huyetVi: [],
     phacDo: [],
@@ -22,6 +23,70 @@ let _pdcDraftPhuongHuyet = [];
 let _dyTrieuChungChips = [];
 /** Bài thuốc dạng chip trong form danh mục bệnh Đông y */
 let _dyBaiThuocChips = [];
+/** Pháp trị đã chọn (nhiều) — { id, label } */
+let _dyDraftPhapTri = [];
+
+function dyPhapTriListFromBenhItem(item) {
+    if (!item) return [];
+    const list = item.phap_tri_list || item.phapTriList || [];
+    return Array.isArray(list) ? list : [];
+}
+
+function dyPhapTriTablePreviewHtml(item) {
+    const list = dyPhapTriListFromBenhItem(item);
+    if (!list.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
+    const parts = list
+        .map((p) => String(p.chung_trang || p.chungTrang || '').trim() || ('#' + (p.id || '')))
+        .filter(Boolean);
+    if (!parts.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">${parts
+        .map((t) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(t.length > 36 ? t.slice(0, 36) + '…' : t)}</span>`)
+        .join('')}</div>`;
+}
+
+function dyPhapTriFold(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function dyPhapTriTriMatch(query, p) {
+    const q = dyPhapTriFold(query);
+    if (!q) return false;
+    const c = dyPhapTriFold(p.chung_trang || p.chungTrang || '');
+    const np = dyPhapTriFold(p.nguyen_tac || '');
+    return (c && (c === q || c.includes(q))) || (np && np.includes(q));
+}
+
+function dyScorePhapTriTheBenhSearch(query, p) {
+    const raw = String(query || '').trim();
+    const low = raw.toLowerCase();
+    const q = dyPhapTriFold(raw);
+    if (!q) return 0;
+    const cRaw = String(p.chung_trang || p.chungTrang || '').trim();
+    const c = dyPhapTriFold(cRaw);
+    const np = dyPhapTriFold(p.nguyen_tac || '');
+    if (c) {
+        if (cRaw.toLowerCase() === low) return 1_000_000;
+        if (c === q) return 900_000;
+        if (c.startsWith(q)) return 800_000 + Math.min(500, c.length);
+        if (c.includes(q)) return 500_000 + Math.min(200, c.length);
+    }
+    if (np && np.includes(q)) return 80_000;
+    return 0;
+}
+
+function dyPhapTriChipLabel(p) {
+    if (!p) return '';
+    const c = String(p.chung_trang || p.chungTrang || '').trim();
+    if (c) return c.length > 56 ? c.slice(0, 56) + '…' : c;
+    const np = String(p.nguyen_tac || '').trim();
+    if (np) return np.length > 40 ? np.slice(0, 40) + '…' : np;
+    return p.id != null ? 'Pháp trị #' + p.id : '';
+}
 
 function dyTrieuChungTextToChips(raw) {
     if (raw == null) return [];
@@ -162,6 +227,120 @@ function dyBaiThuocTablePreview(raw) {
         .join('')}</div>`;
 }
 
+function dyRenderPhapTriChips() {
+    const container = document.getElementById('dy-chips-phaptri');
+    const input = document.getElementById('dy-inp-phaptri-search');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    _dyDraftPhapTri.forEach((row) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:4px;background:#F5F0E8;color:#5B3A1A;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;border:1px solid #D4C5A0;margin:2px;';
+        chip.innerHTML = `${escHtml(row.label)} <span class="chip-remove" style="cursor:pointer;font-size:1rem;color:#A64444;" onclick="dyRemovePhapTriChip(${row.id});event.stopPropagation();">×</span>`;
+        container.insertBefore(chip, input);
+    });
+}
+
+function dyRemovePhapTriChip(id) {
+    _dyDraftPhapTri = _dyDraftPhapTri.filter((x) => x.id !== id);
+    dyRenderPhapTriChips();
+    const inp = document.getElementById('dy-inp-phaptri-search');
+    if (inp && inp.value) dyOnPhapTriSearchInput(inp.value);
+}
+
+function dySelectPhapTri(id) {
+    if (id == null || _dyDraftPhapTri.some((x) => x.id === id)) return;
+    const p = (_dongyData.phapTri || []).find((x) => x.id === id);
+    if (!p) return;
+    _dyDraftPhapTri.push({ id: p.id, label: dyPhapTriChipLabel(p) });
+    const inp = document.getElementById('dy-inp-phaptri-search');
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    dyRenderPhapTriChips();
+    const suggestEl = document.getElementById('dy-phaptri-suggest');
+    if (suggestEl) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+    }
+}
+
+function dySelectPhapTriByQuery(q) {
+    if (!q) return;
+    const low = q.trim().toLowerCase();
+    const idNum = parseInt(String(q).replace(/^#/, '').trim(), 10);
+    if (Number.isFinite(idNum) && idNum > 0) {
+        const byId = (_dongyData.phapTri || []).find((x) => Number(x.id) === idNum);
+        if (byId) {
+            dySelectPhapTri(byId.id);
+            return;
+        }
+    }
+    const exact = (_dongyData.phapTri || []).find((x) => {
+        const c = String(x.chung_trang || x.chungTrang || '').trim().toLowerCase();
+        return c && c === low;
+    });
+    if (exact) {
+        dySelectPhapTri(exact.id);
+        return;
+    }
+    const exactFold = (_dongyData.phapTri || []).find((x) => dyPhapTriFold(x.chung_trang || x.chungTrang || '') === dyPhapTriFold(q));
+    if (exactFold) {
+        dySelectPhapTri(exactFold.id);
+        return;
+    }
+    const sub = (_dongyData.phapTri || [])
+        .filter((x) => dyPhapTriTriMatch(q, x))
+        .sort((a, b) => dyScorePhapTriTheBenhSearch(q, b) - dyScorePhapTriTheBenhSearch(q, a) || Number(a.id) - Number(b.id));
+    if (sub.length === 1) dySelectPhapTri(sub[0].id);
+    else if (sub.length > 1) dyOnPhapTriSearchInput(q);
+    else alert('Không tìm thấy pháp trị có tên thể bệnh (chung_trang) khớp «' + q + '». Tạo ở tab Thuốc → Pháp trị.');
+}
+
+function dyOnPhapTriSearchInput(val) {
+    const suggestEl = document.getElementById('dy-phaptri-suggest');
+    if (!suggestEl) return;
+    const rawQ = (val || '').trim();
+    if (!rawQ) {
+        suggestEl.style.display = 'none';
+        return;
+    }
+    const selected = new Set(_dyDraftPhapTri.map((x) => x.id));
+    const idWant = parseInt(String(rawQ).replace(/^#/, '').trim(), 10);
+    let matches = (_dongyData.phapTri || []).filter((p) => !selected.has(p.id));
+    if (Number.isFinite(idWant) && idWant > 0) {
+        matches = matches.filter((p) => String(p.id).includes(String(idWant)) || Number(p.id) === idWant);
+    } else {
+        matches = matches
+            .filter((p) => dyPhapTriTriMatch(rawQ, p))
+            .sort((a, b) => dyScorePhapTriTheBenhSearch(rawQ, b) - dyScorePhapTriTheBenhSearch(rawQ, a) || Number(a.id) - Number(b.id))
+            .slice(0, 12);
+    }
+    if (!matches.length) {
+        suggestEl.style.display = 'block';
+        suggestEl.innerHTML =
+            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị khớp — tab Thuốc → Pháp trị (cột Thể bệnh).</div>';
+        return;
+    }
+    suggestEl.style.display = 'block';
+    suggestEl.innerHTML = matches
+        .slice(0, 12)
+        .map(
+            (p) => `
+            <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onclick="dySelectPhapTri(${p.id})">
+                <div style="font-weight:700;color:#5B3A1A;font-size:0.82rem;">${escHtml(String(p.chung_trang || p.chungTrang || '').trim() || ('#' + p.id))}</div>
+                <div style="font-size:0.68rem;color:#A09580;margin-top:2px;">Tên thể bệnh (<code>chung_trang</code>)</div>
+                ${p.nguyen_tac ? `<div style="font-size:0.75rem;color:#A09580;margin-top:2px;">${escHtml(String(p.nguyen_tac).slice(0, 100))}${String(p.nguyen_tac).length > 100 ? '…' : ''}</div>` : ''}
+            </div>`,
+        )
+        .join('');
+}
+
 function dyGetAllBaiThuocNames() {
     const seen = new Set();
     const out = [];
@@ -230,9 +409,10 @@ async function initDongyManagement() {
 
 async function loadAllDongyData() {
     try {
-        const [bdy, bt, km, hv, pd, pdc] = await Promise.all([
+        const [bdy, bt, pt, km, hv, pd, pdc] = await Promise.all([
             apiGetModels(),      // benh_dong_y
             apiGetBaiThuoc(),
+            apiGetPhapTri(),
             apiGetKinhMach(),
             apiGetHuyetVi(),
             apiGetPhacDo(),
@@ -240,6 +420,7 @@ async function loadAllDongyData() {
         ]);
         _dongyData.benhDongY = bdy || [];
         _dongyData.baiThuoc = bt || [];
+        _dongyData.phapTri = pt || [];
         _dongyData.kinhMach = km || [];
         _dongyData.huyetVi = hv || [];
         _dongyData.phacDo = pd || [];
@@ -351,6 +532,7 @@ function renderBenhDongYTab(el) {
                 <td>${dyCellLongText(f.phuyet_chamcuu)}</td>
                 <td>${dyCellLongText(f.giainghia_phuyet)}</td>
                 <td>${dyCellLongText(f.chung_trang)}</td>
+                <td>${dyPhapTriTablePreviewHtml(item)}</td>
                 <td>${dyBaiThuocTablePreview(f.bai_thuoc)}</td>
                 <td style="text-align:center;width:130px;white-space:nowrap;">
                     <div class="table-actions" style="justify-content:center;">
@@ -366,7 +548,7 @@ function renderBenhDongYTab(el) {
             <button class="btn btn-primary" onclick="openBenhDongYForm()">+ Thêm bệnh</button>
         </div>
         <div class="data-table-container" style="overflow-x:auto;">
-            <table style="min-width:960px;">
+            <table style="min-width:1080px;">
                 <thead><tr>
                     <th style="width:44px;text-align:center;">id</th>
                     <th style="min-width:140px;">Tiểu kết (tieuket)</th>
@@ -375,6 +557,7 @@ function renderBenhDongYTab(el) {
                     <th style="min-width:160px;">Phụyết châm cứu</th>
                     <th style="min-width:160px;">Giải nghĩa phương huyệt</th>
                     <th style="min-width:160px;">Chứng trạng</th>
+                    <th style="min-width:180px;">Pháp trị <span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(thể bệnh)</span></th>
                     <th style="min-width:170px;">Bài thuốc</th>
                     <th style="width:130px;text-align:center;">Thao tác</th>
                 </tr></thead>
@@ -390,6 +573,10 @@ function openBenhDongYForm(givenId) {
     const f = dyBenhDisplayFields(item);
     _dyTrieuChungChips = dyTrieuChungTextToChips(f.trieuchung);
     _dyBaiThuocChips = dyBaiThuocTextToChips(f.bai_thuoc);
+    _dyDraftPhapTri = dyPhapTriListFromBenhItem(item).map((p) => ({
+        id: p.id,
+        label: dyPhapTriChipLabel(p),
+    }));
 
     showTayyModal(item ? 'Sửa bệnh đông y' : 'Thêm bệnh đông y', `
         <label class="tayy-form-label">Tiểu kết (tieuket)<br><input id="dy-inp-tieuket" type="text" class="tayy-form-input" value="${escHtml(f.tieuket)}"></label>
@@ -420,6 +607,19 @@ function openBenhDongYForm(givenId) {
             </div>
         </label>
 
+        <label class="tayy-form-label" style="margin-top:10px;">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều — tìm theo <strong>tên thể bệnh</strong> / <code>chung_trang</code>; tab Thuốc → Pháp trị)</span>
+            <div style="position:relative;margin-top:6px;">
+                <div id="dy-chips-phaptri" class="chips-container" onclick="document.getElementById('dy-inp-phaptri-search').focus()">
+                    <input id="dy-inp-phaptri-search" type="text" class="chip-input"
+                        placeholder="Tên thể bệnh hoặc #id…"
+                        onfocus="dyOnPhapTriSearchInput(this.value)"
+                        oninput="dyOnPhapTriSearchInput(this.value)"
+                        onkeydown="if(event.key==='Enter' && this.value.trim()){dySelectPhapTriByQuery(this.value.trim()); event.preventDefault();}">
+                </div>
+                <div id="dy-phaptri-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 6px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+            </div>
+        </label>
+
         <div class="tayy-form-actions">
             <button class="btn" onclick="closeTayyModal()">Hủy</button>
             <button class="btn btn-primary" onclick="saveBenhDongY(${realId || 0})">Lưu</button>
@@ -427,6 +627,7 @@ function openBenhDongYForm(givenId) {
     `, 'wide');
     dyRenderTrieuChungChips();
     dyRenderBaiThuocChips();
+    dyRenderPhapTriChips();
     dyRenderBaiThuocSuggest('');
 }
 
@@ -442,6 +643,7 @@ async function saveBenhDongY(id) {
         giainghia_phuyet: document.getElementById('dy-inp-giainghia-phuyet').value.trim(),
         chung_trang: document.getElementById('dy-inp-chungtrang').value.trim(),
         bai_thuoc: dyBaiThuocChipsToString(),
+        phap_tri_ids: _dyDraftPhapTri.map((x) => x.id),
     };
     const res = id ? await apiUpdateModel(id, payload) : await apiCreateModel(payload);
     if (!res.success) return alert('Lỗi: ' + res.error);

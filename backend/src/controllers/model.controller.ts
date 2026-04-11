@@ -39,7 +39,11 @@ export class ModelsService {
     return ordered.join(', ');
   }
 
-  /** Đồng bộ tiểu kết / triệu chứng / bệnh lý sang mọi pháp trị gắn id_benh_dong_y (kèm quan hệ trieu_chung_list). */
+  /**
+   * Đồng bộ triệu chứng (chip) → phap_tri đang gắn bệnh.
+   * Nếu chỉ có **một** pháp trị liên kết: vẫn đồng bộ tieuket/bệnh lý vào chung_trang/nguyen_tac (hành vi cũ).
+   * Nếu có **nhiều** pháp trị: không ghi đè thể bệnh / pháp trị — chỉ cập nhật trieu_chung.
+   */
   private async syncLinkedPhapTriFromBenh(b: MeridianSyndrome): Promise<void> {
     const chipCsv = this.trieuchungToChipCsv(b.trieuchung);
     const pts = await this.phapTriRepo.find({
@@ -72,18 +76,43 @@ export class ModelsService {
         triList.push(hit);
       }
     }
+    const single = pts.length === 1;
     for (const pt of pts) {
-      pt.chung_trang = b.tieuket ?? null;
-      pt.nguyen_tac = b.benhly ?? null;
+      if (single) {
+        pt.chung_trang = b.tieuket ?? null;
+        pt.nguyen_tac = b.benhly ?? null;
+      }
       pt.trieu_chung_mo_ta = chipCsv;
       pt.trieu_chung_list = triList;
       await this.phapTriRepo.save(pt);
     }
   }
 
+  /** Gán / gỡ phap_tri.id_benh_dong_y theo danh sách id (chips ở UI). */
+  private async setPhapTriLinksForBenh(benhId: number, ids: number[] | undefined): Promise<void> {
+    if (ids === undefined) return;
+    const want = [...new Set(ids.filter((n) => Number.isFinite(Number(n)) && Number(n) > 0).map((n) => Number(n)))];
+    const old = await this.phapTriRepo.find({ where: { benh_dong_y: { id: benhId } } });
+    for (const p of old) {
+      if (!want.includes(p.id)) {
+        p.benh_dong_y = null;
+        await this.phapTriRepo.save(p);
+      }
+    }
+    if (!want.length) return;
+    const benh = await this.repo.findOneBy({ id: benhId });
+    if (!benh) return;
+    for (const pid of want) {
+      const p = await this.phapTriRepo.findOne({ where: { id: pid } });
+      if (!p) continue;
+      p.benh_dong_y = benh;
+      await this.phapTriRepo.save(p);
+    }
+  }
+
   findAll(): Promise<MeridianSyndrome[]> {
     return this.repo.find({
-      relations: ['baiThuocList', 'trieuChungList'],
+      relations: ['baiThuocList', 'trieuChungList', 'phap_tri_list'],
       order: { id: 'ASC' },
     });
   }
@@ -91,14 +120,14 @@ export class ModelsService {
   async findOne(id: number): Promise<MeridianSyndrome> {
     const row = await this.repo.findOne({
       where: { id },
-      relations: ['baiThuocList', 'trieuChungList'],
+      relations: ['baiThuocList', 'trieuChungList', 'phap_tri_list'],
     });
     if (!row) throw new NotFoundException(`Mô hình #${id} không tồn tại`);
     return row;
   }
 
   async create(data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids, ...rest } = data;
     const entity = this.repo.create(rest as Partial<MeridianSyndrome>);
 
     if (bai_thuoc_ids && bai_thuoc_ids.length > 0) {
@@ -113,12 +142,13 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(entity);
+    await this.setPhapTriLinksForBenh(saved.id, phap_tri_ids);
     await this.syncLinkedPhapTriFromBenh(saved);
     return saved;
   }
 
   async update(id: number, data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids, ...rest } = data;
     const existing = await this.findOne(id);
     Object.assign(existing, rest);
 
@@ -134,6 +164,7 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(existing);
+    await this.setPhapTriLinksForBenh(saved.id, phap_tri_ids);
     await this.syncLinkedPhapTriFromBenh(saved);
     return saved;
   }

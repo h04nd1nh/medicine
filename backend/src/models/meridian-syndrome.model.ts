@@ -155,7 +155,7 @@ export class MeridianSyndrome {
   @Column({ type: 'smallint', default: 0 })
   ty_c11: number;
 
-  /** Tối đa một pháp trị gắn trực tiếp (FK id_benh_dong_y ở phap_tri, UNIQUE) — TypeORM vẫn dùng OneToMany */
+  /** Nhiều pháp trị gắn qua phap_tri.id_benh_dong_y (không còn UNIQUE trên cột này). */
   @OneToMany('PhapTri', 'benh_dong_y')
   phap_tri_list: PhapTri[];
 

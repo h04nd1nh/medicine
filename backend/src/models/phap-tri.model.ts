@@ -40,6 +40,31 @@ export class PhapTri {
   @Column({ type: 'text', nullable: true })
   luc_dam: string | null;
 
+  /** Cột bảng luận trị TCM (mẫu Excel/UI) */
+  @Column({ type: 'text', nullable: true })
+  am_duong: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ton_thuong: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  tac_nhan: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ban_chat: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  vi_tri_tien_trinh: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  mach_chan: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  chat_luoi: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  nguyen_nhan: string | null;
+
   @Column({ type: 'text', nullable: true })
   trieu_chung_mo_ta: string | null;
 

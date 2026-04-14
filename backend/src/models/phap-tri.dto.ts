@@ -5,6 +5,14 @@ export class CreatePhapTriDto {
   bat_phap?: string | null;
   bat_cuong?: string | null;
   luc_dam?: string | null;
+  am_duong?: string | null;
+  ton_thuong?: string | null;
+  tac_nhan?: string | null;
+  ban_chat?: string | null;
+  vi_tri_tien_trinh?: string | null;
+  mach_chan?: string | null;
+  chat_luoi?: string | null;
+  nguyen_nhan?: string | null;
   trieu_chung_mo_ta?: string | null;
   id_bai_thuoc?: number | null;
   /** Nhiều bài thuốc tham chiếu (ưu tiên hơn id_bai_thuoc khi có trong body) */
@@ -27,6 +35,14 @@ export class UpdatePhapTriDto {
   bat_phap?: string | null;
   bat_cuong?: string | null;
   luc_dam?: string | null;
+  am_duong?: string | null;
+  ton_thuong?: string | null;
+  tac_nhan?: string | null;
+  ban_chat?: string | null;
+  vi_tri_tien_trinh?: string | null;
+  mach_chan?: string | null;
+  chat_luoi?: string | null;
+  nguyen_nhan?: string | null;
   trieu_chung_mo_ta?: string | null;
   id_bai_thuoc?: number | null;
   id_bai_thuoc_list?: number[];

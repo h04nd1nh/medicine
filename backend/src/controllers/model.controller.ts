@@ -15,10 +15,11 @@ export class ModelsService {
     @InjectRepository(TrieuChung)
     private readonly trieuChungRepo: Repository<TrieuChung>,
   ) {}
+  ) {}
 
   findAll(): Promise<MeridianSyndrome[]> {
     return this.repo.find({
-      relations: ['baiThuocList', 'trieuChungList'],
+      relations: ['baiThuocList', 'trieuChungList', 'phap_tri_list'],
       order: { id: 'ASC' },
     });
   }
@@ -26,14 +27,14 @@ export class ModelsService {
   async findOne(id: number): Promise<MeridianSyndrome> {
     const row = await this.repo.findOne({
       where: { id },
-      relations: ['baiThuocList', 'trieuChungList'],
+      relations: ['baiThuocList', 'trieuChungList', 'phap_tri_list'],
     });
     if (!row) throw new NotFoundException(`Mô hình #${id} không tồn tại`);
     return row;
   }
 
   async create(data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids: _phap_tri_ids, ...rest } = data;
     const entity = this.repo.create(rest as Partial<MeridianSyndrome>);
 
     if (bai_thuoc_ids && bai_thuoc_ids.length > 0) {
@@ -52,7 +53,7 @@ export class ModelsService {
   }
 
   async update(id: number, data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids: _phap_tri_ids, ...rest } = data;
     const existing = await this.findOne(id);
     Object.assign(existing, rest);
 

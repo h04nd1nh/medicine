@@ -287,7 +287,13 @@ function _mapNestModelToLegacy(m) {
         phaptri: m.benhly || '',
         phuonghuyet: m.phuyet_chamcuu || '',
         giainghia_phuyet: m.giainghia_phuyet || '',
+        bai_thuoc: m.bai_thuoc || '',
+        chung_trang: m.chung_trang || '',
     };
+    const ptList = m.phap_tri_list || m.phapTriList;
+    if (Array.isArray(ptList) && ptList.length) {
+        obj.phap_tri_list = ptList;
+    }
     _MERID_KEYS.forEach(k => {
         obj[k] = m[k] ?? 0;
         obj[k + '_c8'] = m[k + '_c8'] ?? 0;
@@ -306,6 +312,12 @@ function _mapLegacyModelToNest(payload) {
                 ? payload.phuyet_chamcuu
                 : (payload.phuonghuyet ?? ''),
     };
+    if (Object.prototype.hasOwnProperty.call(payload, 'bai_thuoc')) {
+        dto.bai_thuoc = payload.bai_thuoc ?? '';
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'chung_trang')) {
+        dto.chung_trang = payload.chung_trang ?? '';
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'giainghia_phuyet')) {
         dto.giainghia_phuyet = payload.giainghia_phuyet ?? '';
     }
@@ -324,6 +336,11 @@ function _mapLegacyModelToNest(payload) {
                 if (kh[k] !== undefined) dto[k] = parseInt(kh[k]) || 0;
             });
         } catch {}
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'phap_tri_ids')) {
+        dto.phap_tri_ids = Array.isArray(payload.phap_tri_ids)
+            ? payload.phap_tri_ids.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0)
+            : [];
     }
     return dto;
 }

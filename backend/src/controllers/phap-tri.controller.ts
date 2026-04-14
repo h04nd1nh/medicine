@@ -286,6 +286,14 @@ export class PhapTriService {
       bat_phap: dto.bat_phap ?? null,
       bat_cuong: dto.bat_cuong ?? null,
       luc_dam: dto.luc_dam ?? null,
+      am_duong: dto.am_duong ?? null,
+      ton_thuong: dto.ton_thuong ?? null,
+      tac_nhan: dto.tac_nhan ?? null,
+      ban_chat: dto.ban_chat ?? null,
+      vi_tri_tien_trinh: dto.vi_tri_tien_trinh ?? null,
+      mach_chan: dto.mach_chan ?? null,
+      chat_luoi: dto.chat_luoi ?? null,
+      nguyen_nhan: dto.nguyen_nhan ?? null,
       trieu_chung_mo_ta: dto.trieu_chung_mo_ta ?? null,
       kinh_mach_list: [],
       trieu_chung_list: [],
@@ -314,6 +322,14 @@ export class PhapTriService {
     if (dto.bat_phap !== undefined) item.bat_phap = dto.bat_phap;
     if (dto.bat_cuong !== undefined) item.bat_cuong = dto.bat_cuong;
     if (dto.luc_dam !== undefined) item.luc_dam = dto.luc_dam;
+    if (dto.am_duong !== undefined) item.am_duong = dto.am_duong;
+    if (dto.ton_thuong !== undefined) item.ton_thuong = dto.ton_thuong;
+    if (dto.tac_nhan !== undefined) item.tac_nhan = dto.tac_nhan;
+    if (dto.ban_chat !== undefined) item.ban_chat = dto.ban_chat;
+    if (dto.vi_tri_tien_trinh !== undefined) item.vi_tri_tien_trinh = dto.vi_tri_tien_trinh;
+    if (dto.mach_chan !== undefined) item.mach_chan = dto.mach_chan;
+    if (dto.chat_luoi !== undefined) item.chat_luoi = dto.chat_luoi;
+    if (dto.nguyen_nhan !== undefined) item.nguyen_nhan = dto.nguyen_nhan;
 
     await this.applyRefs(item, dto, 'update');
     try {

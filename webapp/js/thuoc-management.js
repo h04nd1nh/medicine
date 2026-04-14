@@ -33,6 +33,8 @@ let _btDraftChiTiet = [];
 let _btDraftTrieuChung = [];
 /** Thứ tự = thứ tự gửi phap_tri_ids (liên kết danh mục pháp trị) */
 let _btDraftPhapTriIds = [];
+/** Lọc danh sách bài thuốc theo tên / nội dung pháp trị (nguyen_tac của các pháp trị đã gắn) */
+let _btBaiThuocFilterPhapTri = '';
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initThuocManagement() {
@@ -535,6 +537,15 @@ function btGetGramPreviewText(lieu) {
 // ═══════════════════════════════════════════════════════════
 // TAB: BÀI THUỐC
 // ═══════════════════════════════════════════════════════════
+function btPhapTriFold(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
 function btPhapTriLinksToOrderedIds(item) {
     const links = item?.phapTriLinks || [];
     return [...links]
@@ -543,33 +554,72 @@ function btPhapTriLinksToOrderedIds(item) {
         .filter(id => Number.isFinite(id));
 }
 
+/** Danh sách bài thuốc sau lọc «pháp trị» (dùng chung tab Thuốc và màn YHCT nếu có). */
+function btGetBaiThuocListFilteredForTable() {
+    const all = _thuocData.baiThuoc || [];
+    const fq = btPhapTriFold(_btBaiThuocFilterPhapTri);
+    if (!fq) return [...all];
+    return all.filter((item) => {
+        const links = item?.phapTriLinks || [];
+        return links.some((l) => {
+            const pt = l.phapTri || l.phap_tri;
+            const np = btPhapTriFold(pt?.nguyen_tac || '');
+            return np && (np.includes(fq) || np === fq);
+        });
+    });
+}
+
+/** HTML (chip) — hiển thị theo nội dung pháp trị nguyen_tac, thứ tự liên kết. */
 function btFormatPhapTriLinksCell(item) {
     const links = item?.phapTriLinks || [];
-    if (!links.length) return '—';
+    if (!links.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
     const labels = [...links]
         .sort((a, b) => (a.thuTu ?? a.thu_tu ?? 0) - (b.thuTu ?? b.thu_tu ?? 0))
-        .map(l => (l.phapTri?.chung_trang || l.phap_tri?.chung_trang || '').trim())
+        .map((l) => {
+            const pt = l.phapTri || l.phap_tri;
+            const np = String(pt?.nguyen_tac || '').trim();
+            if (np) return np;
+            const id = pt?.id ?? l.idPhapTri ?? l.id_phap_tri;
+            return id != null ? '#' + id : '';
+        })
         .filter(Boolean);
-    return labels.length ? escHtml(labels.join(' · ')) : '—';
+    return labels.length ? tayyChipsFromStrings(labels) : '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
+}
+
+function btSetBaiThuocPhapTriFilter(val) {
+    _btBaiThuocFilterPhapTri = String(val ?? '');
+    const tel = document.getElementById('thuoc-tab-content');
+    if (tel && _thuocData.activeTab === 'bai-thuoc') renderBaiThuocTab(tel);
 }
 
 function renderBaiThuocTab(el) {
-    const rows = _thuocData.baiThuoc.map(item => {
-        const ingredients = (item.chiTietViThuoc || []).map(d => {
-            const ten = d?.viThuoc?.ten_vi_thuoc || '';
-            const lieu = (d?.lieu_luong || '').trim();
-            const displayLieu = btGetGramPreviewText(lieu);
-            return `${ten} (${displayLieu})`;
-        }).filter(Boolean).join(', ');
-        const chungTrangStr = escHtml(item.chung_trang || '—');
-        const trieuChungStr = escHtml(item.trieu_chung || '—');
-        const ptLinkStr = btFormatPhapTriLinksCell(item);
-        return `
+    const list = btGetBaiThuocListFilteredForTable();
+    const fv = escHtml(_btBaiThuocFilterPhapTri);
+    const rows =
+        list.length === 0
+            ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#A09580;">${
+                  (_thuocData.baiThuoc || []).length ? 'Không có bài thuốc khớp bộ lọc pháp trị.' : 'Chưa có dữ liệu'
+              }</td></tr>`
+            : list
+                  .map((item) => {
+                      const ingredients = (item.chiTietViThuoc || [])
+                          .map((d) => {
+                              const ten = d?.viThuoc?.ten_vi_thuoc || '';
+                              const lieu = (d?.lieu_luong || '').trim();
+                              const displayLieu = btGetGramPreviewText(lieu);
+                              return `${ten} (${displayLieu})`;
+                          })
+                          .filter(Boolean)
+                          .join(', ');
+                      const chungTrangStr = escHtml(item.chung_trang || '—');
+                      const trieuChungStr = escHtml(item.trieu_chung || '—');
+                      const ptLinkStr = btFormatPhapTriLinksCell(item);
+                      return `
             <tr>
                 <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
                 <td>${escHtml(item.nguon_goc || '—')}</td>
                 <td style="font-size:0.8rem;">${chungTrangStr}</td>
-                <td style="font-size:0.75rem;color:#5B3A1A;">${ptLinkStr}</td>
+                <td style="font-size:0.75rem;color:#5B3A1A;max-width:280px;">${ptLinkStr}</td>
                 <td style="font-size:0.8rem;">${trieuChungStr}</td>
                 <td style="font-size:0.8rem;">${escHtml(ingredients || 'Chưa có vị thuốc')}</td>
                 <td style="text-align:center;width:130px;">
@@ -580,15 +630,23 @@ function renderBaiThuocTab(el) {
                 </td>
             </tr>
         `;
-    }).join('');
+                  })
+                  .join('');
     el.innerHTML = `
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
             <button class="btn btn-primary" onclick="openBaiThuocForm()">+ Thêm bài thuốc</button>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;padding:10px 12px;background:#FFFBF2;border:1px solid #E8DCC4;border-radius:8px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:#57534e;min-width:220px;flex:1;max-width:360px;">Tìm theo pháp trị
+                <input type="text" class="tayy-form-input" style="margin:0;" value="${fv}"
+                    oninput="btSetBaiThuocPhapTriFilter(this.value)"
+                    placeholder="Theo nội dung pháp trị đã gắn (nguyen_tac)…">
+            </label>
+        </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th><th>Pháp trị (danh mục)</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="7" style="text-align:center;">Chưa có dữ liệu</td></tr>'}</tbody>
+                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th><th>Pháp trị</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <tbody>${rows}</tbody>
             </table>
         </div>`;
 }
@@ -625,11 +683,11 @@ function openBaiThuocForm(id) {
         <label class="tayy-form-label">Chứng trạng<br><textarea id="bt-inp-chungtrang" class="tayy-form-input" rows="3" placeholder="Biện chứng, pháp trị… (tự do)">${item ? escHtml(item.chung_trang || '') : ''}</textarea></label>
 
         <label class="tayy-form-label">
-            Liên kết pháp trị (danh mục)
+            Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — chọn từ danh mục Pháp trị; tìm theo <strong>tên / nội dung pháp trị</strong> <code>nguyen_tac</code>)</span>
             <div style="position:relative; margin-top:6px;">
                 <div id="bt-phaptri-chips" class="chips-container" onclick="document.getElementById('bt-inp-phaptri-search').focus()">
                     <input id="bt-inp-phaptri-search" type="text" class="chip-input"
-                        placeholder="Gõ chứng trạng / id để thêm từ tab Pháp trị…"
+                        placeholder="Gõ pháp trị hoặc #id, Enter để chọn…"
                         oninput="btOnPhapTriLinkSearchInput(this.value)"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); btTrySelectPhapTriFromSearch();}">
                 </div>
@@ -638,7 +696,7 @@ function openBaiThuocForm(id) {
                     box-shadow:0 10px 30px rgba(0,0,0,0.12);
                     max-height:200px; overflow-y:auto; z-index:2500; display:none;"></div>
             </div>
-            <div style="font-size:0.72rem;color:#8B7355;margin-top:6px;line-height:1.35;">Khớp với cột chứng trạng trong danh mục Pháp trị; thứ tự chip = thứ tự lưu.</div>
+            <div style="font-size:0.72rem;color:#8B7355;margin-top:6px;line-height:1.35;">Thứ tự chip = thứ tự lưu trên bài thuốc.</div>
         </label>
 
         <!-- Triệu chứng -->
@@ -1056,7 +1114,8 @@ function btRenderPhapTriLinkChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     (_btDraftPhapTriIds || []).forEach(ptId => {
         const pt = btGetPhapTriById(ptId);
-        const label = (pt?.chung_trang || '').trim() || ('#' + ptId);
+        const np = String(pt?.nguyen_tac || '').trim();
+        const label = np || (pt?.chung_trang || '').trim() || ('#' + ptId);
         const chip = document.createElement('div');
         chip.className = 'chip';
         chip.innerHTML = `${escHtml(label)} <span class="chip-remove" onclick="btRemovePhapTriLinkChip(${ptId}); event.stopPropagation();">×</span>`;
@@ -1080,41 +1139,60 @@ function btSelectPhapTriLink(ptId) {
     if (suggestEl) suggestEl.style.display = 'none';
 }
 
+function btPhapTriCatalogMatchesQuery(qRaw, p) {
+    const q = (qRaw || '').trim();
+    if (!q) return false;
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    if (Number.isFinite(idNum) && p.id === idNum) return true;
+    const fq = btPhapTriFold(q);
+    if (!fq) return false;
+    const np = btPhapTriFold(p.nguyen_tac || '');
+    return np && np.includes(fq);
+}
+
 function btOnPhapTriLinkSearchInput(val) {
     const suggestEl = document.getElementById('bt-phaptri-suggest');
     if (!suggestEl) return;
     const q = (val || '').trim();
     if (!q) { suggestEl.style.display = 'none'; return; }
 
-    const qLow = q.toLowerCase();
     const selected = new Set(_btDraftPhapTriIds || []);
     const all = _thuocData.phapTriList || [];
 
-    const idNum = /^\d+$/.test(q) ? parseInt(q, 10) : NaN;
-    const filtered = all.filter(p => {
-        if (selected.has(p.id)) return false;
-        if (Number.isFinite(idNum) && p.id === idNum) return true;
-        const ct = (p.chung_trang || '').trim().toLowerCase();
-        return ct && ct.includes(qLow);
-    }).slice(0, 12);
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    const filtered = all
+        .filter((p) => !selected.has(p.id))
+        .filter((p) => {
+            if (Number.isFinite(idNum) && idNum > 0) {
+                return p.id === idNum || String(p.id).includes(idStr);
+            }
+            return btPhapTriCatalogMatchesQuery(q, p);
+        })
+        .slice(0, 12);
 
     if (filtered.length === 0) {
-        suggestEl.innerHTML = '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có mục pháp trị phù hợp</div>';
+        suggestEl.innerHTML =
+            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị phù hợp — tìm theo <code>nguyen_tac</code> hoặc #id.</div>';
         suggestEl.style.display = 'block';
         return;
     }
 
-    suggestEl.innerHTML = filtered.map(p => {
-        const lab = (p.chung_trang || '').trim() || ('#' + p.id);
-        return `
+    suggestEl.innerHTML = filtered
+        .map((p) => {
+            const lab = String(p.nguyen_tac || '').trim() || ('#' + p.id);
+            const sub = (p.chung_trang || '').trim();
+            return `
             <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
                  onmouseover="this.style.background='#F5F0E8'"
                  onmouseout="this.style.background='transparent'"
                  onclick="btSelectPhapTriLink(${p.id})">
-                <span style="font-weight:600;">${escHtml(lab)}</span>
-                <span style="font-size:0.72rem;color:#9CA3AF;margin-left:6px;">id ${p.id}</span>
+                <div style="font-weight:600;">${escHtml(lab.length > 120 ? lab.slice(0, 120) + '…' : lab)}</div>
+                <div style="font-size:0.7rem;color:#9CA3AF;margin-top:2px;">id ${p.id}${sub ? ` · ${escHtml(sub.slice(0, 60))}${sub.length > 60 ? '…' : ''}` : ''}</div>
             </div>`;
-    }).join('');
+        })
+        .join('');
     suggestEl.style.display = 'block';
 }
 
@@ -1122,15 +1200,28 @@ function btTrySelectPhapTriFromSearch() {
     const inp = document.getElementById('bt-inp-phaptri-search');
     const q = (inp?.value || '').trim();
     if (!q) return;
-    const idNum = /^\d+$/.test(q) ? parseInt(q, 10) : NaN;
-    const all = _thuocData.phapTriList || [];
-    let p = Number.isFinite(idNum) ? all.find(x => x.id === idNum) : null;
+    const selected = new Set(_btDraftPhapTriIds || []);
+    const all = (_thuocData.phapTriList || []).filter((x) => !selected.has(x.id));
+    const idStr = q.replace(/^#/, '').trim();
+    const idNum = /^\d+$/.test(idStr) ? parseInt(idStr, 10) : NaN;
+    let p = Number.isFinite(idNum) && idNum > 0 ? all.find((x) => x.id === idNum) : null;
     if (!p) {
         const qLow = q.toLowerCase();
-        const cand = all.filter(x => (x.chung_trang || '').trim().toLowerCase() === qLow);
-        if (cand.length === 1) p = cand[0];
+        const exact = all.find((x) => String(x.nguyen_tac || '').trim().toLowerCase() === qLow);
+        if (exact) p = exact;
     }
-    if (p) btSelectPhapTriLink(p.id);
+    if (!p) {
+        const fq = btPhapTriFold(q);
+        const exactFold = all.find((x) => btPhapTriFold(x.nguyen_tac || '') === fq);
+        if (exactFold) p = exactFold;
+    }
+    if (p) {
+        btSelectPhapTriLink(p.id);
+        return;
+    }
+    const sub = all.filter((x) => btPhapTriCatalogMatchesQuery(q, x));
+    if (sub.length === 1) btSelectPhapTriLink(sub[0].id);
+    else btOnPhapTriLinkSearchInput(q);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1256,6 +1347,40 @@ function ptTrieuChungDraftFromPhapTriItem(item) {
     });
 }
 
+/** Cột «Thể bệnh» (chứng trạng): <code>chung_trang</code> — không liên kết bệnh Đông y. */
+function ptTheBenhPlainText(r) {
+    if (!r) return '';
+    return String(r.chung_trang || r.chungTrang || '').trim();
+}
+
+function ptTheBenhDisplayHtml(r) {
+    const main = ptTheBenhPlainText(r);
+    if (!main) return '<span style="color:#D1D5DB;">—</span>';
+    return `<span style="font-weight:600;color:#5B3A1A;">${escHtml(main)}</span>`;
+}
+
+/** Cột «Triệu chứng điển hình»: từ quan hệ trieu_chung hoặc chuỗi mô tả. */
+function ptTrieuChungDienHinhCell(r) {
+    const list = r.trieu_chung_list || r.trieuChungList;
+    if (Array.isArray(list) && list.length) {
+        const chips = list
+            .map((t) => String(t.ten_trieu_chung || '').trim())
+            .filter(Boolean)
+            .map((n) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(n)}</span>`)
+            .join('');
+        return chips
+            ? `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:260px;">${chips}</div>`
+            : '<span style="color:#D1D5DB;">—</span>';
+    }
+    return ptChipsPreviewCsv(r.trieu_chung_mo_ta);
+}
+
+function ptTcmTextCell(val, maxLen) {
+    const raw = val != null ? String(val) : '';
+    if (!raw.trim()) return '<span style="color:#D1D5DB;">—</span>';
+    return ptTextPreview(raw, maxLen || 36);
+}
+
 function ptBaiThuocListFromPhapTriRow(r) {
     if (!r) return [];
     const links = r.bai_thuoc_links || r.baiThuocLinks;
@@ -1323,19 +1448,6 @@ function ptKinhMachListPreview(r) {
     const parts = list.map(k => ptKinhMachShortLabel(k)).filter(Boolean);
     if (!parts.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
     return ptTextPreview(parts.join(', '), 56);
-}
-
-function ptBenhDongYOptionsHtml(selectedId) {
-    let html = '<option value="">— Không gắn bệnh Đông y —</option>';
-    const models = (_thuocData.benhDongYModels || []).slice().sort((a, b) => String(a.ten || '').localeCompare(String(b.ten || ''), 'vi'));
-    for (const m of models) {
-        const id = m.modelId;
-        const ten = String(m.ten || '').trim();
-        if (!ten || id == null) continue;
-        const sel = selectedId != null && String(selectedId) === String(id) ? ' selected' : '';
-        html += '<option value="' + escHtml(String(id)) + '"' + sel + '>' + escHtml(ten) + '</option>';
-    }
-    return html;
 }
 
 function ptNhomNhoOptionsHtml(selectedId) {
@@ -1864,51 +1976,45 @@ function ptOnPhapTriNhomNhoKeydown(ev) {
 }
 
 async function renderPhapTriTab(el) {
-    const rows = (_thuocData.phapTriList || []).map(r => {
+    const rows = (_thuocData.phapTriList || []).map((r) => {
         const id = r.id;
-        const ckRaw = (r.chung_trang || r.chungTrang || '').trim();
-        const idBd = r.id_benh_dong_y ?? r.idBenhDongY ?? (r.benh_dong_y && r.benh_dong_y.id) ?? (r.benhDongY && r.benhDongY.id);
-        const hasDoKinhLac = idBd != null && idBd !== '' && Number.isFinite(Number(idBd));
-        const tagDoKinhLac = hasDoKinhLac
-            ? `<span style="display:inline-block;margin-left:6px;padding:1px 7px;font-size:0.68rem;font-weight:700;color:#166534;background:#DCFCE7;border:1px solid #86EFAC;border-radius:4px;vertical-align:middle;white-space:nowrap;">Đo kinh lạc</span>`
-            : '';
-        let ckCell;
-        if (ckRaw) {
-            ckCell = `<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;max-width:100%;"><span style="font-weight:600;color:#5B3A1A;">${escHtml(ckRaw)}</span>${tagDoKinhLac}</span>`;
-        } else if (hasDoKinhLac) {
-            ckCell = `<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;">${tagDoKinhLac}</span>`;
-        } else {
-            ckCell = '<span style="color:#D1D5DB;">—</span>';
-        }
+        const hasKinh = ((r.kinh_mach_list || r.kinhMachList || []).length > 0);
+        const tangPhuCell = !hasKinh
+                ? '<span style="color:#D1D5DB;">—</span>'
+                : `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;max-width:120px;">${ptKinhMachListPreview(r)}</div>`;
         const btList = ptBaiThuocListFromPhapTriRow(r);
         const bt =
             btList.length > 0
-                ? `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">${btList
+                ? `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:200px;">${btList
                       .map(
                           (b) =>
                               `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(b.ten_bai_thuoc)}</span>`,
                       )
                       .join('')}</div>`
                 : '<span style="color:#D1D5DB;">—</span>';
-        const nhoList = r.nhom_duoc_ly_nho_list || r.nhomDuocLyNhoList || [];
-        const nhoSingle = r.nhom_duoc_ly_nho || r.nhomDuocLyNho;
-        const nhoNames = (Array.isArray(nhoList) && nhoList.length
-            ? nhoList.map((x) => x?.ten_nhom_nho).filter(Boolean)
-            : (nhoSingle ? [nhoSingle.ten_nhom_nho] : []));
-        const nnRaw = nhoNames.join(', ').trim();
-        const nnCell = nnRaw ? ptTextPreview(nnRaw, 40) : '<span style="color:#D1D5DB;">—</span>';
+        const ad = r.am_duong ?? r.amDuong;
+        const tt = r.ton_thuong ?? r.tonThuong;
+        const tn = r.tac_nhan ?? r.tacNhan;
+        const bc = r.ban_chat ?? r.banChat;
+        const vt = r.vi_tri_tien_trinh ?? r.viTriTienTrinh;
+        const mc = r.mach_chan ?? r.machChan;
+        const cl = r.chat_luoi ?? r.chatLuoi;
+        const nn = r.nguyen_nhan ?? r.nguyenNhan;
         return `<tr>
             <td style="text-align:center;font-size:0.72rem;color:#78716c;white-space:nowrap;">${id}</td>
-            <td style="min-width:140px;white-space:normal;">${ckCell}</td>
-            <td style="min-width:100px;white-space:normal;">${ptTextPreview(r.nguyen_tac, 44)}</td>
-            <td style="min-width:100px;white-space:normal;">${ptTextPreview(r.y_nghia_co_che, 40)}</td>
-            <td style="vertical-align:top;">${ptChipsPreviewCsv(r.bat_phap)}</td>
-            <td style="vertical-align:top;">${ptChipsPreviewCsv(r.bat_cuong)}</td>
-            <td style="vertical-align:top;">${ptChipsPreviewCsv(r.luc_dam)}</td>
-            <td style="vertical-align:top;">${ptChipsPreviewCsv(r.trieu_chung_mo_ta)}</td>
-            <td style="min-width:100px;white-space:normal;">${ptKinhMachListPreview(r)}</td>
-            <td style="font-size:0.78rem;min-width:88px;white-space:normal;">${bt}</td>
-            <td style="font-size:0.78rem;min-width:100px;white-space:normal;">${nnCell}</td>
+            <td style="min-width:72px;white-space:normal;">${tangPhuCell}</td>
+            <td style="min-width:72px;white-space:normal;">${ptTcmTextCell(ad, 28)}</td>
+            <td style="min-width:72px;white-space:normal;">${ptTcmTextCell(tt, 28)}</td>
+            <td style="min-width:72px;white-space:normal;">${ptTcmTextCell(tn, 28)}</td>
+            <td style="min-width:80px;white-space:normal;">${ptTcmTextCell(bc, 32)}</td>
+            <td style="min-width:88px;white-space:normal;">${ptTcmTextCell(vt, 36)}</td>
+            <td style="min-width:120px;white-space:normal;">${ptTheBenhDisplayHtml(r)}</td>
+            <td style="min-width:100px;white-space:normal;">${ptTextPreview(r.nguyen_tac, 40)}</td>
+            <td style="min-width:80px;white-space:normal;">${ptTcmTextCell(mc, 32)}</td>
+            <td style="min-width:72px;white-space:normal;">${ptTcmTextCell(cl, 28)}</td>
+            <td style="vertical-align:top;min-width:120px;">${ptTrieuChungDienHinhCell(r)}</td>
+            <td style="min-width:88px;white-space:normal;">${ptTcmTextCell(nn, 36)}</td>
+            <td style="font-size:0.78rem;min-width:100px;white-space:normal;">${bt}</td>
             <td style="text-align:center;width:130px;white-space:nowrap;">
                 <div class="table-actions" style="justify-content:center;">
                     <button class="btn btn-sm btn-outline" onclick="openPhapTriRowForm(${r.id})">✏ Sửa</button>
@@ -1922,7 +2028,7 @@ async function renderPhapTriTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" title="Không cột id: khớp 100%% phần tiểu kết (trước ngoặc) với tieuket → cập nhật phap_tri có id_benh_dong_y; không khớp → tạo mới. Cột id: cập nhật đúng bản ghi. Có Chứng trạng: gán id_benh_dong_y hoặc null. Các cột: Nguyên tắc, Ý nghĩa &amp; cơ chế, Bát pháp, Bát cương, Lục dâm, Tạng phủ, Triệu chứng, Bài thuốc, Nhóm dược."
+                <button type="button" class="btn btn-outline" title="Round-trip Excel: tiêu đề cột khớp khi đổi hoa/thường hoặc bỏ dấu. Cột id: cập nhật đúng bản ghi; không id: upsert theo «Thể bệnh»/«Thế bệnh»/«Chứng trạng» (chung_trang). Triệu chứng điển hình → trieu_chung. Bài thuốc → bai_thuoc."
                     onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
                 <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
@@ -1933,23 +2039,32 @@ async function renderPhapTriTab(el) {
                 <button class="btn btn-primary" onclick="openPhapTriRowForm()">+ Thêm pháp trị</button>
             </div>
         </div>
+        <p style="margin:0 0 10px;font-size:0.8rem;color:#78716c;line-height:1.45;max-width:920px;">
+            Bảng theo mẫu biện chứng: cột <strong>Thể bệnh</strong> hiển thị <code>chung_trang</code> (chứng trạng / tiểu kết tự nhập);
+            <strong>Triệu chứng điển hình</strong> từ danh mục <code>trieu_chung</code>;
+            <strong>Bài thuốc tiêu biểu</strong> từ <code>bai_thuoc</code>. <strong>Tạng phủ</strong> = kinh mạch đã chọn.
+            Gắn pháp trị với <strong>bệnh Tây y</strong> tại mục Quản lý Bệnh Tây Y (chips Pháp trị).
+        </p>
         <div class="data-table-container" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-            <table style="min-width:1060px;">
+            <table style="min-width:1480px;">
                 <thead><tr>
                     <th style="width:44px;text-align:center;">id</th>
-                    <th style="min-width:160px;white-space:normal;">Chứng trạng</th>
-                    <th style="min-width:100px;white-space:normal;">Nguyên tắc</th>
-                    <th style="min-width:100px;white-space:normal;">Ý nghĩa &amp; cơ chế</th>
-                    <th>Bát pháp</th>
-                    <th>Bát cương</th>
-                    <th>Lục dâm</th>
-                    <th>Triệu chứng</th>
-                    <th style="min-width:100px;white-space:normal;">Kinh mạch</th>
-                    <th style="min-width:88px;">Bài thuốc</th>
-                    <th style="min-width:100px;">Nhóm dược</th>
+                    <th style="min-width:80px;white-space:normal;">Tạng phủ</th>
+                    <th style="min-width:72px;white-space:normal;">Âm Dương</th>
+                    <th style="min-width:72px;white-space:normal;">Tổn thương</th>
+                    <th style="min-width:72px;white-space:normal;">Tác nhân</th>
+                    <th style="min-width:80px;white-space:normal;">Bản chất</th>
+                    <th style="min-width:88px;white-space:normal;">Vị trí / Tiến trình</th>
+                    <th style="min-width:120px;white-space:normal;">Thể bệnh<br><span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(chung_trang)</span></th>
+                    <th style="min-width:100px;white-space:normal;">Pháp trị</th>
+                    <th style="min-width:80px;white-space:normal;">Mạch chẩn</th>
+                    <th style="min-width:72px;white-space:normal;">Chất lưỡi</th>
+                    <th style="min-width:120px;white-space:normal;">Triệu chứng điển hình<br><span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(trieu_chung)</span></th>
+                    <th style="min-width:88px;white-space:normal;">Nguyên nhân</th>
+                    <th style="min-width:100px;white-space:normal;">Bài thuốc tiêu biểu<br><span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(bai_thuoc)</span></th>
                     <th style="width:130px;text-align:center;">Thao tác</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="12" style="text-align:center;padding:20px;color:#9CA3AF;">Chưa có bản ghi</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="15" style="text-align:center;padding:20px;color:#9CA3AF;">Chưa có bản ghi</td></tr>'}</tbody>
             </table>
         </div>`;
 }
@@ -1965,12 +2080,6 @@ async function openPhapTriRowForm(id) {
         _ptKinhIds = (item.kinh_mach_list || item.kinhMachList || []).map(k => kmRowId(k)).filter(n => Number.isFinite(n));
     }
     const chungInit = item ? String(item.chung_trang || item.chungTrang || '').trim() : '';
-    let benhSelId = '';
-    if (item) {
-        const b = item.benh_dong_y || item.benhDongY;
-        if (b && b.id != null) benhSelId = b.id;
-        else if (item.id_benh_dong_y != null) benhSelId = item.id_benh_dong_y;
-    }
     _ptBaiThuocDraft = item ? ptBaiThuocListFromPhapTriRow(item) : [];
     const nnList = item
         ? (item.nhom_duoc_ly_nho_list || item.nhomDuocLyNhoList || [])
@@ -1985,82 +2094,57 @@ async function openPhapTriRowForm(id) {
         .filter(Boolean)
         .map((x) => ({ id: x.id, ten_nhom_nho: x.ten_nhom_nho }));
 
-    showTayyModal(item ? 'Sửa pháp trị (luận trị)' : 'Thêm pháp trị (luận trị)', `
+    const ptTcm = (kSnake, kCamel) =>
+        item ? escHtml(String(item[kSnake] != null ? item[kSnake] : item[kCamel] ?? '')) : '';
+    const ptLegacyOpen =
+        item &&
+        (ptCsvToArr(item.bat_phap).length ||
+            ptCsvToArr(item.bat_cuong).length ||
+            ptCsvToArr(item.luc_dam).length ||
+            String(item.y_nghia_co_che || '').trim() ||
+            (_ptNhomNhoDraft && _ptNhomNhoDraft.length))
+            ? ' open'
+            : '';
+
+    showTayyModal(item ? 'Sửa pháp trị' : 'Thêm pháp trị', `
 <div class="pt-form">
-    <section class="pt-form-section" aria-labelledby="pt-sec-1">
-        <h3 class="pt-form-section-title" id="pt-sec-1"><span class="pt-form-section-num">1</span>Nhận diện chứng trạng</h3>
-        <label class="tayy-form-label">Tên / tiểu kết chứng trạng
-            <input id="pt-inp-chung-trang" type="text" class="tayy-form-input" value="${escHtml(chungInit)}"
-                placeholder="VD: Phong hàn biểu hư, Thấp nhiệt nội uẩn…">
-        </label>
-        <span class="pt-field-hint">Định danh bản ghi; dùng để khớp khi nhập Excel (cột «Chứng trạng»). Lưu dạng văn bản.</span>
-    </section>
-
-    <section class="pt-form-section" aria-labelledby="pt-sec-link">
-        <h3 class="pt-form-section-title" id="pt-sec-link"><span class="pt-form-section-num">1b</span>Liên kết mô hình bệnh Đông y</h3>
+    <section class="pt-form-section" aria-labelledby="pt-sec-main">
+        <h3 class="pt-form-section-title" id="pt-sec-main"><span class="pt-form-section-num">1</span>Thể bệnh &amp; ghi chú</h3>
         ${item ? `<p style="margin:0 0 10px;font-size:0.88rem;color:#57534e;">Mã bản ghi: <strong style="color:#44403c;">#${item.id}</strong></p>` : ''}
-        <label class="tayy-form-label">Bệnh Đông y (tiểu kết — tieuket trong danh mục mô hình)
-            <select id="pt-sel-benhdongy" class="tayy-form-input">${ptBenhDongYOptionsHtml(benhSelId)}</select>
+        <label class="tayy-form-label">Thể bệnh / <code>chung_trang</code> <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(cột «Thể bệnh» trên bảng &amp; Excel)</span>
+            <input id="pt-inp-chung-trang" type="text" class="tayy-form-input" value="${escHtml(chungInit)}"
+                placeholder="Tiểu kết, chứng trạng… (khớp nhập Excel)">
         </label>
-        <span class="pt-field-hint">Mỗi bệnh chỉ gắn tối đa một pháp trị. Nhập Excel có thể tự gán khi Chứng trạng khớp tieuket. Chọn «Không gắn bệnh Đông y» để xóa liên kết.</span>
+        <span class="pt-field-hint">Không còn liên kết bệnh Đông y. Để gắn luận trị với bệnh Tây y, dùng mục <strong>Quản lý Bệnh Tây Y</strong> → chips Pháp trị.</span>
     </section>
 
-    <section class="pt-form-section" aria-labelledby="pt-sec-2">
-        <h3 class="pt-form-section-title" id="pt-sec-2"><span class="pt-form-section-num">2</span>Phân loại — bát cương · bát pháp · lục dâm</h3>
-        <div class="pt-form-grid-3">
-            <div>
-                <label class="tayy-form-label">Bát cương</label>
-                <div id="pt-chips-batcuong" class="chips-container" onclick="document.getElementById('pt-inp-batcuong').focus()">
-                    <input id="pt-inp-batcuong" type="text" class="chip-input" placeholder="Biểu, lý, hàn, nhiệt…"
-                        onkeydown="ptOnChipKeydown('bat_cuong', event)">
-                </div>
-                <span class="pt-field-hint">Enter để thêm từng mục.</span>
-            </div>
-            <div>
-                <label class="tayy-form-label">Bát pháp</label>
-                <div id="pt-chips-batphap" class="chips-container" onclick="document.getElementById('pt-inp-batphap').focus()">
-                    <input id="pt-inp-batphap" type="text" class="chip-input" placeholder="Hãn, ôn, thanh, bổ…"
-                        onkeydown="ptOnChipKeydown('bat_phap', event)">
-                </div>
-                <span class="pt-field-hint">Enter để thêm từng mục.</span>
-            </div>
-            <div>
-                <label class="tayy-form-label">Lục dâm</label>
-                <div id="pt-chips-lucdam" class="chips-container" onclick="document.getElementById('pt-inp-lucdam').focus()">
-                    <input id="pt-inp-lucdam" type="text" class="chip-input" placeholder="Phong, hàn, thấp, táo…"
-                        onkeydown="ptOnChipKeydown('luc_dam', event)">
-                </div>
-                <span class="pt-field-hint">Enter để thêm từng mục.</span>
-            </div>
+    <section class="pt-form-section" aria-labelledby="pt-sec-tcm">
+        <h3 class="pt-form-section-title" id="pt-sec-tcm"><span class="pt-form-section-num">2</span>Các cột mô tả (Âm Dương · Tổn thương · …)</h3>
+        <div class="pt-form-grid-2">
+            <label class="tayy-form-label">Âm Dương<input id="pt-inp-am-duong" type="text" class="tayy-form-input" value="${ptTcm('am_duong', 'amDuong')}" placeholder="VD: Dương, Âm…"></label>
+            <label class="tayy-form-label">Tổn thương<input id="pt-inp-ton-thuong" type="text" class="tayy-form-input" value="${ptTcm('ton_thuong', 'tonThuong')}" placeholder="VD: Khí, Huyết…"></label>
+            <label class="tayy-form-label">Tác nhân<input id="pt-inp-tac-nhan" type="text" class="tayy-form-input" value="${ptTcm('tac_nhan', 'tacNhan')}" placeholder="VD: Phong, Hàn…"></label>
+            <label class="tayy-form-label">Bản chất<input id="pt-inp-ban-chat" type="text" class="tayy-form-input" value="${ptTcm('ban_chat', 'banChat')}" placeholder="VD: Khí hư…"></label>
+            <label class="tayy-form-label">Vị trí / Tiến trình<input id="pt-inp-vi-tri" type="text" class="tayy-form-input" value="${ptTcm('vi_tri_tien_trinh', 'viTriTienTrinh')}" placeholder="VD: Lý (Thiếu Âm)…"></label>
+            <label class="tayy-form-label">Mạch chẩn<input id="pt-inp-mach-chan" type="text" class="tayy-form-input" value="${ptTcm('mach_chan', 'machChan')}" placeholder="VD: Tế, Nhược…"></label>
+            <label class="tayy-form-label">Chất lưỡi<input id="pt-inp-chat-luoi" type="text" class="tayy-form-input" value="${ptTcm('chat_luoi', 'chatLuoi')}" placeholder="VD: Nhạt…"></label>
         </div>
     </section>
 
-    <section class="pt-form-section" aria-labelledby="pt-sec-3">
-        <h3 class="pt-form-section-title" id="pt-sec-3"><span class="pt-form-section-num">3</span>Nguyên tắc &amp; cơ chế luận trị</h3>
-        <div class="pt-form-stack">
-            <label class="tayy-form-label">Nguyên tắc điều trị
-                <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2" placeholder="Tóm tắt hướng pháp trị chính…">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
-            </label>
-            <label class="tayy-form-label">Ý nghĩa &amp; cơ chế
-                <textarea id="pt-inp-y_nghia" class="tayy-form-input" rows="3" placeholder="Giải thích cơ chế, liên hệ bệnh cơ…">${item ? escHtml(item.y_nghia_co_che || '') : ''}</textarea>
-            </label>
-        </div>
-    </section>
-
-    <section class="pt-form-section" aria-labelledby="pt-sec-4">
-        <h3 class="pt-form-section-title" id="pt-sec-4"><span class="pt-form-section-num">4</span>Biểu hiện lâm sàng &amp; quy kinh / tạng phủ</h3>
+    <section class="pt-form-section" aria-labelledby="pt-sec-kinh">
+        <h3 class="pt-form-section-title" id="pt-sec-kinh"><span class="pt-form-section-num">3</span>Tạng phủ · Triệu chứng điển hình</h3>
         <div class="pt-form-grid-2">
             <div>
-                <label class="tayy-form-label">Tạng phủ — kinh mạch liên quan</label>
+                <label class="tayy-form-label">Tạng phủ — kinh mạch</label>
                 <div id="pt-chips-kinh" class="chips-container" onclick="document.getElementById('pt-inp-kinh').focus()">
                     <input id="pt-inp-kinh" type="text" class="chip-input" list="pt-datalist-kinh"
                         placeholder="Gõ tắt hoặc tên kinh, Enter để thêm…"
                         onkeydown="ptOnKinhChipKeydown(event)" autocomplete="off">
                 </div>
-                <span class="pt-field-hint">Chọn gợi ý hoặc Enter; mỗi kinh một chip.</span>
+                <span class="pt-field-hint">Enter hoặc gợi ý; mỗi kinh một chip.</span>
             </div>
             <div>
-                <label class="tayy-form-label">Triệu chứng <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(danh mục triệu chứng)</span></label>
+                <label class="tayy-form-label">Triệu chứng điển hình <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(<code>trieu_chung</code>)</span></label>
                 <div style="position:relative;margin-top:6px;">
                     <div id="pt-chips-trieuchung" class="chips-container" onclick="document.getElementById('pt-inp-trieuchung').focus()">
                         <input id="pt-inp-trieuchung" type="text" class="chip-input" placeholder="Gõ để tìm, Enter hoặc chọn gợi ý…"
@@ -2071,47 +2155,88 @@ async function openPhapTriRowForm(id) {
                     </div>
                     <div id="pt-trieuchung-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
                 </div>
-                <span class="pt-field-hint">Chọn từ danh mục hoặc «+ Thêm» để tạo mới (soft create); nhiều chip.</span>
+                <span class="pt-field-hint">Danh mục triệu chứng; có thể soft-create.</span>
             </div>
         </div>
         <datalist id="pt-datalist-kinh"></datalist>
     </section>
 
-    <section class="pt-form-section" aria-labelledby="pt-sec-5">
-        <h3 class="pt-form-section-title" id="pt-sec-5"><span class="pt-form-section-num">5</span>Phương thuốc &amp; phân loại dược lý</h3>
-        <div class="pt-form-grid-2">
-            <div>
-                <label class="tayy-form-label">Bài thuốc tham chiếu</label>
-                <div style="position:relative;margin-top:6px;">
-                    <div id="pt-chips-baithuoc" class="chips-container" onclick="document.getElementById('pt-inp-baithuoc').focus()">
-                        <input id="pt-inp-baithuoc" type="text" class="chip-input"
-                            placeholder="Gõ tên bài thuốc, Enter hoặc chọn gợi ý…"
-                            autocomplete="off"
-                            onfocus="ptOnPhapTriBaiThuocInputFocus()"
-                            oninput="ptOnPhapTriBaiThuocInput()"
-                            onkeydown="ptOnPhapTriBaiThuocKeydown(event)">
-                    </div>
-                    <div id="pt-baithuoc-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
-                </div>
-                <span class="pt-field-hint">Có thể gắn nhiều bài; tên phải trùng danh mục bài thuốc.</span>
-            </div>
-            <div>
-                <label class="tayy-form-label">Nhóm dược lý (nhóm nhỏ)</label>
-                <div style="position:relative;margin-top:6px;">
-                    <div id="pt-chips-nhomnho" class="chips-container" onclick="document.getElementById('pt-inp-nhomnho').focus()">
-                        <input id="pt-inp-nhomnho" type="text" class="chip-input"
-                            placeholder="Gõ tên nhóm nhỏ, Enter hoặc chọn gợi ý…"
-                            autocomplete="off"
-                            onfocus="ptOnPhapTriNhomNhoInputFocus()"
-                            oninput="ptOnPhapTriNhomNhoInput()"
-                            onkeydown="ptOnPhapTriNhomNhoKeydown(event)">
-                    </div>
-                    <div id="pt-nhomnho-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
-                </div>
-                <span class="pt-field-hint">Chỉ hiển thị tên nhóm nhỏ.</span>
-            </div>
+    <section class="pt-form-section" aria-labelledby="pt-sec-phap">
+        <h3 class="pt-form-section-title" id="pt-sec-phap"><span class="pt-form-section-num">4</span>Pháp trị · Nguyên nhân</h3>
+        <div class="pt-form-stack">
+            <label class="tayy-form-label">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(<code>nguyen_tac</code>)</span>
+                <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2" placeholder="VD: Bổ ích tâm khí…">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
+            </label>
+            <label class="tayy-form-label">Nguyên nhân
+                <textarea id="pt-inp-nguyen-nhan" class="tayy-form-input" rows="2" placeholder="VD: Lao thương…">${ptTcm('nguyen_nhan', 'nguyenNhan')}</textarea>
+            </label>
         </div>
     </section>
+
+    <section class="pt-form-section" aria-labelledby="pt-sec-bt">
+        <h3 class="pt-form-section-title" id="pt-sec-bt"><span class="pt-form-section-num">5</span>Bài thuốc tiêu biểu</h3>
+        <label class="tayy-form-label"><code>bai_thuoc</code> — có thể nhiều bài</label>
+        <div style="position:relative;margin-top:6px;">
+            <div id="pt-chips-baithuoc" class="chips-container" onclick="document.getElementById('pt-inp-baithuoc').focus()">
+                <input id="pt-inp-baithuoc" type="text" class="chip-input"
+                    placeholder="Gõ tên bài thuốc, Enter hoặc chọn gợi ý…"
+                    autocomplete="off"
+                    onfocus="ptOnPhapTriBaiThuocInputFocus()"
+                    oninput="ptOnPhapTriBaiThuocInput()"
+                    onkeydown="ptOnPhapTriBaiThuocKeydown(event)">
+            </div>
+            <div id="pt-baithuoc-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+        </div>
+        <span class="pt-field-hint">Tên trùng danh mục bài thuốc.</span>
+    </section>
+
+    <details class="pt-form-section"${ptLegacyOpen} aria-labelledby="pt-sec-legacy" style="border:1px solid #e7e5e4;border-radius:10px;padding:12px 14px;margin-bottom:14px;background:#fafaf9;">
+        <summary class="pt-form-section-title" id="pt-sec-legacy" style="cursor:pointer;list-style-position:outside;">
+            <span class="pt-form-section-num">+</span>Dữ liệu mở rộng <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(không có trên bảng TCM chính — bát pháp, nhóm dược…)</span>
+        </summary>
+        <p style="margin:10px 0 12px;font-size:0.82rem;color:#78716c;line-height:1.45;">Các trường dưới đây vẫn được lưu và xuất/nhập Excel cột «Bát pháp», «Nhóm dược», v.v.; chỉ ẩn khỏi luồng nhập chính.</p>
+        <div class="pt-form-grid-3" style="margin-top:4px;">
+            <div>
+                <label class="tayy-form-label">Bát cương</label>
+                <div id="pt-chips-batcuong" class="chips-container" onclick="document.getElementById('pt-inp-batcuong').focus()">
+                    <input id="pt-inp-batcuong" type="text" class="chip-input" placeholder="Biểu, lý, hàn…"
+                        onkeydown="ptOnChipKeydown('bat_cuong', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm.</span>
+            </div>
+            <div>
+                <label class="tayy-form-label">Bát pháp</label>
+                <div id="pt-chips-batphap" class="chips-container" onclick="document.getElementById('pt-inp-batphap').focus()">
+                    <input id="pt-inp-batphap" type="text" class="chip-input" placeholder="Hãn, ôn, thanh…"
+                        onkeydown="ptOnChipKeydown('bat_phap', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm.</span>
+            </div>
+            <div>
+                <label class="tayy-form-label">Lục dâm</label>
+                <div id="pt-chips-lucdam" class="chips-container" onclick="document.getElementById('pt-inp-lucdam').focus()">
+                    <input id="pt-inp-lucdam" type="text" class="chip-input" placeholder="Phong, hàn, thấp…"
+                        onkeydown="ptOnChipKeydown('luc_dam', event)">
+                </div>
+                <span class="pt-field-hint">Enter để thêm.</span>
+            </div>
+        </div>
+        <label class="tayy-form-label" style="margin-top:14px;display:block;">Ý nghĩa &amp; cơ chế <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(<code>y_nghia_co_che</code>)</span>
+            <textarea id="pt-inp-y_nghia" class="tayy-form-input" rows="3" placeholder="Giải thích cơ chế…">${item ? escHtml(item.y_nghia_co_che || '') : ''}</textarea>
+        </label>
+        <label class="tayy-form-label" style="margin-top:10px;display:block;">Nhóm dược lý (nhóm nhỏ)</label>
+        <div style="position:relative;margin-top:6px;">
+            <div id="pt-chips-nhomnho" class="chips-container" onclick="document.getElementById('pt-inp-nhomnho').focus()">
+                <input id="pt-inp-nhomnho" type="text" class="chip-input"
+                    placeholder="Gõ tên nhóm nhỏ, Enter hoặc chọn gợi ý…"
+                    autocomplete="off"
+                    onfocus="ptOnPhapTriNhomNhoInputFocus()"
+                    oninput="ptOnPhapTriNhomNhoInput()"
+                    onkeydown="ptOnPhapTriNhomNhoKeydown(event)">
+            </div>
+            <div id="pt-nhomnho-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+        </div>
+    </details>
 
     <div class="tayy-form-actions pt-form-actions-wrap">
         <button type="button" class="btn" onclick="closeTayyModal()">Hủy</button>
@@ -2135,15 +2260,18 @@ function ptReadChungTrangFromModal() {
 }
 
 async function savePhapTriRow(id) {
-    function numOrNull(v) {
-        if (v === '' || v == null) return null;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-    }
     const payload = {
         chung_trang: ptReadChungTrangFromModal(),
         nguyen_tac: (document.getElementById('pt-inp-nguyen_tac')?.value || '').trim() || null,
         y_nghia_co_che: (document.getElementById('pt-inp-y_nghia')?.value || '').trim() || null,
+        am_duong: (document.getElementById('pt-inp-am-duong')?.value || '').trim() || null,
+        ton_thuong: (document.getElementById('pt-inp-ton-thuong')?.value || '').trim() || null,
+        tac_nhan: (document.getElementById('pt-inp-tac-nhan')?.value || '').trim() || null,
+        ban_chat: (document.getElementById('pt-inp-ban-chat')?.value || '').trim() || null,
+        vi_tri_tien_trinh: (document.getElementById('pt-inp-vi-tri')?.value || '').trim() || null,
+        mach_chan: (document.getElementById('pt-inp-mach-chan')?.value || '').trim() || null,
+        chat_luoi: (document.getElementById('pt-inp-chat-luoi')?.value || '').trim() || null,
+        nguyen_nhan: (document.getElementById('pt-inp-nguyen-nhan')?.value || '').trim() || null,
         bat_phap: ptArrToCsv(_ptChips.bat_phap) || null,
         bat_cuong: ptArrToCsv(_ptChips.bat_cuong) || null,
         luc_dam: ptArrToCsv(_ptChips.luc_dam) || null,
@@ -2171,11 +2299,7 @@ async function savePhapTriRow(id) {
                 id_nhom_duoc_ly_nho: unique.length ? unique[0] : null,
             };
         })(),
-        id_benh_dong_y: (() => {
-            const el = document.getElementById('pt-sel-benhdongy');
-            if (!el || el.value === '') return null;
-            return numOrNull(el.value);
-        })(),
+        id_benh_dong_y: null,
         id_kinh_mach_list: _ptKinhIds.filter(n => Number.isFinite(n)),
     };
     const res = id ? await apiUpdatePhapTri(id, payload) : await apiCreatePhapTri(payload);
@@ -2293,6 +2417,34 @@ function ptSanitizeExcelImportRow(row) {
 }
 
 /**
+ * Đọc một ô nhập Excel pháp trị: khớp tên cột chính xác, rồi khớp tiêu đề đã chuẩn hóa (bỏ dấu, thường, gộp khoảng trắng).
+ */
+function ptPickPhapTriCol(row, keys) {
+    if (!row || !keys || !keys.length) return '';
+    const exact = ndlPickNhomCol(row, keys);
+    if (exact != null && String(exact).trim() !== '') return String(exact).trim();
+    for (const want of keys) {
+        const nkWant = ptExcelHeaderNorm(want);
+        if (!nkWant) continue;
+        for (const [rk, rv] of Object.entries(row)) {
+            if (ptExcelHeaderNorm(rk) !== nkWant) continue;
+            if (rv == null) continue;
+            const s = String(rv).trim();
+            if (s) return s;
+        }
+    }
+    return '';
+}
+
+/** Chuỗi dùng khớp upsert Excel: ưu tiên cột «Thể bệnh», sau «Thế bệnh», rồi ptPickChungTrangFromRow. */
+function ptPhapTriBenhMatchKeyFromRow(row) {
+    if (!row) return '';
+    const the = ptPickPhapTriCol(row, ['Thể bệnh', 'Thế bệnh', 'The benh', 'The Benh', 'The benh (tieuket)']);
+    if (the) return the;
+    return ptPickChungTrangFromRow(row) || '';
+}
+
+/**
  * Ô Excel nhiều mục: dấu «+» (ASCII hoặc fullwidth ＋) tương đương dấu phẩy.
  * Dùng cho Bát pháp / Bát cương / Lục dâm / Tạng phủ / Triệu chứng khi nhập pháp trị.
  */
@@ -2312,16 +2464,23 @@ function ptExcelCellToCsvList(raw) {
  */
 function ptPickChungTrangFromRow(row) {
     if (!row) return '';
+    const keysTheBenh = ['Thể bệnh', 'Thế bệnh', 'The benh', 'The Benh', 'The benh (tieuket)'];
+    const theBenhDirect = ptPickPhapTriCol(row, keysTheBenh);
+    if (theBenhDirect) {
+        return ptCleanChungTrangCell(String(theBenhDirect));
+    }
     const keysExplicit = [
+        'Chứng trạng (chung_trang)', 'Chung trang (chung trang)', 'Chung trang chung trang',
         'Chứng trạng', 'Chứng trạng (tiểu kết)', 'Chứng Trạng', 'CHỨNG TRẠNG',
         'Tiểu kết', 'Tieu ket', 'Chung trang', 'tieuket',
     ];
-    const direct = ndlPickNhomCol(row, keysExplicit);
+    const direct = ptPickPhapTriCol(row, keysExplicit);
     if (direct != null && String(direct).trim() !== '') return ptCleanChungTrangCell(String(direct));
     for (const [k, val] of Object.entries(row)) {
         const hn = ptExcelHeaderNorm(k);
         if (!hn) continue;
         if (hn.includes('trieu') && hn.includes('chung')) continue;
+        if (hn.includes('the benh') || hn === 'the benh' || hn === 'thebenh') continue;
         const isChungTrang = hn === 'chung trang'
             || hn.startsWith('chung trang (')
             || hn === 'tieu ket'
@@ -2331,32 +2490,6 @@ function ptPickChungTrangFromRow(row) {
         if (t) return t;
     }
     return '';
-}
-
-/**
- * Phần dùng để so khớp 100% với tiểu kết (tieuket): chuẩn hóa + lowercase,
- * chỉ lấy đoạn trước ngoặc ( hoặc （ đầu tiên — bỏ mô tả trong ngoặc.
- * Ví dụ tieuket «A (ghi chú)» và ô Excel «A» → cùng base «a».
- */
-function ptTieuKetCompareBase(raw) {
-    const n = ptStrNorm(ptCleanChungTrangCell(raw));
-    if (!n) return '';
-    const cut = n.split(/[（(]/)[0];
-    return cut.replace(/\s+/g, ' ').trim();
-}
-
-/** Danh sách id mô hình bệnh (modelId) có tieuket trùng base với ô Chứng trạng Excel. */
-function ptBenhIdsMatchingTieuKetBase(excelRaw) {
-    const want = ptTieuKetCompareBase(excelRaw);
-    if (!want) return [];
-    const ids = [];
-    for (const m of _thuocData.benhDongYModels || []) {
-        const tk = String(m.ten != null ? m.ten : '').trim();
-        if (!tk) continue;
-        if (ptTieuKetCompareBase(tk) === want) ids.push(m.modelId);
-    }
-    ids.sort((a, b) => Number(a) - Number(b));
-    return ids;
 }
 
 /** Khớp text chứng trạng Excel ↔ bản ghi đã lưu (đúng chữ, tiền tố có ranh giới khoảng, hoặc cùng chữ sau khi bỏ mọi khoảng trắng). */
@@ -2369,37 +2502,6 @@ function ptNormTieuKetCompatible(snNorm, tkNorm) {
     const tkC = tkNorm.replace(/\s+/g, '');
     if (snC.length && snC === tkC) return true;
     return false;
-}
-
-/** Id benh_dong_y khi Chứng trạng Excel trùng base tiểu kết với đúng một tieuket trong danh mục. */
-function ptBenhDongYIdFromChungTrangExcel(chungTrangRaw, warnAcc) {
-    const raw = ptCleanChungTrangCell(String(chungTrangRaw || ''));
-    if (!raw) return null;
-    const ids = ptBenhIdsMatchingTieuKetBase(chungTrangRaw);
-    if (!ids.length) return null;
-    if (ids.length > 1 && warnAcc) {
-        warnAcc.push(
-            'Nhiều bệnh cùng tiểu kết «' +
-                ptTieuKetCompareBase(chungTrangRaw) +
-                '» (sau ngoặc) — id: ' +
-                ids.join(', ') +
-                ' — không gán id_benh_dong_y',
-        );
-        return null;
-    }
-    return ids[0];
-}
-
-/** Trả về id phap_tri đang giữ id_benh_dong_y (ràng buộc UNIQUE), trừ bản ghi excludePhapTriId. */
-function ptPhapTriBenhLinkedByOther(idBenhDongY, excludePhapTriId) {
-    if (idBenhDongY == null) return null;
-    const want = Number(idBenhDongY);
-    for (const p of _thuocData.phapTriList || []) {
-        if (excludePhapTriId != null && Number(p.id) === Number(excludePhapTriId)) continue;
-        const bid = p.id_benh_dong_y ?? p.idBenhDongY ?? (p.benh_dong_y && p.benh_dong_y.id);
-        if (bid != null && Number(bid) === want) return p.id;
-    }
-    return null;
 }
 
 function ptResolveBaiThuocIdFromExcel(name) {
@@ -2463,34 +2565,65 @@ function ptPhapTriImportRowSkippable(row) {
     const idStr = ndlPickNhomCol(row, ['id', 'ID', 'Id']);
     if (String(idStr ?? '').trim() !== '') return false;
     if (ptPickChungTrangFromRow(row)) return false;
+    if (ptPickPhapTriCol(row, ['Chứng trạng (chung_trang)', 'Chung trang (chung trang)'])) return false;
     const probes = [
+        ['Thể bệnh', 'Thế bệnh', 'The benh'],
+        ['Pháp trị', 'Phap tri', 'Pháp Trị'],
+        ['Nguyên nhân', 'Nguyen nhan', 'Nguyên Nhân'],
+        ['Âm Dương', 'Am Duong'],
         ['Nguyên tắc', 'Nguyen tac', 'Nguyên Tắc'],
         ['Ý nghĩa & cơ chế', 'Y nghia & co che', 'Y nghia', 'Co che'],
         ['Bát pháp', 'Bat phap', 'Bát Pháp'],
         ['Bát cương', 'Bat cuong', 'Bát Cương'],
         ['Lục dâm', 'Luc dam', 'Lục Dâm'],
         ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach'],
+        ['Triệu chứng điển hình', 'Trieu chung dien hinh'],
         ['Triệu chứng', 'Trieu chung', 'Triệu Chứng'],
+        ['Bài thuốc tiêu biểu', 'Bai thuoc tieu bieu'],
         ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Bài Thuốc'],
         ['Nhóm dược', 'Nhom duoc', 'Nhom duoc ly', 'Nhóm Dược', 'Nhóm dược lý'],
     ];
     for (const keys of probes) {
-        if (ndlPickNhomCol(row, keys)) return false;
+        if (ptPickPhapTriCol(row, keys)) return false;
     }
     return true;
 }
 
 function ptBuildPayloadFromExcelRow(row, warnAcc) {
-    const chungTrang = ptPickChungTrangFromRow(row) || '';
-    const nguyen_tac = ndlPickNhomCol(row, ['Nguyên tắc', 'Nguyen tac', 'Nguyên Tắc', 'Nguyên Tắc']);
-    const y_nghia = ndlPickNhomCol(row, [
+    const chungExplicit = ptPickPhapTriCol(row, [
+        'Chứng trạng (chung_trang)',
+        'Chung trang (chung trang)',
+        'Chung trang chung trang',
+    ]);
+    const chungFromPick = ptPickChungTrangFromRow(row) || '';
+    const chungTrang = ptCleanChungTrangCell(
+        chungExplicit ? String(chungExplicit) : chungFromPick,
+    );
+    const nguyen_tac = ptPickPhapTriCol(row, [
+        'Pháp trị', 'Phap tri', 'Pháp Trị',
+        'Nguyên tắc', 'Nguyen tac', 'Nguyên Tắc',
+    ]);
+    const nguyen_nhan = ptPickPhapTriCol(row, ['Nguyên nhân', 'Nguyen nhan', 'Nguyên Nhân']);
+    const am_duong = ptPickPhapTriCol(row, ['Âm Dương', 'Am Duong', 'Âm dương']);
+    const ton_thuong = ptPickPhapTriCol(row, ['Tổn thương', 'Ton thuong', 'Tổn Thương']);
+    const tac_nhan = ptPickPhapTriCol(row, ['Tác nhân', 'Tac nhan', 'Tác Nhân']);
+    const ban_chat = ptPickPhapTriCol(row, ['Bản chất', 'Ban chat', 'Bản Chất']);
+    const vi_tri_tien_trinh = ptPickPhapTriCol(row, [
+        'Vị trí / Tiến trình', 'Vi tri / Tien trinh', 'Vị trí/Tiến trình', 'Vi tri/Tien trinh', 'Vi tri', 'Vị trí',
+    ]);
+    const mach_chan = ptPickPhapTriCol(row, ['Mạch chẩn', 'Mach chan', 'Mạch Chẩn']);
+    const chat_luoi = ptPickPhapTriCol(row, ['Chất lưỡi', 'Chat luoi', 'Chất Lưỡi']);
+    const y_nghia = ptPickPhapTriCol(row, [
         'Ý nghĩa & cơ chế', 'Ý Nghĩa & Cơ Chế', 'Y nghia & co che', 'Y nghia', 'Co che', 'Ý nghĩa', 'Y nghia',
     ]);
-    const bat_phapRaw = ndlPickNhomCol(row, ['Bát pháp', 'Bat phap', 'Bát Pháp']);
-    const bat_cuongRaw = ndlPickNhomCol(row, ['Bát cương', 'Bat cuong', 'Bát Cương']);
-    const luc_damRaw = ndlPickNhomCol(row, ['Lục dâm', 'Luc dam', 'Lục Dâm']);
-    const tang_phuRaw = ndlPickNhomCol(row, ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach']);
-    const trieu_chungRaw = ndlPickNhomCol(row, ['Triệu chứng', 'Trieu chung', 'Triệu Chứng']);
+    const bat_phapRaw = ptPickPhapTriCol(row, ['Bát pháp', 'Bat phap', 'Bát Pháp']);
+    const bat_cuongRaw = ptPickPhapTriCol(row, ['Bát cương', 'Bat cuong', 'Bát Cương']);
+    const luc_damRaw = ptPickPhapTriCol(row, ['Lục dâm', 'Luc dam', 'Lục Dâm']);
+    const tang_phuRaw = ptPickPhapTriCol(row, ['Tạng phủ', 'Tang phu', 'Tạng Phủ', 'Kinh mạch', 'Kinh mach']);
+    const trieu_chungRaw = ptPickPhapTriCol(row, [
+        'Triệu chứng điển hình', 'Trieu chung dien hinh', 'Triệu Chứng Điển Hình',
+        'Triệu chứng', 'Trieu chung', 'Triệu Chứng',
+    ]);
     const bat_phap = bat_phapRaw ? ptExcelCellToCsvList(bat_phapRaw) : '';
     const bat_cuong = bat_cuongRaw ? ptExcelCellToCsvList(bat_cuongRaw) : '';
     const luc_dam = luc_damRaw ? ptExcelCellToCsvList(luc_damRaw) : '';
@@ -2498,8 +2631,11 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
     const trieu_chung = trieu_chungRaw
         ? ptNormalizeTrieuChungMoTaForCatalog(ptExcelCellToCsvList(trieu_chungRaw))
         : '';
-    const bai_thuoc = ndlPickNhomCol(row, ['Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc']);
-    const nhom_duoc = ndlPickNhomCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
+    const bai_thuoc = ptPickPhapTriCol(row, [
+        'Bài thuốc tiêu biểu', 'Bai thuoc tieu bieu', 'Bài Thuốc Tiêu Biểu',
+        'Bài thuốc', 'Bai thuoc', 'Ten bai thuoc', 'Tên bài thuốc', 'Bài Thuốc',
+    ]);
+    const nhom_duoc = ptPickPhapTriCol(row, ['Nhóm dược', 'Nhom duoc', 'Nhóm dược lý', 'Nhom duoc ly', 'Ten nhom nho', 'Nhóm Dược']);
 
     let idBtList = [];
     if (bai_thuoc !== undefined && bai_thuoc !== null) {
@@ -2522,12 +2658,17 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         warnAcc.push('Một số tạng phủ/kinh không khớp: «' + tang_phu + '»');
     }
 
-    const chungClean = ptCleanChungTrangCell(chungTrang);
-    const idBenhDy = chungClean ? ptBenhDongYIdFromChungTrangExcel(chungTrang, warnAcc) : null;
-
     const out = {
         chung_trang: chungTrang ? chungTrang : null,
-        nguyen_tac: nguyen_tac ? nguyen_tac : null,
+        nguyen_tac: nguyen_tac ? String(nguyen_tac).trim() : null,
+        nguyen_nhan: nguyen_nhan ? String(nguyen_nhan).trim() : null,
+        am_duong: am_duong ? String(am_duong).trim() : null,
+        ton_thuong: ton_thuong ? String(ton_thuong).trim() : null,
+        tac_nhan: tac_nhan ? String(tac_nhan).trim() : null,
+        ban_chat: ban_chat ? String(ban_chat).trim() : null,
+        vi_tri_tien_trinh: vi_tri_tien_trinh ? String(vi_tri_tien_trinh).trim() : null,
+        mach_chan: mach_chan ? String(mach_chan).trim() : null,
+        chat_luoi: chat_luoi ? String(chat_luoi).trim() : null,
         y_nghia_co_che: y_nghia ? y_nghia : null,
         bat_phap: bat_phap ? bat_phap : null,
         bat_cuong: bat_cuong ? bat_cuong : null,
@@ -2536,21 +2677,13 @@ function ptBuildPayloadFromExcelRow(row, warnAcc) {
         id_nhom_duoc_ly_nho: idNho,
         id_kinh_mach_list: idKinhList,
     };
-    /** Có Chứng trạng → luôn gán FK bệnh: khớp tieuket hoặc null (không cảnh báo khi không tìm thấy). */
-    if (chungClean) {
-        out.id_benh_dong_y = idBenhDy != null ? idBenhDy : null;
-    }
     if (bai_thuoc !== undefined && bai_thuoc !== null && String(bai_thuoc).trim()) {
         out.id_bai_thuoc_list = idBtList;
     }
     return out;
 }
 
-/**
- * PUT pháp trị: backend chỉ đổi các key có trong JSON; null xóa FK/texto.
- * Import Excel: có Chứng trạng thì gửi id_benh_dong_y (số hoặc null) để đồng bộ tieuket — null vẫn gửi.
- * Ô Chứng trạng trống → payload không có id_benh_dong_y → không đổi liên kết bệnh cũ.
- */
+/** PUT pháp trị: backend chỉ đổi các key có trong JSON; null xóa FK/texto. */
 function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     const body = { ...payload };
     const dropNullFk = k => {
@@ -2574,6 +2707,14 @@ function ptPayloadOmitEmptyForPhapTriUpdate(payload) {
     dropEmptyText('bat_phap');
     dropEmptyText('bat_cuong');
     dropEmptyText('luc_dam');
+    dropEmptyText('am_duong');
+    dropEmptyText('ton_thuong');
+    dropEmptyText('tac_nhan');
+    dropEmptyText('ban_chat');
+    dropEmptyText('vi_tri_tien_trinh');
+    dropEmptyText('mach_chan');
+    dropEmptyText('chat_luoi');
+    dropEmptyText('nguyen_nhan');
     dropEmptyText('trieu_chung_mo_ta');
     if (Array.isArray(body.id_kinh_mach_list) && body.id_kinh_mach_list.length === 0) {
         delete body.id_kinh_mach_list;
@@ -2588,102 +2729,120 @@ function ptResolveUpsertPhapTriTarget(row, payload, existingIds) {
     if (Number.isFinite(idNum) && existingIds.has(idNum)) {
         return { targetId: idNum, via: 'id', extraWarn: null };
     }
-    const excelChung = payload.chung_trang || '';
-    if (!ptCleanChungTrangCell(excelChung)) {
+    const excelChung = ptCleanChungTrangCell(
+        ptPhapTriBenhMatchKeyFromRow(row) || String(payload.chung_trang || ''),
+    );
+    if (!excelChung) {
         return { targetId: null, via: 'create', extraWarn: null };
     }
-    const wantBase = ptTieuKetCompareBase(excelChung);
-    if (!wantBase) {
-        return { targetId: null, via: 'create', extraWarn: null };
-    }
-    const matchedBenhIds = ptBenhIdsMatchingTieuKetBase(excelChung);
-    if (!matchedBenhIds.length) {
-        return { targetId: null, via: 'create', extraWarn: null };
-    }
-    const ptRows = (_thuocData.phapTriList || []).filter(p => {
-        const rid = p.id_benh_dong_y ?? p.idBenhDongY ?? (p.benh_dong_y && p.benh_dong_y.id);
-        if (rid == null) return false;
-        return matchedBenhIds.some(mid => Number(mid) === Number(rid));
-    });
-    if (matchedBenhIds.length === 1) {
-        if (ptRows.length === 1) {
-            return { targetId: ptRows[0].id, via: 'tieuket_exact', extraWarn: null };
+    const threshold = 10000;
+    let bestScore = 0;
+    const atBest = [];
+    for (const p of _thuocData.phapTriList || []) {
+        const stored = String(p.chung_trang || p.chungTrang || '').trim();
+        const sc = ptChungTrangMatchScore(excelChung, stored);
+        if (sc > bestScore) {
+            bestScore = sc;
+            atBest.length = 0;
+            atBest.push(p.id);
+        } else if (sc === bestScore && sc > 0) {
+            atBest.push(p.id);
         }
-        if (ptRows.length === 0) {
-            return { targetId: null, via: 'create', extraWarn: null };
-        }
+    }
+    if (!bestScore || bestScore < threshold) {
+        return { targetId: null, via: 'create', extraWarn: null };
+    }
+    const uniq = [...new Set(atBest.map(Number))].sort((a, b) => a - b);
+    if (uniq.length > 1) {
+        const chosen = uniq[0];
         return {
-            targetId: null,
-            via: 'create',
+            targetId: chosen,
+            via: 'chung_trang_fuzzy',
             extraWarn:
-                'Nhiều dòng pháp trị cùng id_benh_dong_y = ' +
-                matchedBenhIds[0] +
-                ' (bất thường) — không tự chọn; dùng cột id.',
+                'Nhiều pháp trị cùng điểm khớp chứng trạng — chọn id nhỏ nhất: ' +
+                chosen +
+                ' (nên dùng cột id hoặc làm rõ chung_trang).',
         };
     }
-    if (ptRows.length === 1) {
-        return {
-            targetId: ptRows[0].id,
-            via: 'tieuket_exact',
-            extraWarn:
-                'Nhiều bệnh cùng tiểu kết «' +
-                wantBase +
-                '» nhưng chỉ một pháp trị liên kết — cập nhật id ' +
-                ptRows[0].id,
-        };
+    return { targetId: uniq[0], via: 'chung_trang_fuzzy', extraWarn: null };
+}
+
+function ptTrieuChungExportCsv(r) {
+    const list = r.trieu_chung_list || r.trieuChungList;
+    if (Array.isArray(list) && list.length) {
+        return list
+            .map((t) => String(t.ten_trieu_chung || '').trim())
+            .filter(Boolean)
+            .join(', ');
     }
-    return {
-        targetId: null,
-        via: 'create',
-        extraWarn:
-            'Nhiều bệnh cùng tiểu kết «' +
-            wantBase +
-            '» — dùng cột id trong Excel hoặc phân biệt tieuket trong CSDL.',
-    };
+    return r.trieu_chung_mo_ta || '';
 }
 
 function exportPhapTriXlsx() {
     if (typeof XLSX === 'undefined') return alert('Thư viện Excel đang tải, vui lòng thử lại sau.');
     const list = _thuocData.phapTriList || [];
-    const data = list.map(r => {
-        const benh = r.benh_dong_y || r.benhDongY;
-        const tieuket = benh && benh.tieuket != null ? String(benh.tieuket).trim() : '';
+    const data = list.map((r) => {
+        const ad = r.am_duong ?? r.amDuong ?? '';
+        const tt = r.ton_thuong ?? r.tonThuong ?? '';
+        const tn = r.tac_nhan ?? r.tacNhan ?? '';
+        const bc = r.ban_chat ?? r.banChat ?? '';
+        const vt = r.vi_tri_tien_trinh ?? r.viTriTienTrinh ?? '';
+        const mc = r.mach_chan ?? r.machChan ?? '';
+        const cl = r.chat_luoi ?? r.chatLuoi ?? '';
+        const nn = r.nguyen_nhan ?? r.nguyenNhan ?? '';
+        const chung = String(r.chung_trang || r.chungTrang || '').trim();
         return {
-        id: r.id,
-        'Chứng trạng': r.chung_trang || r.chungTrang || '',
-        'Bệnh Đông y (tieuket)': tieuket,
-        'Nguyên tắc': r.nguyen_tac || '',
-        'Ý nghĩa & cơ chế': r.y_nghia_co_che || '',
-        'Bát pháp': r.bat_phap || '',
-        'Bát cương': r.bat_cuong || '',
-        'Lục dâm': r.luc_dam || '',
-        'Tạng phủ': (r.kinh_mach_list || r.kinhMachList || []).map(k => ptKinhMachShortLabel(k)).filter(Boolean).join(', '),
-        'Triệu chứng': r.trieu_chung_mo_ta || '',
-        'Bài thuốc': ptBaiThuocListFromPhapTriRow(r)
-            .map((b) => b.ten_bai_thuoc)
-            .filter(Boolean)
-            .join(', '),
-        'Nhóm dược': (() => {
-            const list = r.nhom_duoc_ly_nho_list || r.nhomDuocLyNhoList || [];
-            if (Array.isArray(list) && list.length) {
-                return list.map((x) => ptNhomDuocExportLabel(x)).filter(Boolean).join(', ');
-            }
-            return ptNhomDuocExportLabel(r.nhom_duoc_ly_nho || r.nhomDuocLyNho);
-        })(),
-    };
+            id: r.id,
+            'Tạng phủ': (r.kinh_mach_list || r.kinhMachList || []).map((k) => ptKinhMachShortLabel(k)).filter(Boolean).join(', '),
+            'Âm Dương': ad,
+            'Tổn thương': tt,
+            'Tác nhân': tn,
+            'Bản chất': bc,
+            'Vị trí / Tiến trình': vt,
+            'Thể bệnh': chung,
+            'Chứng trạng (chung_trang)': r.chung_trang || r.chungTrang || '',
+            'Pháp trị': r.nguyen_tac || '',
+            'Mạch chẩn': mc,
+            'Chất lưỡi': cl,
+            'Triệu chứng điển hình': ptTrieuChungExportCsv(r),
+            'Nguyên nhân': nn,
+            'Bài thuốc tiêu biểu': ptBaiThuocListFromPhapTriRow(r)
+                .map((b) => b.ten_bai_thuoc)
+                .filter(Boolean)
+                .join(', '),
+            'Bát pháp': r.bat_phap || '',
+            'Bát cương': r.bat_cuong || '',
+            'Lục dâm': r.luc_dam || '',
+            'Ý nghĩa & cơ chế': r.y_nghia_co_che || '',
+            'Nhóm dược': (() => {
+                const nlist = r.nhom_duoc_ly_nho_list || r.nhomDuocLyNhoList || [];
+                if (Array.isArray(nlist) && nlist.length) {
+                    return nlist.map((x) => ptNhomDuocExportLabel(x)).filter(Boolean).join(', ');
+                }
+                return ptNhomDuocExportLabel(r.nhom_duoc_ly_nho || r.nhomDuocLyNho);
+            })(),
+        };
     });
     const emptyRow = {
         id: '',
-        'Chứng trạng': '',
-        'Bệnh Đông y (tieuket)': '',
-        'Nguyên tắc': '',
-        'Ý nghĩa & cơ chế': '',
+        'Tạng phủ': '',
+        'Âm Dương': '',
+        'Tổn thương': '',
+        'Tác nhân': '',
+        'Bản chất': '',
+        'Vị trí / Tiến trình': '',
+        'Thể bệnh': '',
+        'Chứng trạng (chung_trang)': '',
+        'Pháp trị': '',
+        'Mạch chẩn': '',
+        'Chất lưỡi': '',
+        'Triệu chứng điển hình': '',
+        'Nguyên nhân': '',
+        'Bài thuốc tiêu biểu': '',
         'Bát pháp': '',
         'Bát cương': '',
         'Lục dâm': '',
-        'Tạng phủ': '',
-        'Triệu chứng': '',
-        'Bài thuốc': '',
+        'Ý nghĩa & cơ chế': '',
         'Nhóm dược': '',
     };
     const wb = XLSX.utils.book_new();
@@ -2960,8 +3119,9 @@ function importPhapTriXlsx(e) {
                 toProcess.length +
                 ' dòng. Ghi vào hệ thống?\n\n' +
                 '• Cột «id» (nếu có): cập nhật đúng bản ghi.\n' +
-                '• Không có id: tìm bản ghi pháp trị theo tiểu kết — so khớp 100%% phần trước ngoặc () với tieuket mô hình bệnh; cập nhật đúng dòng có id_benh_dong_y tương ứng; không khớp bệnh nào thì tạo mới.\n' +
-                '• Có «Chứng trạng»: gán id_benh_dong_y khi trùng base tiểu kết; không khớp hoặc trùng nhiều bệnh không rõ → null. Mỗi bệnh tối đa một pháp trị.';
+                '• Không có id: tìm bản ghi theo «Thể bệnh» / «Thế bệnh» / «Chứng trạng» (chung_trang), so khớp mờ như khi nhập Excel; không đủ điểm khớp thì tạo mới.\n' +
+                '• Nhập Excel không còn gán liên kết bệnh Đông y; cập nhật từ Excel sẽ xóa liên kết cũ (id_benh_dong_y) trên bản ghi.\n' +
+                '• «Triệu chứng điển hình» / «Triệu chứng»: khớp tên trong bảng trieu_chung. «Bài thuốc tiêu biểu» / «Bài thuốc»: khớp bảng bai_thuoc.';
             const confirmed = await ptPhapTriShowDialog({ type: 'confirm', variant: 'info', message: confirmMsg });
             if (!confirmed) return;
 
@@ -2981,13 +3141,6 @@ function importPhapTriXlsx(e) {
                 const rowWarn = [];
                 const payload = ptBuildPayloadFromExcelRow(row, rowWarn);
                 const { targetId, via, extraWarn } = ptResolveUpsertPhapTriTarget(row, payload, existingIds);
-                if (payload.id_benh_dong_y != null) {
-                    const occ = ptPhapTriBenhLinkedByOther(payload.id_benh_dong_y, targetId);
-                    if (occ != null) {
-                        rowWarn.push('Bệnh Đông y này đã liên kết pháp trị #' + occ + ' — bỏ qua id_benh_dong_y');
-                        delete payload.id_benh_dong_y;
-                    }
-                }
                 if (rowWarn.length) {
                     allWarn.push('Dòng ~' + idx + ': ' + rowWarn.join('; '));
                 }
@@ -2996,7 +3149,7 @@ function importPhapTriXlsx(e) {
                 }
                 try {
                     if (targetId != null) {
-                        const updateBody = ptPayloadOmitEmptyForPhapTriUpdate(payload);
+                        const updateBody = { ...ptPayloadOmitEmptyForPhapTriUpdate(payload), id_benh_dong_y: null };
                         const res = await apiUpdatePhapTri(targetId, updateBody);
                         if (!res.success) {
                             errors.push(
@@ -3004,8 +3157,8 @@ function importPhapTriXlsx(e) {
                                     idx +
                                     (via === 'id'
                                         ? ' (id ' + targetId + ')'
-                                        : via === 'tieuket_exact'
-                                          ? ' (tiểu kết → id ' + targetId + ')'
+                                        : via === 'chung_trang_fuzzy'
+                                          ? ' (chung_trang → id ' + targetId + ')'
                                           : ' (→ id ' + targetId + ')') +
                                     ': ' +
                                     (res.error || 'Lỗi'),
@@ -3020,6 +3173,8 @@ function importPhapTriXlsx(e) {
                                 local.id_benh_dong_y = updateBody.id_benh_dong_y;
                             }
                             if (updateBody.chung_trang !== undefined) local.chung_trang = updateBody.chung_trang;
+                            if (local.benh_dong_y) local.benh_dong_y = null;
+                            if (local.benhDongY) local.benhDongY = null;
                         }
                     } else {
                         const res = await apiCreatePhapTri(payload);
@@ -3035,7 +3190,6 @@ function importPhapTriXlsx(e) {
                                 id: res.id,
                                 chung_trang: payload.chung_trang,
                             };
-                            if (payload.id_benh_dong_y != null) stub.id_benh_dong_y = payload.id_benh_dong_y;
                             _thuocData.phapTriList.push(stub);
                         }
                     }

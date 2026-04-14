@@ -12,6 +12,7 @@ import { TrieuChung } from './trieu-chung.model';
 import { BaiThuoc } from './bai-thuoc.model';
 import { ThietChan } from './thiet-chan.model';
 import { MachChan } from './mach-chan.model';
+import { PhapTri } from './phap-tri.model';
 
 @Entity('benh_tay_y')
 export class BenhTayY {
@@ -59,4 +60,12 @@ export class BenhTayY {
     inverseJoinColumn: { name: 'id_trieu_chung', referencedColumnName: 'id' },
   })
   trieuChungList: TrieuChung[];
+
+  @ManyToMany(() => PhapTri)
+  @JoinTable({
+    name: 'benh_tay_y_phap_tri',
+    joinColumn: { name: 'id_benh_tay_y', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_phap_tri', referencedColumnName: 'id' },
+  })
+  phapTriList: PhapTri[];
 }

@@ -6,6 +6,7 @@ import { BaiThuoc } from '../models/bai-thuoc.model';
 import { TrieuChung } from '../models/trieu-chung.model';
 import { ThietChan } from '../models/thiet-chan.model';
 import { MachChan } from '../models/mach-chan.model';
+import { PhapTri } from '../models/phap-tri.model';
 import { CreateBenhTayYDto, UpdateBenhTayYDto } from '../models/benh-tay-y.dto';
 
 @Injectable()
@@ -21,11 +22,13 @@ export class BenhTayYService {
     private readonly thietChanRepo: Repository<ThietChan>,
     @InjectRepository(MachChan)
     private readonly machChanRepo: Repository<MachChan>,
+    @InjectRepository(PhapTri)
+    private readonly phapTriRepo: Repository<PhapTri>,
   ) {}
 
   findAll(): Promise<BenhTayY[]> {
     return this.repo.find({
-      relations: ['chungBenh', 'baiThuocList', 'trieuChungList', 'thietChanList', 'machChanList'],
+      relations: ['chungBenh', 'baiThuocList', 'trieuChungList', 'thietChanList', 'machChanList', 'phapTriList'],
       order: { id: 'ASC' },
     });
   }
@@ -33,7 +36,7 @@ export class BenhTayYService {
   async findOne(id: number): Promise<BenhTayY> {
     const item = await this.repo.findOne({
       where: { id },
-      relations: ['chungBenh', 'baiThuocList', 'trieuChungList', 'thietChanList', 'machChanList'],
+      relations: ['chungBenh', 'baiThuocList', 'trieuChungList', 'thietChanList', 'machChanList', 'phapTriList'],
     });
     if (!item) {
       throw new NotFoundException(`Bệnh tây y #${id} không tồn tại`);
@@ -68,6 +71,12 @@ export class BenhTayYService {
     if (dto.mach_chan_ids && dto.mach_chan_ids.length > 0) {
       entity.machChanList = await this.machChanRepo.findBy({
         id: In(dto.mach_chan_ids),
+      });
+    }
+
+    if (dto.phap_tri_ids && dto.phap_tri_ids.length > 0) {
+      entity.phapTriList = await this.phapTriRepo.findBy({
+        id: In(dto.phap_tri_ids),
       });
     }
 
@@ -106,6 +115,11 @@ export class BenhTayYService {
       item.machChanList = dto.mach_chan_ids.length > 0
         ? await this.machChanRepo.findBy({ id: In(dto.mach_chan_ids) })
         : [];
+    }
+
+    if (dto.phap_tri_ids !== undefined) {
+      item.phapTriList =
+        dto.phap_tri_ids.length > 0 ? await this.phapTriRepo.findBy({ id: In(dto.phap_tri_ids) }) : [];
     }
 
     return this.repo.save(item);

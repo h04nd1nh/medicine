@@ -15,7 +15,6 @@ export class ModelsService {
     @InjectRepository(TrieuChung)
     private readonly trieuChungRepo: Repository<TrieuChung>,
   ) {}
-  ) {}
 
   findAll(): Promise<MeridianSyndrome[]> {
     return this.repo.find({

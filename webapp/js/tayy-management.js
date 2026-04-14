@@ -5,6 +5,7 @@ let _tayyData = {
     chungBenh: [],
     benhTayY: [],
     baiThuoc: [], // local copy for bài thuốc lookup
+    trieuChung: [], // danh mục triệu chứng cho tab phân tích
     phapTri: [], // danh mục pháp trị (chip trên form bệnh tây y)
     thietChan: [],
     machChan: [],
@@ -17,6 +18,8 @@ let _tyDraftPhapTri = []; // { id, label } — nhiều pháp trị / bản ghi l
 let _tyDraftThietChan = [];
 let _tyDraftMachChan = [];
 let _tyDraftChungBenhId = null; 
+let _tyAnalysisSymptomDraft = []; // [{ id, name }]
+let _tyAnalysisResults = []; // cache kết quả phân tích bệnh tây y
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initTayyManagement() {
@@ -26,10 +29,11 @@ async function initTayyManagement() {
 
 async function loadAllTayyData() {
     try {
-        const [cb, bty, bt, pt, thiet, mach] = await Promise.all([
+        const [cb, bty, bt, tc, pt, thiet, mach] = await Promise.all([
             apiGetChungBenh(),
             apiGetBenhTayY(),
             apiGetBaiThuoc(),
+            apiGetTrieuChung(),
             apiGetPhapTri(),
             apiGetThietChan(),
             apiGetMachChan()
@@ -37,6 +41,7 @@ async function loadAllTayyData() {
         _tayyData.chungBenh = cb || [];
         _tayyData.benhTayY = bty || [];
         _tayyData.baiThuoc = bt || [];
+        _tayyData.trieuChung = tc || [];
         _tayyData.phapTri = pt || [];
         _tayyData.thietChan = thiet || [];
         _tayyData.machChan = mach || [];
@@ -60,6 +65,7 @@ function renderTayySection() {
             <div class="tayy-tabs" style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border);">
                 <button class="tayy-tab ${tab === 'chung-benh' ? 'active' : ''}" onclick="switchTayyTab('chung-benh')">Chủng bệnh</button>
                 <button class="tayy-tab ${tab === 'benh-tay-y' ? 'active' : ''}" onclick="switchTayyTab('benh-tay-y')">Bệnh tây y</button>
+                <button class="tayy-tab ${tab === 'phan-tich-benh' ? 'active' : ''}" onclick="switchTayyTab('phan-tich-benh')">Phân tích bệnh</button>
             </div>
 
             <div id="tayy-tab-content"></div>
@@ -81,6 +87,7 @@ function renderTayyTabContent() {
     switch (_tayyData.activeTab) {
         case 'chung-benh': renderChungBenhTab(el); break;
         case 'benh-tay-y': renderBenhTayYTab(el); break;
+        case 'phan-tich-benh': renderPhanTichBenhTab(el); break;
     }
 }
 
@@ -193,6 +200,23 @@ function _tyParseLieuLuongToGram(raw) {
     return 9;
 }
 
+function tyFoldText(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function tySplitSymptomText(raw) {
+    if (raw == null) return [];
+    return String(raw)
+        .split(/[\n\r,;，、]+/)
+        .map((x) => x.replace(/^\s*[-•*·]\s+/, '').trim())
+        .filter(Boolean);
+}
+
 /** So khớp tìm pháp trị theo thể bệnh (chung_trang): không phân biệt hoa thường, bỏ dấu. */
 function tyFold(s) {
     return String(s || '')
@@ -201,6 +225,210 @@ function tyFold(s) {
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB: PHÂN TÍCH BỆNH TÂY Y TỪ TRIỆU CHỨNG
+// ═══════════════════════════════════════════════════════════
+function tyRenderAnalysisSymptomChips() {
+    const container = document.getElementById('tayy-anl-tc-chips');
+    const input = document.getElementById('tayy-anl-inp-tc');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    _tyAnalysisSymptomDraft.forEach((item) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:4px;background:#F5F0E8;color:#5B3A1A;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;border:1px solid #D4C5A0;margin:2px;';
+        chip.innerHTML = `${escHtml(item.name)} <span class="chip-remove" style="cursor:pointer;font-size:1rem;line-height:1;color:#A64444;" onclick="tyAnalysisRemoveSymptomChip(${item.id});event.stopPropagation();">×</span>`;
+        container.insertBefore(chip, input);
+    });
+}
+
+function tyAnalysisRemoveSymptomChip(id) {
+    _tyAnalysisSymptomDraft = _tyAnalysisSymptomDraft.filter((x) => x.id !== id);
+    tyRenderAnalysisSymptomChips();
+}
+
+function tyAnalysisSelectSymptom(id) {
+    if (_tyAnalysisSymptomDraft.some((x) => x.id === id)) return;
+    const item = (_tayyData.trieuChung || []).find((x) => x.id === id);
+    if (!item) return;
+    _tyAnalysisSymptomDraft.push({ id: item.id, name: item.ten_trieu_chung || item.name || '' });
+    const inp = document.getElementById('tayy-anl-inp-tc');
+    const suggestEl = document.getElementById('tayy-anl-tc-suggest');
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    if (suggestEl) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+    }
+    tyRenderAnalysisSymptomChips();
+}
+
+function tyAnalysisOnSymptomSearchInput(val) {
+    const suggestEl = document.getElementById('tayy-anl-tc-suggest');
+    if (!suggestEl) return;
+    const query = String(val || '').trim().toLowerCase();
+    if (!query) {
+        suggestEl.style.display = 'none';
+        suggestEl.innerHTML = '';
+        return;
+    }
+    const selected = new Set(_tyAnalysisSymptomDraft.map((x) => x.id));
+    const matches = (_tayyData.trieuChung || [])
+        .filter((x) => !selected.has(x.id))
+        .filter((x) => String(x.ten_trieu_chung || x.name || '').toLowerCase().includes(query))
+        .slice(0, 14);
+
+    if (!matches.length) {
+        suggestEl.style.display = 'block';
+        suggestEl.innerHTML = '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có triệu chứng phù hợp</div>';
+        return;
+    }
+
+    suggestEl.style.display = 'block';
+    suggestEl.innerHTML = matches
+        .map((x) => `
+            <div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #F0E8D8;"
+                 onmouseover="this.style.background='#F5F0E8'"
+                 onmouseout="this.style.background='transparent'"
+                 onmousedown="event.preventDefault();tyAnalysisSelectSymptom(${x.id});">
+                <div style="font-weight:700;color:#5B3A1A;font-size:0.82rem;">${escHtml(x.ten_trieu_chung || x.name || '')}</div>
+            </div>`)
+        .join('');
+}
+
+function tyCollectBenhSymptomsFromBaiThuoc(benh) {
+    const allBaiThuoc = _tayyData.baiThuoc || [];
+    const linked = (benh?.baiThuocList || [])
+        .map((bt) => allBaiThuoc.find((x) => x.id === bt.id) || bt)
+        .filter(Boolean);
+
+    const symptomMap = new Map(); // key folded -> original
+    linked.forEach((bt) => {
+        const raw = bt?.trieu_chung || bt?.trieuchung || '';
+        tySplitSymptomText(raw).forEach((s) => {
+            const key = tyFoldText(s);
+            if (key && !symptomMap.has(key)) symptomMap.set(key, s);
+        });
+    });
+    return {
+        linkedBaiThuoc: linked,
+        symptomSet: new Set(symptomMap.keys()),
+        symptomList: Array.from(symptomMap.values()),
+    };
+}
+
+function tyRunBenhAnalysis() {
+    if (!_tyAnalysisSymptomDraft.length) {
+        alert('Vui lòng chọn ít nhất 1 triệu chứng để phân tích.');
+        return;
+    }
+    const inputSymptoms = _tyAnalysisSymptomDraft.map((x) => x.name).filter(Boolean);
+    const inputFolded = inputSymptoms.map((x) => tyFoldText(x)).filter(Boolean);
+    const total = inputFolded.length;
+    if (!total) {
+        alert('Danh sách triệu chứng đầu vào chưa hợp lệ.');
+        return;
+    }
+
+    const rows = (_tayyData.benhTayY || []).map((benh) => {
+        const collected = tyCollectBenhSymptomsFromBaiThuoc(benh);
+        const matched = [];
+        for (const raw of inputSymptoms) {
+            const key = tyFoldText(raw);
+            if (key && collected.symptomSet.has(key)) matched.push(raw);
+        }
+        const matchedUnique = [...new Set(matched)];
+        const matchCount = matchedUnique.length;
+        const inputPercent = total > 0 ? Math.round((matchCount / total) * 100) : 0;
+        const diseaseCoverage = collected.symptomList.length
+            ? Math.round((matchCount / collected.symptomList.length) * 100)
+            : 0;
+        return {
+            id: benh.id,
+            ten_benh: benh.ten_benh || benh.name || ('#' + benh.id),
+            matched: matchedUnique,
+            matchCount,
+            totalInput: total,
+            inputPercent,
+            diseaseCoverage,
+            baiThuocNames: collected.linkedBaiThuoc.map((x) => x.ten_bai_thuoc || x.name || '').filter(Boolean),
+        };
+    });
+
+    _tyAnalysisResults = rows
+        .filter((x) => x.matchCount > 0)
+        .sort((a, b) => b.inputPercent - a.inputPercent || b.matchCount - a.matchCount || a.ten_benh.localeCompare(b.ten_benh, 'vi'));
+    renderPhanTichBenhResults();
+}
+
+function renderPhanTichBenhResults() {
+    const el = document.getElementById('tayy-anl-results');
+    if (!el) return;
+    if (!_tyAnalysisResults.length) {
+        el.innerHTML = '<div style="padding:12px;color:#A09580;font-style:italic;">Chưa có bệnh nào khớp theo bộ triệu chứng đã chọn.</div>';
+        return;
+    }
+    const rows = _tyAnalysisResults
+        .map((r) => `
+            <tr>
+                <td><strong>${escHtml(r.ten_benh)}</strong></td>
+                <td style="text-align:center;white-space:nowrap;">${r.matchCount}/${r.totalInput}</td>
+                <td style="text-align:center;"><span style="font-weight:800;color:#2D7A46;">${r.inputPercent}%</span></td>
+                <td style="text-align:center;color:#8B7355;">${r.diseaseCoverage}%</td>
+                <td style="font-size:0.8rem;max-width:220px;">${escHtml(r.matched.join(', ') || '—')}</td>
+                <td style="font-size:0.8rem;max-width:240px;">${escHtml(r.baiThuocNames.join(', ') || '—')}</td>
+            </tr>
+        `)
+        .join('');
+    el.innerHTML = `
+        <div class="data-table-container" style="margin-top:10px;overflow-x:auto;">
+            <table style="min-width:860px;">
+                <thead>
+                    <tr>
+                        <th>Bệnh tây y</th>
+                        <th style="text-align:center;">Số TC khớp</th>
+                        <th style="text-align:center;">% khớp theo đầu vào</th>
+                        <th style="text-align:center;">Độ phủ trên bệnh</th>
+                        <th>Triệu chứng khớp</th>
+                        <th>Bài thuốc dùng để suy luận</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderPhanTichBenhTab(el) {
+    el.innerHTML = `
+        <div style="margin-bottom:8px;color:#6B5A45;font-size:0.84rem;line-height:1.5;">
+            Chọn triệu chứng từ danh mục <strong>triệu chứng</strong>, hệ thống sẽ suy ra bệnh tây y theo triệu chứng xuất hiện trong
+            <strong>bài thuốc liên kết</strong> của từng bệnh và xếp hạng theo <strong>% khớp</strong>.
+        </div>
+        <label class="tayy-form-label" style="margin-top:8px;">Triệu chứng đầu vào
+            <div style="position:relative;margin-top:6px;">
+                <div id="tayy-anl-tc-chips" class="chips-container" onclick="document.getElementById('tayy-anl-inp-tc').focus()">
+                    <input id="tayy-anl-inp-tc" type="text" class="chip-input"
+                        placeholder="Gõ tên triệu chứng..."
+                        oninput="tyAnalysisOnSymptomSearchInput(this.value)"
+                        onfocus="tyAnalysisOnSymptomSearchInput(this.value)">
+                </div>
+                <div id="tayy-anl-tc-suggest" style="position:absolute;left:0;right:0;top:calc(100% + 4px);background:#FFFDF7;border:1px solid #D4C5A0;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:2500;display:none;"></div>
+            </div>
+        </label>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="tyRunBenhAnalysis()">Phân tích bệnh</button>
+            <button class="btn btn-outline" onclick="_tyAnalysisSymptomDraft=[];_tyAnalysisResults=[];tyRenderAnalysisSymptomChips();renderPhanTichBenhResults();">Xóa bộ lọc</button>
+        </div>
+        <div id="tayy-anl-results" style="margin-top:8px;"></div>
+    `;
+    tyRenderAnalysisSymptomChips();
+    renderPhanTichBenhResults();
 }
 
 function tyPhapTriTriMatch(query, p) {

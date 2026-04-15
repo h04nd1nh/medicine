@@ -75,6 +75,12 @@ function tcBuildRelated(item) {
                 : false;
             const hasInText = tcCsvToSet(p.trieu_chung_mo_ta).has(key);
             if (!hasInList && !hasInText) return [];
+            const list = p.benh_dong_y_list || p.benhDongYList || [];
+            if (Array.isArray(list) && list.length) {
+                return list
+                    .map((b) => b?.tieuket || b?.ten)
+                    .filter(Boolean);
+            }
             const benh = p.benh_dong_y || p.benhDongY;
             const benhName = benh?.tieuket || benh?.ten;
             return benhName ? [benhName] : [];

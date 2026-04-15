@@ -89,9 +89,14 @@ export class PhapTri {
   })
   nhom_duoc_ly_nho_list: NhomDuocLyNho[];
 
-  @ManyToOne(() => MeridianSyndrome, (b) => b.phap_tri_list, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'id_benh_dong_y' })
-  benh_dong_y: MeridianSyndrome | null;
+  /** Một pháp trị có thể gắn nhiều bệnh Đông y (many-to-many). */
+  @ManyToMany(() => MeridianSyndrome, (b) => b.phap_tri_list)
+  @JoinTable({
+    name: 'benh_dong_y_phap_tri',
+    joinColumn: { name: 'id_phap_tri', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_benh_dong_y', referencedColumnName: 'id' },
+  })
+  benh_dong_y_list: MeridianSyndrome[];
 
   @ManyToMany(() => KinhMach)
   @JoinTable({

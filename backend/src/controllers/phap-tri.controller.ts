@@ -19,7 +19,7 @@ export class PhapTriService {
     'nhom_duoc_ly_nho',
     'nhom_duoc_ly_nho.nhomLon',
     'nhom_duoc_ly_nho_list',
-    'benh_dong_y',
+    'benh_dong_y_list',
     'kinh_mach_list',
     'trieu_chung_list',
   ] as const;
@@ -85,6 +85,11 @@ export class PhapTriService {
     return err instanceof QueryFailedError && (err as QueryFailedError & { driverError?: { code?: string } }).driverError?.code === '23505';
   }
 
+  private async resolveBenhDongY(ids?: number[] | null): Promise<MeridianSyndrome[]> {
+    if (!ids?.length) return [];
+    return this.benhDongYRepo.findBy({ id: In(ids) });
+  }
+
   /** create: thiếu key → null; update: chỉ đổi khi key có trong body */
   private async applyRefs(
     entity: PhapTri,
@@ -114,15 +119,16 @@ export class PhapTriService {
       entity.nhom_duoc_ly_nho_list = [];
     }
 
-    if (touch('id_benh_dong_y')) {
-      const v = dto.id_benh_dong_y;
-      if (v == null) entity.benh_dong_y = null;
-      else {
-        const b = await this.benhDongYRepo.findOneBy({ id: v });
-        entity.benh_dong_y = b ?? null;
-      }
-    } else if (mode === 'create') {
-      entity.benh_dong_y = null;
+    const hasMany = PhapTriService.has(dto, 'id_benh_dong_y_list');
+    const hasSingle = PhapTriService.has(dto, 'id_benh_dong_y');
+    if (mode === 'create' || hasMany || hasSingle) {
+      const ids = hasMany
+        ? dto.id_benh_dong_y_list ?? []
+        : hasSingle && dto.id_benh_dong_y != null
+          ? [dto.id_benh_dong_y]
+          : [];
+      const uniq = [...new Set(ids.filter((x): x is number => Number.isFinite(Number(x))).map((x) => Number(x)))];
+      entity.benh_dong_y_list = await this.resolveBenhDongY(uniq);
     }
 
     if (touch('id_kinh_mach_list')) {
@@ -311,11 +317,7 @@ export class PhapTriService {
     try {
       await this.repo.save(entity);
     } catch (e) {
-      if (PhapTriService.isPostgresUniqueViolation(e)) {
-        throw new ConflictException(
-          'Bệnh Đông y đã gắn với một pháp trị khác (trùng id_benh_dong_y). Chỉnh lại hoặc bỏ liên kết bản ghi cũ.',
-        );
-      }
+      if (PhapTriService.isPostgresUniqueViolation(e)) throw new ConflictException('Dữ liệu pháp trị bị trùng ràng buộc UNIQUE.');
       throw e;
     }
     await this.syncPhapTriBaiThuocLinks(entity.id, dto, 'create');
@@ -344,11 +346,7 @@ export class PhapTriService {
     try {
       await this.repo.save(item);
     } catch (e) {
-      if (PhapTriService.isPostgresUniqueViolation(e)) {
-        throw new ConflictException(
-          'Bệnh Đông y đã gắn với một pháp trị khác (trùng id_benh_dong_y). Chỉnh lại hoặc bỏ liên kết bản ghi cũ.',
-        );
-      }
+      if (PhapTriService.isPostgresUniqueViolation(e)) throw new ConflictException('Dữ liệu pháp trị bị trùng ràng buộc UNIQUE.');
       throw e;
     }
     await this.syncPhapTriBaiThuocLinks(id, dto, 'update');

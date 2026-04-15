@@ -23,6 +23,8 @@ export class CreatePhapTriDto {
   id_nhom_duoc_ly_nho_list?: number[];
   /** Một chiều FK → benh_dong_y (tiểu kết) */
   id_benh_dong_y?: number | null;
+  /** Cho phép cùng một pháp trị gắn nhiều bệnh Đông y. */
+  id_benh_dong_y_list?: number[];
   /** Danh sách id kinh mạch (tạng phủ) */
   id_kinh_mach_list?: number[];
   /** Danh sách id triệu chứng (bảng trieu_chung) — ưu tiên đồng bộ quan hệ + trieu_chung_mo_ta */
@@ -51,6 +53,7 @@ export class UpdatePhapTriDto {
   id_nhom_duoc_ly_nho?: number | null;
   id_nhom_duoc_ly_nho_list?: number[];
   id_benh_dong_y?: number | null;
+  id_benh_dong_y_list?: number[];
   id_kinh_mach_list?: number[];
   id_trieu_chung_list?: number[];
 }

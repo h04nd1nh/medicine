@@ -51,16 +51,12 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(entity);
-
     if (phap_tri_ids !== undefined) {
       const ids = Array.isArray(phap_tri_ids) ? phap_tri_ids : [];
-      if (ids.length > 0) {
-        const links = await this.phapTriRepo.findBy({ id: In(ids) });
-        for (const row of links) row.benh_dong_y = saved;
-        await this.phapTriRepo.save(links);
-      }
+      const links = ids.length > 0 ? await this.phapTriRepo.findBy({ id: In(ids) }) : [];
+      saved.phap_tri_list = links;
+      await this.repo.save(saved);
     }
-
     return this.findOne(saved.id);
   }
 
@@ -81,35 +77,12 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(existing);
-
     if (phap_tri_ids !== undefined) {
       const ids = Array.isArray(phap_tri_ids) ? phap_tri_ids : [];
-      const want = new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0));
-
-      const linkedNow = await this.phapTriRepo.find({
-        where: { benh_dong_y: { id } },
-        relations: ['benh_dong_y'],
-      });
-      const toSave: PhapTri[] = [];
-
-      for (const row of linkedNow) {
-        if (!want.has(Number(row.id))) {
-          row.benh_dong_y = null;
-          toSave.push(row);
-        }
-      }
-
-      if (want.size > 0) {
-        const target = await this.phapTriRepo.findBy({ id: In([...want]) });
-        for (const row of target) {
-          row.benh_dong_y = saved;
-          toSave.push(row);
-        }
-      }
-
-      if (toSave.length > 0) await this.phapTriRepo.save(toSave);
+      const want = [...new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0))];
+      saved.phap_tri_list = want.length ? await this.phapTriRepo.findBy({ id: In(want) }) : [];
+      await this.repo.save(saved);
     }
-
     return this.findOne(saved.id);
   }
 

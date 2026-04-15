@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable } from 'typeorm';
 import { BaiThuoc } from './bai-thuoc.model';
 import { TrieuChung } from './trieu-chung.model';
 import type { PhapTri } from './phap-tri.model';
@@ -155,8 +155,13 @@ export class MeridianSyndrome {
   @Column({ type: 'smallint', default: 0 })
   ty_c11: number;
 
-  /** Nhiều pháp trị gắn qua phap_tri.id_benh_dong_y (không còn UNIQUE trên cột này). */
-  @OneToMany('PhapTri', 'benh_dong_y')
+  /** Nhiều pháp trị gắn qua bảng nối benh_dong_y_phap_tri (many-to-many). */
+  @ManyToMany('PhapTri', 'benh_dong_y_list')
+  @JoinTable({
+    name: 'benh_dong_y_phap_tri',
+    joinColumn: { name: 'id_benh_dong_y', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'id_phap_tri', referencedColumnName: 'id' },
+  })
   phap_tri_list: PhapTri[];
 
   @ManyToMany(() => BaiThuoc)

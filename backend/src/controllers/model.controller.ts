@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { MeridianSyndrome } from '../models/meridian-syndrome.model';
 import { BaiThuoc } from '../models/bai-thuoc.model';
 import { TrieuChung } from '../models/trieu-chung.model';
+import { PhapTri } from '../models/phap-tri.model';
 
 @Injectable()
 export class ModelsService {
@@ -14,6 +15,8 @@ export class ModelsService {
     private readonly baiThuocRepo: Repository<BaiThuoc>,
     @InjectRepository(TrieuChung)
     private readonly trieuChungRepo: Repository<TrieuChung>,
+    @InjectRepository(PhapTri)
+    private readonly phapTriRepo: Repository<PhapTri>,
   ) {}
 
   findAll(): Promise<MeridianSyndrome[]> {
@@ -33,7 +36,7 @@ export class ModelsService {
   }
 
   async create(data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids: _phap_tri_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids, ...rest } = data;
     const entity = this.repo.create(rest as Partial<MeridianSyndrome>);
 
     if (bai_thuoc_ids && bai_thuoc_ids.length > 0) {
@@ -48,11 +51,21 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(entity);
-    return saved;
+
+    if (phap_tri_ids !== undefined) {
+      const ids = Array.isArray(phap_tri_ids) ? phap_tri_ids : [];
+      if (ids.length > 0) {
+        const links = await this.phapTriRepo.findBy({ id: In(ids) });
+        for (const row of links) row.benh_dong_y = saved;
+        await this.phapTriRepo.save(links);
+      }
+    }
+
+    return this.findOne(saved.id);
   }
 
   async update(id: number, data: any): Promise<MeridianSyndrome> {
-    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids: _phap_tri_ids, ...rest } = data;
+    const { bai_thuoc_ids, trieu_chung_ids, phap_tri_ids, ...rest } = data;
     const existing = await this.findOne(id);
     Object.assign(existing, rest);
 
@@ -68,7 +81,36 @@ export class ModelsService {
     }
 
     const saved = await this.repo.save(existing);
-    return saved;
+
+    if (phap_tri_ids !== undefined) {
+      const ids = Array.isArray(phap_tri_ids) ? phap_tri_ids : [];
+      const want = new Set(ids.map((x) => Number(x)).filter((x) => Number.isFinite(x) && x > 0));
+
+      const linkedNow = await this.phapTriRepo.find({
+        where: { benh_dong_y: { id } },
+        relations: ['benh_dong_y'],
+      });
+      const toSave: PhapTri[] = [];
+
+      for (const row of linkedNow) {
+        if (!want.has(Number(row.id))) {
+          row.benh_dong_y = null;
+          toSave.push(row);
+        }
+      }
+
+      if (want.size > 0) {
+        const target = await this.phapTriRepo.findBy({ id: In([...want]) });
+        for (const row of target) {
+          row.benh_dong_y = saved;
+          toSave.push(row);
+        }
+      }
+
+      if (toSave.length > 0) await this.phapTriRepo.save(toSave);
+    }
+
+    return this.findOne(saved.id);
   }
 
   async remove(id: number): Promise<{ success: boolean }> {

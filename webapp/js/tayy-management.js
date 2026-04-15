@@ -322,6 +322,85 @@ function tyCollectBenhSymptomsFromBaiThuoc(benh) {
     };
 }
 
+function tyGetBaiThuocName(bt) {
+    return String(bt?.ten_bai_thuoc || bt?.name || '').trim();
+}
+
+function tyGetBaiThuocId(bt) {
+    const v = bt?.id;
+    return Number.isFinite(Number(v)) ? Number(v) : null;
+}
+
+function tyCollectPhapTriSymptoms(phapTri) {
+    const map = new Map(); // folded -> label
+    const addRaw = (raw) => {
+        tySplitSymptomText(raw).forEach((s) => {
+            const key = tyFoldText(s);
+            if (key && !map.has(key)) map.set(key, s);
+        });
+    };
+    addRaw(phapTri?.trieu_chung_mo_ta || phapTri?.trieuChungMoTa || '');
+    const list = phapTri?.trieu_chung_list || phapTri?.trieuChungList || [];
+    (list || []).forEach((tc) => addRaw(tc?.ten_trieu_chung || tc?.name || ''));
+    return {
+        symptomSet: new Set(map.keys()),
+        symptomList: Array.from(map.values()),
+    };
+}
+
+function tyCollectBaiThuocFromPhapTri(phapTri) {
+    const mapById = new Map();
+    const mapByName = new Map();
+    const addBt = (bt) => {
+        const name = tyGetBaiThuocName(bt);
+        if (!name) return;
+        const id = tyGetBaiThuocId(bt);
+        const row = { id, name };
+        if (id != null) mapById.set(id, row);
+        else mapByName.set(tyFoldText(name), row);
+    };
+
+    addBt(phapTri?.bai_thuoc || phapTri?.baiThuoc);
+    (phapTri?.bai_thuoc_links || phapTri?.baiThuocLinks || []).forEach((l) => addBt(l?.baiThuoc || l?.bai_thuoc));
+
+    const out = [...mapById.values()];
+    for (const [k, v] of mapByName.entries()) {
+        if (!out.some((x) => x.id == null && tyFoldText(x.name) === k)) out.push(v);
+    }
+    return out;
+}
+
+function tyCollectBenhBaiThuocForCompare(benh) {
+    const mapById = new Map();
+    const mapByName = new Map();
+    (benh?.baiThuocList || []).forEach((bt) => {
+        const name = tyGetBaiThuocName(bt);
+        if (!name) return;
+        const id = tyGetBaiThuocId(bt);
+        const row = { id, name };
+        if (id != null) mapById.set(id, row);
+        else mapByName.set(tyFoldText(name), row);
+    });
+    const out = [...mapById.values()];
+    for (const [k, v] of mapByName.entries()) {
+        if (!out.some((x) => x.id == null && tyFoldText(x.name) === k)) out.push(v);
+    }
+    return out;
+}
+
+function tyFindMatchedBaiThuoc(foundBaiThuoc, benhBaiThuoc) {
+    if (!foundBaiThuoc.length || !benhBaiThuoc.length) return [];
+    const foundIds = new Set(foundBaiThuoc.map((x) => x.id).filter((x) => x != null));
+    const foundNames = new Set(foundBaiThuoc.map((x) => tyFoldText(x.name)).filter(Boolean));
+    const matched = [];
+    for (const bt of benhBaiThuoc) {
+        const byId = bt.id != null && foundIds.has(bt.id);
+        const byName = foundNames.has(tyFoldText(bt.name));
+        if (byId || byName) matched.push(bt);
+    }
+    return matched;
+}
+
 function tyRunBenhAnalysis() {
     if (!_tyAnalysisSymptomDraft.length) {
         alert('Vui lòng chọn ít nhất 1 triệu chứng để phân tích.');
@@ -335,70 +414,155 @@ function tyRunBenhAnalysis() {
         return;
     }
 
-    const rows = (_tayyData.benhTayY || []).map((benh) => {
-        const collected = tyCollectBenhSymptomsFromBaiThuoc(benh);
-        const matched = [];
-        for (const raw of inputSymptoms) {
-            const key = tyFoldText(raw);
-            if (key && collected.symptomSet.has(key)) matched.push(raw);
-        }
-        const matchedUnique = [...new Set(matched)];
-        const matchCount = matchedUnique.length;
-        const inputPercent = total > 0 ? Math.round((matchCount / total) * 100) : 0;
-        const diseaseCoverage = collected.symptomList.length
-            ? Math.round((matchCount / collected.symptomList.length) * 100)
-            : 0;
-        return {
-            id: benh.id,
-            ten_benh: benh.ten_benh || benh.name || ('#' + benh.id),
-            matched: matchedUnique,
-            matchCount,
-            totalInput: total,
-            inputPercent,
-            diseaseCoverage,
-            baiThuocNames: collected.linkedBaiThuoc.map((x) => x.ten_bai_thuoc || x.name || '').filter(Boolean),
-        };
+    const phapTriMatches = (_tayyData.phapTri || [])
+        .map((pt) => {
+            const tc = tyCollectPhapTriSymptoms(pt);
+            const matched = [];
+            for (const raw of inputSymptoms) {
+                const key = tyFoldText(raw);
+                if (key && tc.symptomSet.has(key)) matched.push(raw);
+            }
+            const matchedUnique = [...new Set(matched)];
+            const matchCount = matchedUnique.length;
+            if (!matchCount) return null;
+            const inputPercent = total > 0 ? Math.round((matchCount / total) * 100) : 0;
+            const ptCoverage = tc.symptomList.length ? Math.round((matchCount / tc.symptomList.length) * 100) : 0;
+            const theBenh = String(pt?.chung_trang || pt?.chungTrang || '').trim();
+            return {
+                id: pt.id,
+                label: tyPhapTriChipLabel(pt),
+                theBenh,
+                matchedSymptoms: matchedUnique,
+                matchCount,
+                totalInput: total,
+                inputPercent,
+                ptCoverage,
+                baiThuocList: tyCollectBaiThuocFromPhapTri(pt),
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.inputPercent - a.inputPercent || b.matchCount - a.matchCount || String(a.label || '').localeCompare(String(b.label || ''), 'vi'));
+
+    const inferredTheBenh = [];
+    const seenTheBenh = new Set();
+    phapTriMatches.forEach((m) => {
+        const name = String(m.theBenh || '').trim();
+        const k = tyFoldText(name);
+        if (!name || !k || seenTheBenh.has(k)) return;
+        seenTheBenh.add(k);
+        inferredTheBenh.push(name);
     });
 
-    _tyAnalysisResults = rows
-        .filter((x) => x.matchCount > 0)
-        .sort((a, b) => b.inputPercent - a.inputPercent || b.matchCount - a.matchCount || a.ten_benh.localeCompare(b.ten_benh, 'vi'));
+    const inferredBaiThuocMap = new Map();
+    phapTriMatches.forEach((m) => {
+        (m.baiThuocList || []).forEach((bt) => {
+            if (bt.id != null) inferredBaiThuocMap.set('id:' + bt.id, bt);
+            else inferredBaiThuocMap.set('name:' + tyFoldText(bt.name), bt);
+        });
+    });
+    const inferredBaiThuoc = Array.from(inferredBaiThuocMap.values());
+
+    const benhCompareRows = (_tayyData.benhTayY || [])
+        .map((benh) => {
+            const diseaseBaiThuoc = tyCollectBenhBaiThuocForCompare(benh);
+            const matched = tyFindMatchedBaiThuoc(inferredBaiThuoc, diseaseBaiThuoc);
+            if (!matched.length) return null;
+            const pct = diseaseBaiThuoc.length ? Math.round((matched.length / diseaseBaiThuoc.length) * 100) : 0;
+            return {
+                id: benh.id,
+                ten_benh: benh.ten_benh || benh.name || ('#' + benh.id),
+                matchedBaiThuoc: matched.map((x) => x.name),
+                diseaseBaiThuoc: diseaseBaiThuoc.map((x) => x.name),
+                matchedCount: matched.length,
+                diseaseTotal: diseaseBaiThuoc.length,
+                matchPercent: pct,
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.matchPercent - a.matchPercent || b.matchedCount - a.matchedCount || a.ten_benh.localeCompare(b.ten_benh, 'vi'));
+
+    _tyAnalysisResults = [{
+        inputSymptoms,
+        phapTriMatches,
+        inferredTheBenh,
+        inferredBaiThuoc: inferredBaiThuoc.map((x) => x.name),
+        benhCompareRows,
+    }];
     renderPhanTichBenhResults();
 }
 
 function renderPhanTichBenhResults() {
     const el = document.getElementById('tayy-anl-results');
     if (!el) return;
-    if (!_tyAnalysisResults.length) {
-        el.innerHTML = '<div style="padding:12px;color:#A09580;font-style:italic;">Chưa có bệnh nào khớp theo bộ triệu chứng đã chọn.</div>';
+    const data = _tyAnalysisResults[0];
+    if (!data) {
+        el.innerHTML = '<div style="padding:12px;color:#A09580;font-style:italic;">Chưa có dữ liệu phân tích.</div>';
         return;
     }
-    const rows = _tyAnalysisResults
+    const ptRows = (data.phapTriMatches || [])
         .map((r) => `
             <tr>
-                <td><strong>${escHtml(r.ten_benh)}</strong></td>
+                <td><strong>${escHtml(r.label || ('#' + r.id))}</strong></td>
+                <td style="font-size:0.8rem;max-width:180px;">${escHtml(r.theBenh || '—')}</td>
                 <td style="text-align:center;white-space:nowrap;">${r.matchCount}/${r.totalInput}</td>
                 <td style="text-align:center;"><span style="font-weight:800;color:#2D7A46;">${r.inputPercent}%</span></td>
-                <td style="text-align:center;color:#8B7355;">${r.diseaseCoverage}%</td>
-                <td style="font-size:0.8rem;max-width:220px;">${escHtml(r.matched.join(', ') || '—')}</td>
-                <td style="font-size:0.8rem;max-width:240px;">${escHtml(r.baiThuocNames.join(', ') || '—')}</td>
+                <td style="text-align:center;color:#8B7355;">${r.ptCoverage}%</td>
+                <td style="font-size:0.8rem;max-width:220px;">${escHtml((r.matchedSymptoms || []).join(', ') || '—')}</td>
+                <td style="font-size:0.8rem;max-width:240px;">${escHtml((r.baiThuocList || []).map((x) => x.name).join(', ') || '—')}</td>
             </tr>
         `)
         .join('');
+
+    const benhRows = (data.benhCompareRows || [])
+        .map((r) => `
+            <tr>
+                <td><strong>${escHtml(r.ten_benh)}</strong></td>
+                <td style="text-align:center;white-space:nowrap;">${r.matchedCount}/${r.diseaseTotal}</td>
+                <td style="text-align:center;"><span style="font-weight:800;color:#2D7A46;">${r.matchPercent}%</span></td>
+                <td style="font-size:0.8rem;max-width:220px;">${escHtml((r.matchedBaiThuoc || []).join(', ') || '—')}</td>
+                <td style="font-size:0.8rem;max-width:240px;">${escHtml((r.diseaseBaiThuoc || []).join(', ') || '—')}</td>
+            </tr>
+        `)
+        .join('');
+
     el.innerHTML = `
+        <div style="margin-top:10px;padding:10px 12px;background:#FFFBF2;border:1px solid #E8DCC4;border-radius:8px;color:#5B3A1A;font-size:0.82rem;line-height:1.5;">
+            <div><strong>Đợt 1:</strong> Triệu chứng đầu vào: ${escHtml((data.inputSymptoms || []).join(', ') || '—')}</div>
+            <div><strong>Đợt 2:</strong> Suy ra thể bệnh: ${escHtml((data.inferredTheBenh || []).join(', ') || '—')}</div>
+            <div><strong>Đợt 3:</strong> Suy ra bài thuốc: ${escHtml((data.inferredBaiThuoc || []).join(', ') || '—')}</div>
+        </div>
+
         <div class="data-table-container" style="margin-top:10px;overflow-x:auto;">
+            <div style="font-weight:700;color:#5B3A1A;margin:0 0 6px 2px;">Kết quả suy luận pháp trị / thể bệnh từ triệu chứng</div>
+            <table style="min-width:940px;">
+                <thead>
+                    <tr>
+                        <th>Pháp trị</th>
+                        <th>Thể bệnh</th>
+                        <th style="text-align:center;">Số TC khớp</th>
+                        <th style="text-align:center;">% theo đầu vào</th>
+                        <th style="text-align:center;">Độ phủ pháp trị</th>
+                        <th>Triệu chứng khớp</th>
+                        <th>Bài thuốc suy ra</th>
+                    </tr>
+                </thead>
+                <tbody>${ptRows || '<tr><td colspan="7" style="text-align:center;color:#A09580;">Không suy ra được pháp trị từ bộ triệu chứng.</td></tr>'}</tbody>
+            </table>
+        </div>
+
+        <div class="data-table-container" style="margin-top:12px;overflow-x:auto;">
+            <div style="font-weight:700;color:#5B3A1A;margin:0 0 6px 2px;">Kết quả so sánh bài thuốc với bệnh Tây y</div>
             <table style="min-width:860px;">
                 <thead>
                     <tr>
                         <th>Bệnh tây y</th>
-                        <th style="text-align:center;">Số TC khớp</th>
-                        <th style="text-align:center;">% khớp theo đầu vào</th>
-                        <th style="text-align:center;">Độ phủ trên bệnh</th>
-                        <th>Triệu chứng khớp</th>
-                        <th>Bài thuốc dùng để suy luận</th>
+                        <th style="text-align:center;">Số bài thuốc khớp</th>
+                        <th style="text-align:center;">% khớp</th>
+                        <th>Bài thuốc khớp</th>
+                        <th>Danh sách bài thuốc của bệnh</th>
                     </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${benhRows || '<tr><td colspan="5" style="text-align:center;color:#A09580;">Không có bệnh Tây y nào khớp danh sách bài thuốc suy ra.</td></tr>'}</tbody>
             </table>
         </div>
     `;
@@ -407,8 +571,10 @@ function renderPhanTichBenhResults() {
 function renderPhanTichBenhTab(el) {
     el.innerHTML = `
         <div style="margin-bottom:8px;color:#6B5A45;font-size:0.84rem;line-height:1.5;">
-            Chọn triệu chứng từ danh mục <strong>triệu chứng</strong>, hệ thống sẽ suy ra bệnh tây y theo triệu chứng xuất hiện trong
-            <strong>bài thuốc liên kết</strong> của từng bệnh và xếp hạng theo <strong>% khớp</strong>.
+            Chọn triệu chứng từ danh mục <strong>triệu chứng</strong>. Hệ thống sẽ phân tích theo luồng:
+            <strong>(1) triệu chứng → pháp trị + thể bệnh</strong>,
+            <strong>(2) pháp trị + thể bệnh → bài thuốc</strong>,
+            <strong>(3) so sánh danh sách bài thuốc với từng bệnh tây y theo % khớp</strong>.
         </div>
         <label class="tayy-form-label" style="margin-top:8px;">Triệu chứng đầu vào
             <div style="position:relative;margin-top:6px;">

@@ -376,18 +376,28 @@ function dyRenderPhapTriChips() {
     });
 }
 
+function dyNormalizeId(value) {
+    if (value == null) return null;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+    const s = String(value).trim();
+    return s || null;
+}
+
 function dyRemovePhapTriChip(id) {
-    _dyDraftPhapTri = _dyDraftPhapTri.filter((x) => x.id !== id);
+    const want = dyNormalizeId(id);
+    _dyDraftPhapTri = _dyDraftPhapTri.filter((x) => dyNormalizeId(x.id) !== want);
     dyRenderPhapTriChips();
     const inp = document.getElementById('dy-inp-phaptri-search');
     if (inp && inp.value) dyOnPhapTriSearchInput(inp.value);
 }
 
 function dySelectPhapTri(id) {
-    if (id == null || _dyDraftPhapTri.some((x) => x.id === id)) return;
-    const p = (_dongyData.phapTri || []).find((x) => x.id === id);
+    const want = dyNormalizeId(id);
+    if (want == null || _dyDraftPhapTri.some((x) => dyNormalizeId(x.id) === want)) return;
+    const p = (_dongyData.phapTri || []).find((x) => dyNormalizeId(x.id) === want);
     if (!p) return;
-    _dyDraftPhapTri.push({ id: p.id, label: dyPhapTriChipLabel(p) });
+    _dyDraftPhapTri.push({ id: dyNormalizeId(p.id), label: dyPhapTriChipLabel(p) });
     const inp = document.getElementById('dy-inp-phaptri-search');
     if (inp) {
         inp.value = '';
@@ -441,9 +451,9 @@ function dyOnPhapTriSearchInput(val) {
         suggestEl.style.display = 'none';
         return;
     }
-    const selected = new Set(_dyDraftPhapTri.map((x) => x.id));
+    const selected = new Set(_dyDraftPhapTri.map((x) => dyNormalizeId(x.id)));
     const idWant = parseInt(String(rawQ).replace(/^#/, '').trim(), 10);
-    let matches = (_dongyData.phapTri || []).filter((p) => !selected.has(p.id));
+    let matches = (_dongyData.phapTri || []).filter((p) => !selected.has(dyNormalizeId(p.id)));
     if (Number.isFinite(idWant) && idWant > 0) {
         matches = matches.filter((p) => String(p.id).includes(String(idWant)) || Number(p.id) === idWant);
     } else {

@@ -35,8 +35,16 @@ let _btDraftTrieuChung = [];
 let _btDraftTheBenh = [];
 /** Thứ tự = thứ tự gửi phap_tri_ids (liên kết danh mục pháp trị) */
 let _btDraftPhapTriIds = [];
-/** Lọc danh sách bài thuốc theo tên / nội dung pháp trị (nguyen_tac của các pháp trị đã gắn) */
+/** Lọc danh sách bài thuốc theo tên / nội dung pháp trị (phap_tri của các pháp trị đã gắn) */
 let _btBaiThuocFilterPhapTri = '';
+
+function btPhapTriText(p) {
+    return String(p?.phap_tri ?? p?.nguyen_tac ?? '').trim();
+}
+
+function btTheBenhText(p) {
+    return String(p?.the_benh ?? p?.chung_trang ?? p?.chungTrang ?? '').trim();
+}
 
 function btCsvToChips(raw) {
     if (raw == null) return [];
@@ -582,13 +590,13 @@ function btGetBaiThuocListFilteredForTable() {
         const links = item?.phapTriLinks || [];
         return links.some((l) => {
             const pt = l.phapTri || l.phap_tri;
-            const np = btPhapTriFold(pt?.nguyen_tac || '');
+            const np = btPhapTriFold(btPhapTriText(pt));
             return np && (np.includes(fq) || np === fq);
         });
     });
 }
 
-/** HTML (chip) — hiển thị theo nội dung pháp trị nguyen_tac, thứ tự liên kết. */
+/** HTML (chip) — hiển thị theo nội dung pháp trị phap_tri, thứ tự liên kết. */
 function btFormatPhapTriLinksCell(item) {
     const links = item?.phapTriLinks || [];
     if (!links.length) return '<span style="color:#D1D5DB;font-size:0.78rem;">—</span>';
@@ -596,7 +604,7 @@ function btFormatPhapTriLinksCell(item) {
         .sort((a, b) => (a.thuTu ?? a.thu_tu ?? 0) - (b.thuTu ?? b.thu_tu ?? 0))
         .map((l) => {
             const pt = l.phapTri || l.phap_tri;
-            const np = String(pt?.nguyen_tac || '').trim();
+            const np = btPhapTriText(pt);
             if (np) return np;
             const id = pt?.id ?? l.idPhapTri ?? l.id_phap_tri;
             return id != null ? '#' + id : '';
@@ -659,7 +667,7 @@ function renderBaiThuocTab(el) {
             <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:#57534e;min-width:220px;flex:1;max-width:360px;">Tìm theo pháp trị
                 <input type="text" class="tayy-form-input" style="margin:0;" value="${fv}"
                     oninput="btSetBaiThuocPhapTriFilter(this.value)"
-                    placeholder="Theo nội dung pháp trị đã gắn (nguyen_tac)…">
+                    placeholder="Theo nội dung pháp trị đã gắn (phap_tri)…">
             </label>
         </div>
         <div class="data-table-container">
@@ -721,7 +729,7 @@ function openBaiThuocForm(id) {
         </label>
 
         <label class="tayy-form-label">
-            Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — chọn từ danh mục Pháp trị; tìm theo <strong>tên / nội dung pháp trị</strong> <code>nguyen_tac</code>)</span>
+            Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — chọn từ danh mục Pháp trị; tìm theo <strong>nội dung pháp trị</strong> <code>phap_tri</code>)</span>
             <div style="position:relative; margin-top:6px;">
                 <div id="bt-phaptri-chips" class="chips-container" onclick="document.getElementById('bt-inp-phaptri-search').focus()">
                     <input id="bt-inp-phaptri-search" type="text" class="chip-input"
@@ -1155,8 +1163,8 @@ function btRenderPhapTriLinkChips() {
     container.querySelectorAll('.chip').forEach(c => c.remove());
     (_btDraftPhapTriIds || []).forEach(ptId => {
         const pt = btGetPhapTriById(ptId);
-        const np = String(pt?.nguyen_tac || '').trim();
-        const label = np || (pt?.chung_trang || '').trim() || ('#' + ptId);
+        const np = btPhapTriText(pt);
+        const label = np || btTheBenhText(pt) || ('#' + ptId);
         const chip = document.createElement('div');
         chip.className = 'chip';
         chip.innerHTML = `${escHtml(label)} <span class="chip-remove" onclick="btRemovePhapTriLinkChip(${ptId}); event.stopPropagation();">×</span>`;
@@ -1188,7 +1196,7 @@ function btPhapTriCatalogMatchesQuery(qRaw, p) {
     if (Number.isFinite(idNum) && p.id === idNum) return true;
     const fq = btPhapTriFold(q);
     if (!fq) return false;
-    const np = btPhapTriFold(p.nguyen_tac || '');
+    const np = btPhapTriFold(btPhapTriText(p));
     return np && np.includes(fq);
 }
 
@@ -1215,15 +1223,15 @@ function btOnPhapTriLinkSearchInput(val) {
 
     if (filtered.length === 0) {
         suggestEl.innerHTML =
-            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị phù hợp — tìm theo <code>nguyen_tac</code> hoặc #id.</div>';
+            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị phù hợp — tìm theo <code>phap_tri</code> hoặc #id.</div>';
         suggestEl.style.display = 'block';
         return;
     }
 
     suggestEl.innerHTML = filtered
         .map((p) => {
-            const lab = String(p.nguyen_tac || '').trim() || ('#' + p.id);
-            const sub = (p.chung_trang || '').trim();
+            const lab = btPhapTriText(p) || ('#' + p.id);
+            const sub = btTheBenhText(p);
             return `
             <div style="padding:8px 10px; cursor:pointer; border-bottom:1px solid #F0E8D8;"
                  onmouseover="this.style.background='#F5F0E8'"
@@ -1248,12 +1256,12 @@ function btTrySelectPhapTriFromSearch() {
     let p = Number.isFinite(idNum) && idNum > 0 ? all.find((x) => x.id === idNum) : null;
     if (!p) {
         const qLow = q.toLowerCase();
-        const exact = all.find((x) => String(x.nguyen_tac || '').trim().toLowerCase() === qLow);
+        const exact = all.find((x) => btPhapTriText(x).toLowerCase() === qLow);
         if (exact) p = exact;
     }
     if (!p) {
         const fq = btPhapTriFold(q);
-        const exactFold = all.find((x) => btPhapTriFold(x.nguyen_tac || '') === fq);
+        const exactFold = all.find((x) => btPhapTriFold(btPhapTriText(x)) === fq);
         if (exactFold) p = exactFold;
     }
     if (p) {
@@ -1307,11 +1315,11 @@ function btSelectTheBenh(name) {
 }
 
 function btTheBenhCatalogNames() {
-    const src = _thuocData.benhDongYModels || [];
+    const src = _thuocData.phapTriList || [];
     const out = [];
     const seen = new Set();
     for (const r of src) {
-        const ten = String(r?.tieuket || r?.ten || '').trim();
+        const ten = btTheBenhText(r);
         if (!ten) continue;
         const key = ten.toLowerCase();
         if (seen.has(key)) continue;
@@ -2166,7 +2174,7 @@ async function renderPhapTriTab(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline" onclick="exportPhapTriXlsx()">📥 Xuất Excel</button>
-                <button type="button" class="btn btn-outline" title="Round-trip Excel: tiêu đề cột khớp khi đổi hoa/thường hoặc bỏ dấu. Cột id: cập nhật đúng bản ghi; không id: upsert theo «Thể bệnh»/«Thế bệnh»/«Chứng trạng» (chung_trang). Triệu chứng điển hình → trieu_chung. Bài thuốc → bai_thuoc."
+                <button type="button" class="btn btn-outline" title="Round-trip Excel: tiêu đề cột khớp khi đổi hoa/thường hoặc bỏ dấu. Cột id: cập nhật đúng bản ghi; không id: upsert theo «Thể bệnh»/«Thế bệnh»/«Chứng trạng» (the_benh). Triệu chứng điển hình → trieu_chung. Bài thuốc → bai_thuoc."
                     onclick="document.getElementById('pt-import-xlsx').click()">📤 Cập nhật từ Excel</button>
                 <input type="file" id="pt-import-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importPhapTriXlsx(event)">
             </div>
@@ -2178,7 +2186,7 @@ async function renderPhapTriTab(el) {
             </div>
         </div>
         <p style="margin:0 0 10px;font-size:0.8rem;color:#78716c;line-height:1.45;max-width:920px;">
-            Bảng theo mẫu biện chứng: cột <strong>Thể bệnh</strong> hiển thị <code>chung_trang</code> (chứng trạng / tiểu kết tự nhập);
+            Bảng theo mẫu biện chứng: cột <strong>Thể bệnh</strong> hiển thị <code>the_benh</code> (chứng trạng / tiểu kết tự nhập);
             <strong>Triệu chứng điển hình</strong> từ danh mục <code>trieu_chung</code>;
             <strong>Bài thuốc tiêu biểu</strong> từ <code>bai_thuoc</code>. <strong>Tạng phủ</strong> = kinh mạch đã chọn.
             Gắn pháp trị với <strong>bệnh Tây y</strong> tại mục Quản lý Bệnh Tây Y (chips Pháp trị).
@@ -2193,7 +2201,7 @@ async function renderPhapTriTab(el) {
                     <th style="min-width:72px;white-space:normal;">Tác nhân</th>
                     <th style="min-width:80px;white-space:normal;">Bản chất</th>
                     <th style="min-width:88px;white-space:normal;">Vị trí / Tiến trình</th>
-                    <th style="min-width:120px;white-space:normal;">Thể bệnh<br><span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(chung_trang)</span></th>
+                    <th style="min-width:120px;white-space:normal;">Thể bệnh<br><span style="font-weight:400;font-size:0.68rem;color:#A8A29E;">(the_benh)</span></th>
                     <th style="min-width:100px;white-space:normal;">Pháp trị</th>
                     <th style="min-width:80px;white-space:normal;">Mạch chẩn</th>
                     <th style="min-width:72px;white-space:normal;">Chất lưỡi</th>
@@ -2217,7 +2225,7 @@ async function openPhapTriRowForm(id) {
         _ptDraftTrieuChung = ptTrieuChungDraftFromPhapTriItem(item);
         _ptKinhIds = (item.kinh_mach_list || item.kinhMachList || []).map(k => kmRowId(k)).filter(n => Number.isFinite(n));
     }
-    const chungInit = item ? String(item.chung_trang || item.chungTrang || '').trim() : '';
+    const chungInit = item ? btTheBenhText(item) : '';
     _ptBaiThuocDraft = item ? ptBaiThuocListFromPhapTriRow(item) : [];
     const nnList = item
         ? (item.nhom_duoc_ly_nho_list || item.nhomDuocLyNhoList || [])
@@ -2249,7 +2257,7 @@ async function openPhapTriRowForm(id) {
     <section class="pt-form-section" aria-labelledby="pt-sec-main">
         <h3 class="pt-form-section-title" id="pt-sec-main"><span class="pt-form-section-num">1</span>Thể bệnh &amp; ghi chú</h3>
         ${item ? `<p style="margin:0 0 10px;font-size:0.88rem;color:#57534e;">Mã bản ghi: <strong style="color:#44403c;">#${item.id}</strong></p>` : ''}
-        <label class="tayy-form-label">Thể bệnh / <code>chung_trang</code> <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(cột «Thể bệnh» trên bảng &amp; Excel)</span>
+        <label class="tayy-form-label">Thể bệnh / <code>the_benh</code> <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(cột «Thể bệnh» trên bảng &amp; Excel)</span>
             <input id="pt-inp-chung-trang" type="text" class="tayy-form-input" value="${escHtml(chungInit)}"
                 placeholder="Tiểu kết, chứng trạng… (khớp nhập Excel)">
         </label>
@@ -2302,8 +2310,8 @@ async function openPhapTriRowForm(id) {
     <section class="pt-form-section" aria-labelledby="pt-sec-phap">
         <h3 class="pt-form-section-title" id="pt-sec-phap"><span class="pt-form-section-num">4</span>Pháp trị · Nguyên nhân</h3>
         <div class="pt-form-stack">
-            <label class="tayy-form-label">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(<code>nguyen_tac</code>)</span>
-                <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2" placeholder="VD: Bổ ích tâm khí…">${item ? escHtml(item.nguyen_tac || '') : ''}</textarea>
+            <label class="tayy-form-label">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(<code>phap_tri</code>)</span>
+                <textarea id="pt-inp-nguyen_tac" class="tayy-form-input" rows="2" placeholder="VD: Bổ ích tâm khí…">${item ? escHtml(item.phap_tri || item.nguyen_tac || '') : ''}</textarea>
             </label>
             <label class="tayy-form-label">Nguyên nhân
                 <textarea id="pt-inp-nguyen-nhan" class="tayy-form-input" rows="2" placeholder="VD: Lao thương…">${ptTcm('nguyen_nhan', 'nguyenNhan')}</textarea>
@@ -2399,7 +2407,9 @@ function ptReadChungTrangFromModal() {
 
 async function savePhapTriRow(id) {
     const payload = {
+        the_benh: ptReadChungTrangFromModal(),
         chung_trang: ptReadChungTrangFromModal(),
+        phap_tri: (document.getElementById('pt-inp-nguyen_tac')?.value || '').trim() || null,
         nguyen_tac: (document.getElementById('pt-inp-nguyen_tac')?.value || '').trim() || null,
         y_nghia_co_che: (document.getElementById('pt-inp-y_nghia')?.value || '').trim() || null,
         am_duong: (document.getElementById('pt-inp-am-duong')?.value || '').trim() || null,

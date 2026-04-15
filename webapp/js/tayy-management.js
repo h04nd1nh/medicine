@@ -217,7 +217,7 @@ function tySplitSymptomText(raw) {
         .filter(Boolean);
 }
 
-/** So khớp tìm pháp trị theo thể bệnh (chung_trang): không phân biệt hoa thường, bỏ dấu. */
+/** So khớp tìm pháp trị theo thể bệnh (the_benh): không phân biệt hoa thường, bỏ dấu. */
 function tyFold(s) {
     return String(s || '')
         .normalize('NFD')
@@ -427,7 +427,7 @@ function tyRunBenhAnalysis() {
             if (!matchCount) return null;
             const inputPercent = total > 0 ? Math.round((matchCount / total) * 100) : 0;
             const ptCoverage = tc.symptomList.length ? Math.round((matchCount / tc.symptomList.length) * 100) : 0;
-            const theBenh = String(pt?.chung_trang || pt?.chungTrang || '').trim();
+            const theBenh = tyTheBenhText(pt);
             return {
                 id: pt.id,
                 label: tyPhapTriChipLabel(pt),
@@ -597,23 +597,31 @@ function renderPhanTichBenhTab(el) {
     renderPhanTichBenhResults();
 }
 
+function tyPhapTriText(p) {
+    return String(p?.phap_tri ?? p?.nguyen_tac ?? '').trim();
+}
+
+function tyTheBenhText(p) {
+    return String(p?.the_benh ?? p?.chung_trang ?? p?.chungTrang ?? '').trim();
+}
+
 function tyPhapTriTriMatch(query, p) {
     const q = tyFold(query);
     if (!q) return false;
-    const c = tyFold(p.chung_trang || p.chungTrang || '');
-    const np = tyFold(p.nguyen_tac || '');
+    const c = tyFold(tyTheBenhText(p));
+    const np = tyFold(tyPhapTriText(p));
     return (c && (c === q || c.includes(q))) || (np && np.includes(q));
 }
 
-/** Điểm càng cao = càng khớp «tên thể bệnh» (ưu tiên <code>chung_trang</code>, sau đó nguyên tắc). */
+/** Điểm càng cao = càng khớp «tên thể bệnh» (ưu tiên <code>the_benh</code>, sau đó <code>phap_tri</code>). */
 function tyScorePhapTriTheBenhSearch(query, p) {
     const raw = String(query || '').trim();
     const low = raw.toLowerCase();
     const q = tyFold(raw);
     if (!q) return 0;
-    const cRaw = String(p.chung_trang || p.chungTrang || '').trim();
+    const cRaw = tyTheBenhText(p);
     const c = tyFold(cRaw);
-    const np = tyFold(p.nguyen_tac || '');
+    const np = tyFold(tyPhapTriText(p));
     if (c) {
         if (cRaw.toLowerCase() === low) return 1_000_000;
         if (c === q) return 900_000;
@@ -626,9 +634,9 @@ function tyScorePhapTriTheBenhSearch(query, p) {
 
 function tyPhapTriChipLabel(p) {
     if (!p) return '';
-    const c = String(p.chung_trang || p.chungTrang || '').trim();
+    const c = tyTheBenhText(p);
     if (c) return c.length > 56 ? c.slice(0, 56) + '…' : c;
-    const np = String(p.nguyen_tac || '').trim();
+    const np = tyPhapTriText(p);
     if (np) return np.length > 40 ? np.slice(0, 40) + '…' : np;
     const id = p.id;
     return id != null ? 'Pháp trị #' + id : '';
@@ -686,7 +694,7 @@ function tySelectPhapTriByQuery(q) {
         }
     }
     const exact = (_tayyData.phapTri || []).find((x) => {
-        const c = String(x.chung_trang || x.chungTrang || '').trim().toLowerCase();
+        const c = tyTheBenhText(x).toLowerCase();
         return c && c === low;
     });
     if (exact) {
@@ -694,7 +702,7 @@ function tySelectPhapTriByQuery(q) {
         return;
     }
     const exactFold = (_tayyData.phapTri || []).find((x) => {
-        const c = tyFold(x.chung_trang || x.chungTrang || '');
+        const c = tyFold(tyTheBenhText(x));
         return c && c === tyFold(q);
     });
     if (exactFold) {
@@ -706,7 +714,7 @@ function tySelectPhapTriByQuery(q) {
         .sort((a, b) => tyScorePhapTriTheBenhSearch(q, b) - tyScorePhapTriTheBenhSearch(q, a) || Number(a.id) - Number(b.id));
     if (sub.length === 1) tySelectPhapTri(sub[0].id);
     else if (sub.length > 1) tyOnPhapTriSearchInput(q);
-    else alert('Không tìm thấy pháp trị có tên thể bệnh (chung_trang) khớp «' + q + '». Thêm/sửa ở tab Thuốc → Pháp trị (cột Thể bệnh).');
+    else alert('Không tìm thấy pháp trị có tên thể bệnh (the_benh) khớp «' + q + '». Thêm/sửa ở tab Thuốc → Pháp trị (cột Thể bệnh).');
 }
 
 function tyOnPhapTriSearchInput(val) {
@@ -731,7 +739,7 @@ function tyOnPhapTriSearchInput(val) {
     if (!matches.length) {
         suggestEl.style.display = 'block';
         suggestEl.innerHTML =
-            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị nào khớp tên thể bệnh — kiểm tra tab Thuốc → Pháp trị (cột Thể bệnh / chung_trang).</div>';
+            '<div style="padding:10px;color:#A09580;font-size:0.82rem;">Không có pháp trị nào khớp tên thể bệnh — kiểm tra tab Thuốc → Pháp trị (cột Thể bệnh / <code>the_benh</code>).</div>';
         return;
     }
     suggestEl.style.display = 'block';
@@ -743,9 +751,9 @@ function tyOnPhapTriSearchInput(val) {
                  onmouseover="this.style.background='#F5F0E8'"
                  onmouseout="this.style.background='transparent'"
                  onclick="tySelectPhapTri(${p.id})">
-                <div style="font-weight:700;color:#5B3A1A;font-size:0.82rem;">${escHtml(String(p.chung_trang || p.chungTrang || '').trim() || ('#' + p.id))}</div>
-                <div style="font-size:0.68rem;color:#A09580;margin-top:2px;">Tên thể bệnh (<code>chung_trang</code>)</div>
-                ${p.nguyen_tac ? `<div style="font-size:0.75rem;color:#A09580;margin-top:2px;">${escHtml(String(p.nguyen_tac).slice(0, 120))}${String(p.nguyen_tac).length > 120 ? '…' : ''}</div>` : ''}
+                <div style="font-weight:700;color:#5B3A1A;font-size:0.82rem;">${escHtml(tyTheBenhText(p) || ('#' + p.id))}</div>
+                <div style="font-size:0.68rem;color:#A09580;margin-top:2px;">Tên thể bệnh (<code>the_benh</code>)</div>
+                ${tyPhapTriText(p) ? `<div style="font-size:0.75rem;color:#A09580;margin-top:2px;">${escHtml(String(tyPhapTriText(p)).slice(0, 120))}${String(tyPhapTriText(p)).length > 120 ? '…' : ''}</div>` : ''}
             </div>`,
         )
         .join('');
@@ -813,8 +821,8 @@ function renderBenhTayYTab(el) {
             ptList.length > 0
                 ? ptList
                       .map((p) => {
-                          const c = String(p.chung_trang || p.chungTrang || '').trim();
-                          const np = String(p.nguyen_tac || '').trim();
+                          const c = tyTheBenhText(p);
+                          const np = tyPhapTriText(p);
                           const lab = c || np || ('#' + (p.id || ''));
                           return escHtml(lab.length > 40 ? lab.slice(0, 40) + '…' : lab);
                       })
@@ -910,7 +918,7 @@ function openBenhTayYForm(id) {
             </div>
         </label>
 
-        <label class="tayy-form-label" style="margin-top:10px;">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(tìm theo <strong>tên thể bệnh</strong> = cột Thể bệnh / <code>chung_trang</code> trong Pháp trị; gõ không dấu cũng được)</span>
+        <label class="tayy-form-label" style="margin-top:10px;">Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(tìm theo <strong>tên thể bệnh</strong> = cột Thể bệnh / <code>the_benh</code> trong Pháp trị; gõ không dấu cũng được)</span>
             <div style="position:relative;margin-top:6px;">
                 <div id="tayy-pt-chips" class="chips-container" onclick="document.getElementById('tayy-inp-pt-search').focus()">
                     <input id="tayy-inp-pt-search" type="text" class="chip-input"

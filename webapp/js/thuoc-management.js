@@ -31,10 +31,29 @@ let _thuocData = {
 let _btDraftChiTiet = [];
 // Draft chips cho triệu chứng
 let _btDraftTrieuChung = [];
+// Draft chips cho thể bệnh (lưu vào bai_thuoc.chung_trang dạng CSV)
+let _btDraftTheBenh = [];
 /** Thứ tự = thứ tự gửi phap_tri_ids (liên kết danh mục pháp trị) */
 let _btDraftPhapTriIds = [];
 /** Lọc danh sách bài thuốc theo tên / nội dung pháp trị (nguyen_tac của các pháp trị đã gắn) */
 let _btBaiThuocFilterPhapTri = '';
+
+function btCsvToChips(raw) {
+    if (raw == null) return [];
+    const parts = String(raw)
+        .split(/[,;\n\r，、]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    return [...new Set(parts)];
+}
+
+function btChipsPreviewHtml(raw, maxWidth = 220) {
+    const chips = btCsvToChips(raw)
+        .map((x) => `<span class="chip" style="cursor:default;font-size:0.68rem;">${escHtml(x)}</span>`)
+        .join('');
+    if (!chips) return '<span style="color:#D1D5DB">—</span>';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px;max-width:${maxWidth}px;">${chips}</div>`;
+}
 
 // ─── Khởi tạo ─────────────────────────────────────────────
 async function initThuocManagement() {
@@ -611,14 +630,13 @@ function renderBaiThuocTab(el) {
                           })
                           .filter(Boolean)
                           .join(', ');
-                      const chungTrangStr = escHtml(item.chung_trang || '—');
                       const trieuChungStr = escHtml(item.trieu_chung || '—');
                       const ptLinkStr = btFormatPhapTriLinksCell(item);
                       return `
             <tr>
                 <td><strong>${escHtml(item.ten_bai_thuoc)}</strong></td>
                 <td>${escHtml(item.nguon_goc || '—')}</td>
-                <td style="font-size:0.8rem;">${chungTrangStr}</td>
+                <td style="font-size:0.8rem;">${btChipsPreviewHtml(item.chung_trang || '', 240)}</td>
                 <td style="font-size:0.75rem;color:#5B3A1A;max-width:280px;">${ptLinkStr}</td>
                 <td style="font-size:0.8rem;">${trieuChungStr}</td>
                 <td style="font-size:0.8rem;">${escHtml(ingredients || 'Chưa có vị thuốc')}</td>
@@ -645,7 +663,7 @@ function renderBaiThuocTab(el) {
         </div>
         <div class="data-table-container">
             <table>
-                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Chứng trạng</th><th>Pháp trị</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
+                <thead><tr><th>Tên bài thuốc</th><th>Nguồn gốc</th><th>Thể bệnh</th><th>Pháp trị</th><th>Triệu chứng</th><th>Thành phần</th><th style="width:130px; text-align:center;">Thao tác</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>`;
@@ -666,7 +684,8 @@ function openBaiThuocForm(id) {
         };
     }).filter(x => Number.isFinite(x.idViThuoc));
 
-    _btDraftTrieuChung = (item?.trieu_chung || '').split(',').map(s => s.trim()).filter(Boolean);
+    _btDraftTrieuChung = btCsvToChips(item?.trieu_chung || '');
+    _btDraftTheBenh = btCsvToChips(item?.chung_trang || '');
     _btDraftPhapTriIds = item ? btPhapTriLinksToOrderedIds(item) : [];
 
     const rowsHtml = btRenderBaiThuocChiTietRowsHtml();
@@ -680,7 +699,16 @@ function openBaiThuocForm(id) {
         <label class="tayy-form-label">Nguồn gốc/Cổ phương<br><input id="bt-inp-source" type="text" class="tayy-form-input" value="${item ? escHtml(item.nguon_goc) : ''}"></label>
         <label class="tayy-form-label">Cách dùng<br><textarea id="bt-inp-usage" class="tayy-form-input" rows="3">${item ? escHtml(item.cach_dung) : ''}</textarea></label>
 
-        <label class="tayy-form-label">Chứng trạng<br><textarea id="bt-inp-chungtrang" class="tayy-form-input" rows="3" placeholder="Biện chứng, pháp trị… (tự do)">${item ? escHtml(item.chung_trang || '') : ''}</textarea></label>
+        <label class="tayy-form-label">
+            Thể bệnh <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — Enter để thêm, giống form Bệnh Kinh Lạc)</span>
+            <div style="position:relative; margin-top:6px;">
+                <div id="bt-thebenh-chips" class="chips-container" onclick="document.getElementById('bt-inp-thebenh').focus()">
+                    <input id="bt-inp-thebenh" type="text" class="chip-input"
+                        placeholder="Gõ thể bệnh, Enter để thêm chip..."
+                        onkeydown="if(event.key==='Enter' && this.value.trim()){btSelectTheBenh(this.value.trim()); event.preventDefault();}">
+                </div>
+            </div>
+        </label>
 
         <label class="tayy-form-label">
             Pháp trị <span style="font-weight:400;color:#A09580;font-size:0.82rem;">(nhiều chip — chọn từ danh mục Pháp trị; tìm theo <strong>tên / nội dung pháp trị</strong> <code>nguyen_tac</code>)</span>
@@ -753,6 +781,7 @@ function openBaiThuocForm(id) {
 
     // Khởi tạo UI chips và suggestion cho modal mới
     setTimeout(() => {
+        btRenderTheBenhChips();
         btRenderTrieuChungChips();
         btRenderPhapTriLinkChips();
         btOnPhapTriLinkSearchInput('');
@@ -785,7 +814,7 @@ async function saveBaiThuoc(id) {
         ten_bai_thuoc: document.getElementById('bt-inp-ten').value.trim(),
         nguon_goc: document.getElementById('bt-inp-source').value.trim(),
         cach_dung: document.getElementById('bt-inp-usage').value.trim(),
-        chung_trang: (document.getElementById('bt-inp-chungtrang')?.value || '').trim(),
+        chung_trang: (_btDraftTheBenh || []).join(', '),
         trieu_chung: _btDraftTrieuChung.join(', '),
         phap_tri_ids: [...(_btDraftPhapTriIds || [])],
         chi_tiet
@@ -1222,6 +1251,39 @@ function btTrySelectPhapTriFromSearch() {
     const sub = all.filter((x) => btPhapTriCatalogMatchesQuery(q, x));
     if (sub.length === 1) btSelectPhapTriLink(sub[0].id);
     else btOnPhapTriLinkSearchInput(q);
+}
+
+// ═══════════════════════════════════════════════════════════
+// THỂ BỆNH — chips
+// ═══════════════════════════════════════════════════════════
+function btRenderTheBenhChips() {
+    const container = document.getElementById('bt-thebenh-chips');
+    const input = document.getElementById('bt-inp-thebenh');
+    if (!container || !input) return;
+    container.querySelectorAll('.chip').forEach((c) => c.remove());
+    (_btDraftTheBenh || []).forEach((name) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = `${escHtml(name)} <span class="chip-remove" onclick="btRemoveTheBenhChip('${escHtml(name)}'); event.stopPropagation();">×</span>`;
+        container.insertBefore(chip, input);
+    });
+}
+
+function btRemoveTheBenhChip(name) {
+    _btDraftTheBenh = (_btDraftTheBenh || []).filter((x) => x !== name);
+    btRenderTheBenhChips();
+}
+
+function btSelectTheBenh(name) {
+    const term = String(name || '').trim();
+    if (!term || (_btDraftTheBenh || []).includes(term)) return;
+    _btDraftTheBenh.push(term);
+    const inp = document.getElementById('bt-inp-thebenh');
+    if (inp) {
+        inp.value = '';
+        inp.focus();
+    }
+    btRenderTheBenhChips();
 }
 
 // ═══════════════════════════════════════════════════════════

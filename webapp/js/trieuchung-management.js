@@ -79,15 +79,15 @@ function tcBuildRelated(item) {
 
     const benhDongY = (_trieuchungData.phapTri || [])
         .flatMap((p) => {
-            const list = p.trieu_chung_list || p.trieuChungList || [];
-            const hasInList = Array.isArray(list)
-                ? list.some((t) => tcNorm(t?.ten_trieu_chung) === key)
+            const trieuChungList = p.trieu_chung_list || p.trieuChungList || [];
+            const hasInList = Array.isArray(trieuChungList)
+                ? trieuChungList.some((t) => tcNorm(t?.ten_trieu_chung) === key)
                 : false;
             const hasInText = tcCsvToSet(p.trieu_chung_mo_ta).has(key);
             if (!hasInList && !hasInText) return [];
-            const list = p.benh_dong_y_list || p.benhDongYList || [];
-            if (Array.isArray(list) && list.length) {
-                return list
+            const benhDongYList = p.benh_dong_y_list || p.benhDongYList || [];
+            if (Array.isArray(benhDongYList) && benhDongYList.length) {
+                return benhDongYList
                     .map((b) => b?.tieuket || b?.ten)
                     .filter(Boolean);
             }

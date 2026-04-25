@@ -1139,8 +1139,8 @@ function renderBodyChart(record, selectedModel = null) {
         el.style.display = showComp ? '' : 'none';
     });
 
-    meridianNames.filter(m => m.group === 'tren').forEach(m => renderRow(m, diag, selectedModel, handBody));
-    meridianNames.filter(m => m.group === 'duoi').forEach(m => renderRow(m, diag, selectedModel, footBody));
+    meridianNames.filter(m => m.group === 'tren').forEach(m => renderRow(m, diag, selectedModel, handBody, record));
+    meridianNames.filter(m => m.group === 'duoi').forEach(m => renderRow(m, diag, selectedModel, footBody, record));
 
     // -- Kết luận Bát Cương --
     renderBatCuongConclusion(diag, record);
@@ -1397,11 +1397,30 @@ function renderOneBaseline(label, max, min, range, avg, step, up, low, thucCount
 }
 
 // ---- Render từng hàng 13 cột ----
-function renderRow(m, diag, selectedModel, container) {
+function _statusFromBackendFlag(v) {
+    return v === 1 ? '+' : (v === -1 ? '-' : '');
+}
+
+function _resolveMeridianStatuses(m, diagStat, record) {
+    const flags = Array.isArray(record?._backendFlags) ? record._backendFlags : [];
+    const f = flags.find(x => x && x.channelName === m.id);
+    if (!f) {
+        return { leftStatus: diagStat.leftStatus, rightStatus: diagStat.rightStatus };
+    }
+    return {
+        leftStatus: _statusFromBackendFlag(Number(f.c8)),
+        rightStatus: _statusFromBackendFlag(Number(f.c11)),
+    };
+}
+
+function renderRow(m, diag, selectedModel, container, record = null) {
     if (!container) return;
     const s   = diag.meridianStats[m.id];
     if (!s) return;
     const L = s.leftValue, R = s.rightValue;
+    const resolvedStatus = _resolveMeridianStatuses(m, s, record);
+    const leftStatus = resolvedStatus.leftStatus;
+    const rightStatus = resolvedStatus.rightStatus;
     const diffStr = s.diff !== 0 ? s.diff.toFixed(2) : '';
     const diffColor = s.diff > 0 ? '#8B1A1A' : (s.diff < 0 ? '#1A5276' : '#A09580');
 
@@ -1410,7 +1429,7 @@ function renderRow(m, diag, selectedModel, container) {
     const showComp = !!selectedModel;
     if (showComp) {
         const tv  = selectedModel[m.id] == 1 ? '+' : (selectedModel[m.id] == -1 ? '-' : '');
-        const match = tv && (tv === s.leftStatus || tv === s.rightStatus);
+        const match = tv && (tv === leftStatus || tv === rightStatus);
         const col = match ? '#2D5A27' : '#8B1A1A';
         compHTML = `<td class="comp-col" style="background:${col}11;text-align:center;color:${col};font-weight:bold;">${tv}${match ? ' ✓' : ''}</td>`;
     } else {
@@ -1425,24 +1444,22 @@ function renderRow(m, diag, selectedModel, container) {
     tr.setAttribute('data-meridian-id', m.id);
     tr.setAttribute('data-bat-cuong', s.batCuong);
     tr.setAttribute('data-group', m.group);
-    tr.setAttribute('data-is-thuc', (s.leftStatus === '+' || s.rightStatus === '+') ? '1' : '0');
-    tr.setAttribute('data-is-hu', (s.leftStatus === '-' || s.rightStatus === '-') ? '1' : '0');
-    tr.setAttribute('data-left-st', s.leftStatus);
-    tr.setAttribute('data-right-st', s.rightStatus);
+    tr.setAttribute('data-is-thuc', (leftStatus === '+' || rightStatus === '+') ? '1' : '0');
+    tr.setAttribute('data-is-hu', (leftStatus === '-' || rightStatus === '-') ? '1' : '0');
+    tr.setAttribute('data-left-st', leftStatus);
+    tr.setAttribute('data-right-st', rightStatus);
     tr.style.transition = 'background 0.2s, box-shadow 0.2s, opacity 0.2s';
     tr.innerHTML = `
         <td style="text-align:left;padding:3px 5px;min-width:100px;">
             <div style="font-weight:bold;font-size:0.8rem;">${m.n}</div>
             <div style="font-size:0.6rem;color:#A09580;">${m.d}</div>
         </td>
-        <td class="cell-st-lp" style="color:#8B1A1A;font-weight:bold;text-align:center;transition:all 0.2s;">${s.leftStatus === '+' ? '+' : ''}</td>
-        <td class="cell-st-lm" style="color:#1A5276;font-weight:bold;text-align:center;transition:all 0.2s;">${s.leftStatus === '-' ? '-' : ''}</td>
+        <td class="cell-st-l" style="color:${leftStatus === '+' ? '#8B1A1A' : (leftStatus === '-' ? '#1A5276' : '#A09580')};font-weight:bold;text-align:center;transition:all 0.2s;">${leftStatus || ''}</td>
         <td class="cell-val-l" style="text-align:center;transition:all 0.2s;">${L ? L.toFixed(1) : '-'}</td>
         <td style="text-align:center;background:#FBF8F1;">${s.avg.toFixed(2)}</td>
         <td class="cell-diff" style="text-align:center;color:${diffColor};font-weight:${s.diff!==0?'bold':'normal'};transition:all 0.2s;">${diffStr}</td>
         <td class="cell-val-r" style="text-align:center;transition:all 0.2s;">${R ? R.toFixed(1) : '-'}</td>
-        <td class="cell-st-rp" style="color:#8B1A1A;font-weight:bold;text-align:center;transition:all 0.2s;">${s.rightStatus === '+' ? '+' : ''}</td>
-        <td class="cell-st-rm" style="color:#1A5276;font-weight:bold;text-align:center;transition:all 0.2s;">${s.rightStatus === '-' ? '-' : ''}</td>
+        <td class="cell-st-r" style="color:${rightStatus === '+' ? '#8B1A1A' : (rightStatus === '-' ? '#1A5276' : '#A09580')};font-weight:bold;text-align:center;transition:all 0.2s;">${rightStatus || ''}</td>
         <td style="text-align:center;font-weight:bold;">${s.absDelta.toFixed(2)}</td>
         <td class="bc-col" style="display:none;text-align:center;font-size:0.7rem;font-weight:bold;color:${bcColor};background:${bcBg};">${s.batCuong || '—'}</td>
         ${compHTML}
@@ -2435,7 +2452,7 @@ function _clearAllRowHighlights() {
         tr.style.boxShadow  = '';
         tr.style.outline    = '';
         tr.style.opacity    = '';
-        tr.querySelectorAll('.cell-val-l,.cell-val-r,.cell-st-lp,.cell-st-lm,.cell-st-rp,.cell-st-rm,.cell-diff').forEach(td => {
+        tr.querySelectorAll('.cell-val-l,.cell-val-r,.cell-st-l,.cell-st-r,.cell-diff').forEach(td => {
             td.style.background  = '';
             td.style.color       = '';
             td.style.fontWeight  = '';

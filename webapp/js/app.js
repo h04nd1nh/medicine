@@ -2185,27 +2185,28 @@ async function saveNewRecord() {
 
         const newRecId = data.phieukhamId || (_editingRecordId || null);
 
-        // Tạo bản ghi mới ngay trên frontend để xem phân tích tức thì, không phụ thuộc JSON
-        const now = new Date();
-        const recObj = {
-            phieukhamId: newRecId,
-            benhnhanId: _selectedPatientIdForNewRecord,
-            ngaykham: `/Date(${now.getTime()})/`,
-            giokham: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-            nhietdoMoitruong: env
-        };
-        newRecordMeridians.forEach(m => {
-            recObj[m.id + 'Trai'] = payload[m.id + 'Trai'];
-            recObj[m.id + 'Phai'] = payload[m.id + 'Phai'];
-        });
+        // Bắt buộc dùng dữ liệu backend (đã normalize + có _backendSyndromes) để render phân tích.
+        if (newRecId == null) {
+            if (err) err.innerText = 'Lưu phiếu thành công nhưng không nhận được mã phiếu để tải lại từ máy chủ.';
+            return;
+        }
+        let recObj = null;
+        try {
+            recObj = await apiGetRecord(newRecId);
+        } catch (e) {
+            if (err) err.innerText = 'Không tải lại được dữ liệu phân tích từ máy chủ: ' + (e?.message || e);
+            return;
+        }
+        if (!recObj) {
+            if (err) err.innerText = 'Máy chủ không trả về dữ liệu phiếu vừa lưu. Vui lòng thử lại.';
+            return;
+        }
         // Cập nhật local recordData và UI lịch sử
-        if (newRecId != null) {
-            const idx = recordData.findIndex(r => r.phieukhamId == newRecId);
-            if (idx >= 0) {
-                recordData[idx] = recObj;
-            } else {
-                recordData.push(recObj);
-            }
+        const idx = recordData.findIndex(r => r.phieukhamId == newRecId);
+        if (idx >= 0) {
+            recordData[idx] = recObj;
+        } else {
+            recordData.push(recObj);
         }
         renderHistory(_selectedPatientIdForNewRecord);
         updateDashboardStats();

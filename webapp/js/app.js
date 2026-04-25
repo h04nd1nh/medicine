@@ -12,6 +12,7 @@ let _editingRecordId = null;
 let _editingPatientId = null;
 let _newRecTimer = null;
 let _newRecWeatherTimer = null;
+const FRONTEND_VERSION = 'v27';
 
 // Thứ tự hiển thị kinh mạch (giữ nguyên thứ tự Excel)
 const meridianNames = [
@@ -59,6 +60,7 @@ async function _checkAuthAndInit() {
 }
 
 async function _startApp() {
+    _showFrontendVersion();
     await loadData();
     _initMeasureGuideEditor();
     
@@ -85,6 +87,14 @@ async function _startApp() {
 
     document.getElementById('patient-search')?.addEventListener('input', e => filterPatients(e.target.value));
     document.getElementById('model-search')?.addEventListener('input', () => filterModels());
+}
+
+function _showFrontendVersion() {
+    console.info('[KinhLac] Frontend version:', FRONTEND_VERSION);
+    const el = document.getElementById('frontend-version');
+    if (!el) return;
+    el.textContent = FRONTEND_VERSION;
+    el.style.display = 'inline-flex';
 }
 
 function _updateUserDisplay() {

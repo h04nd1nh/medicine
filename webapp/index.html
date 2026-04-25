@@ -303,7 +303,7 @@
     <script src="js/thuoc-management.js?v=15"></script>
     <script src="js/trieuchung-management.js?v=3"></script>
     <script src="js/diagnosis.js"></script>
-    <script src="js/app.js?v=26"></script>
+    <script src="js/app.js?v=27"></script>
     <script src="js/tayy-management.js?v=5"></script>
     <script src="js/the-benh-management.js"></script>
     <script src="js/dongy-management.js?v=6"></script>
@@ -358,7 +358,8 @@
                     <h1 id="page-title" style="color: var(--secondary); margin: 0; font-size: 1.8rem;">Hệ thống Kinh Lạc</h1>
                     <p id="page-subtitle" style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Quản lý sức khỏe bằng y học cổ truyền</p>
                 </div>
-                <div id="user-info" style="font-weight: 600;">
+                <div id="user-info" style="font-weight: 600; display:flex; align-items:center; gap:8px;">
+                    <span id="frontend-version" style="display:none;padding:2px 8px;border:1px solid #D4C5A0;border-radius:10px;background:#FFF8E8;color:#8B5500;font-size:0.72rem;font-weight:700;"></span>
                     <span id="user-display">Bác sĩ: <span id="user-name">---</span></span>
                     <button id="btn-logout" onclick="doLogout()" style="display:none;"></button>
                 </div>

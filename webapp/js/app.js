@@ -12,7 +12,7 @@ let _editingRecordId = null;
 let _editingPatientId = null;
 let _newRecTimer = null;
 let _newRecWeatherTimer = null;
-const FRONTEND_VERSION = 'v27';
+const FRONTEND_VERSION = 'v29';
 
 // Thứ tự hiển thị kinh mạch (giữ nguyên thứ tự Excel)
 const meridianNames = [

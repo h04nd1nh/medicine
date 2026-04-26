@@ -193,9 +193,9 @@ export class MeridiansService {
       const R = rightChannels[i];
       const avg = this.round2((L + R) / 2.0);
 
-      // C10: col_10 = round(avg - midPoint, 2) rồi lấy dấu
-      const c10_val = this.round2(avg - bounds.midPoint);
-      const c10 = c10_val > 0 ? 1 : c10_val < 0 ? -1 : 0;
+      // C10: Trong Kinhlac.exe, c10 đại diện cho trạng thái của kinh (Hàn/Bình/Nhiệt)
+      // nên nó phải so với giới hạn hành lang (upperLimit/lowerLimit)
+      const c10 = avg > bounds.upperLimit ? 1 : (avg < bounds.lowerLimit ? -1 : 0);
 
       // C8: trái so với giới hạn
       const c8 = L > bounds.upperLimit ? 1 : L < bounds.lowerLimit ? -1 : 0;
@@ -230,12 +230,13 @@ export class MeridiansService {
       }
     }
 
-    // Âm / Dương toàn thân: so sánh trung vị THỦ vs TÚC (giống DiagnosisLogic)
+    // Âm / Dương toàn thân: so sánh trung bình chi trên (THỦ) vs chi dưới (TÚC)
+    // Ngưỡng 0.6 là ngưỡng nhạy thường dùng trong phương pháp Lê Văn Sửu
     const avg_tren = boundsUpper.midPoint;
     const avg_duoi = boundsLower.midPoint;
     const amDuongBody =
-      avg_tren > avg_duoi + 1 ? 'DƯƠNG THỊNH' :
-      avg_duoi > avg_tren + 1 ? 'ÂM THỊNH' :
+      avg_tren > avg_duoi + 0.6 ? 'DƯƠNG THỊNH' :
+      avg_duoi > avg_tren + 0.6 ? 'ÂM THỊNH' :
       'CÂN BẰNG';
 
     // Map về dạng lâm sàng: Âm hư / Dương hư / Cân bằng
@@ -256,72 +257,70 @@ export class MeridiansService {
       thucDuoi < huDuoi ? 'Huyết hư' :
       'Bình thường';
 
-    // --- Bước 4: Khớp CSDL bệnh chứng luận trị ---
+    // --- Bước 4: Khớp CSDL bệnh chứng luận trị (Logic chấm điểm tương đồng) ---
     const allSyndromes = await this.meridianRepo.find();
 
-    // 4.1: Khớp tuyệt đối (Absolute Match)
-    const matchedSyndromes = allSyndromes.filter(dbRow => {
-      let hasCondition = false;
-      for (let i = 0; i < 12; i++) {
-        const f = flags[i];
-        const ch = CHANNELS[i];
-
-        const dbC8 = (dbRow[`${ch}_c8` as keyof MeridianSyndrome] as number) ?? 0;
-        const dbC10 = (dbRow[ch as keyof MeridianSyndrome] as number) ?? 0;
-        const dbC11 = (dbRow[`${ch}_c11` as keyof MeridianSyndrome] as number) ?? 0;
-
-        if (dbC8 !== 0 || dbC10 !== 0 || dbC11 !== 0) {
-          hasCondition = true;
-          // Khớp tuyệt đối: tất cả điều kiện có trong DB phải khớp với thực tế
-          if (dbC8 !== 0 && dbC8 !== f.c8) return false;
-          if (dbC10 !== 0 && dbC10 !== f.c10) return false;
-          if (dbC11 !== 0 && dbC11 !== f.c11) return false;
-        }
-      }
-      return hasCondition;
-    }).map(s => Object.assign(s, { rate: 1.0, matchScore: 100 }));
-
-    // 4.2: Gợi ý mô hình bệnh lý (Partial Match)
-    // Dùng logic so khớp linh hoạt hơn dựa trên dấu (c10) và ngưỡng (c8/c11)
     const suggested = allSyndromes.map(dbRow => {
       let score = 0;
-      let total = 0;
+      let totalConditions = 0;
+      let matchedConditions = 0;
 
       for (let i = 0; i < 12; i++) {
         const ch = CHANNELS[i];
         const f = flags[i];
-        const mv = (dbRow[ch as keyof MeridianSyndrome] as number) ?? 0; // Điều kiện mô hình (c10)
+        
+        // Lấy điều kiện từ DB cho kinh này (c10, c8, c11)
+        const dbC10 = (dbRow[ch as keyof MeridianSyndrome] as number) ?? 0;
+        const dbC8 = (dbRow[`${ch}_c8` as keyof MeridianSyndrome] as number) ?? 0;
+        const dbC11 = (dbRow[`${ch}_c11` as keyof MeridianSyndrome] as number) ?? 0;
 
-        if (mv !== 0) {
-          total++;
-          // So khớp c10 (dấu) là quan trọng nhất cho mô hình
-          if (mv === f.c10) {
-            score += 1;
-            // Nếu khớp cả c8 hoặc c11 (vượt ngưỡng) thì cộng thêm điểm
-            if ((mv === 1 && (f.c8 === 1 || f.c11 === 1)) || 
-                (mv === -1 && (f.c8 === -1 || f.c11 === -1))) {
-              score += 0.5;
-            }
+        // Nếu DB có quy định trạng thái cho kinh này
+        if (dbC10 !== 0 || dbC8 !== 0 || dbC11 !== 0) {
+          totalConditions++;
+          
+          let channelMatched = true;
+          let weight = 1.0;
+
+          // Kiểm tra khớp từng flag nếu DB có quy định
+          if (dbC10 !== 0 && dbC10 !== f.c10) channelMatched = false;
+          if (dbC8 !== 0 && dbC8 !== f.c8) channelMatched = false;
+          if (dbC11 !== 0 && dbC11 !== f.c11) channelMatched = false;
+
+          if (channelMatched) {
+            matchedConditions++;
+            // Nếu kinh này đang ở trạng thái Thực/Hư rõ rệt (ngoài corridor) thì tăng trọng số điểm
+            if (f.c8 !== 0 || f.c11 !== 0) weight = 1.5;
+            score += weight;
           }
         }
       }
 
-      const rate = total > 0 ? score / (total * 1.5) : 0; // Chia cho 1.5 vì max score có thể là total * 1.5
-      return Object.assign(dbRow, { rate, matchScore: score, totalInModel: total });
+      // Tỷ lệ khớp dựa trên số điều kiện đã khớp / tổng số điều kiện của mẫu bệnh đó
+      const rate = totalConditions > 0 ? matchedConditions / totalConditions : 0;
+      
+      return Object.assign(dbRow, { 
+        rate, 
+        matchScore: score, 
+        matchedCount: matchedConditions,
+        totalInModel: totalConditions 
+      });
     })
-    .filter(m => (m.totalInModel ?? 0) > 0 && (m.rate ?? 0) > 0.4)
-    // Loại bỏ những cái đã có trong matchedSyndromes để tránh trùng
-    .filter(m => !matchedSyndromes.some(ms => ms.id === m.id))
-    .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))
-    .slice(0, 10);
+    // Lọc các mô hình có độ tương đồng cao (trên 60% hoặc khớp tuyệt đối)
+    .filter(m => (m.totalInModel ?? 0) > 0 && (m.rate ?? 0) >= 0.6)
+    .sort((a, b) => {
+      // Ưu tiên khớp tuyệt đối (rate=1), sau đó đến điểm số (score) và tỷ lệ (rate)
+      if (a.rate === 1 && b.rate !== 1) return -1;
+      if (a.rate !== 1 && b.rate === 1) return 1;
+      return (b.matchScore ?? 0) - (a.matchScore ?? 0) || (b.rate ?? 0) - (a.rate ?? 0);
+    })
+    .slice(0, 15);
 
     return {
       am_duong,
       khi,
       huyet,
       flags,
-      // Gộp cả khớp tuyệt đối và gợi ý, ưu tiên tuyệt đối lên đầu
-      syndromes: [...matchedSyndromes, ...suggested],
+      syndromes: suggested,
     };
   }
 }

@@ -56,6 +56,14 @@ function goToMeridianResults(examId: number) {
   router.push({ name: 'meridian-results', params: { patientId: patientId.value, examId } })
 }
 
+function goToLatestExamination() {
+  if (examinations.value && examinations.value.length > 0) {
+    goToMeridianResults(examinations.value[0].id)
+  } else {
+    alert('Bệnh nhân này chưa có ca khám nào.')
+  }
+}
+
 function formatDate(d: string | null | undefined) {
   if (!d) return '—'
   try { return new Date(d).toLocaleDateString('vi-VN') } catch { return d }
@@ -127,10 +135,16 @@ function getAge(dob: string | null) {
             </span>
           </div>
         </div>
-        <button class="btn-primary ml-auto" @click="goToNewExamination">
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-          Thêm Khám mới
-        </button>
+        <div class="header-actions">
+          <button class="btn-meridian" @click="goToLatestExamination">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M12 2l4 4-4 4M12 22l-4-4 4-4"/></svg>
+            Kinh lạc
+          </button>
+          <button class="btn-primary" @click="goToNewExamination">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+            Thêm Khám mới
+          </button>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -286,6 +300,9 @@ function getAge(dob: string | null) {
 
 .btn-primary{display:inline-flex;align-items:center;gap:var(--space-2);padding:10px 20px;background:var(--brown-600);color:var(--white);font-size:var(--font-size-sm);font-weight:600;border-radius:var(--radius-md);border:none;transition:all var(--transition-fast);cursor:pointer;white-space:nowrap;}
 .btn-primary:hover{background:var(--brown-700);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+.btn-meridian{display:inline-flex;align-items:center;gap:var(--space-2);padding:10px 20px;background:var(--white);color:var(--brown-700);font-size:var(--font-size-sm);font-weight:600;border-radius:var(--radius-md);border:1px solid var(--brown-200);transition:all var(--transition-fast);cursor:pointer;white-space:nowrap;}
+.btn-meridian:hover{background:var(--brown-50);border-color:var(--brown-300);transform:translateY(-1px);}
+.header-actions{display:flex;gap:var(--space-3);margin-left:auto;}
 .ml-auto{margin-left:auto;}
 
 @media(max-width:768px){

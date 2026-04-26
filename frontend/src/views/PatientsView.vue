@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePatientStore, type CreatePatientDto, type Patient } from '@/stores/patient'
+import { api } from '@/services/api'
 
 const router = useRouter()
 
@@ -90,6 +91,23 @@ async function handleDelete() {
   }
   showDeleteConfirm.value = false
   deletingPatientId.value = null
+}
+
+async function goToLatestExamination(patientId: number) {
+  try {
+    const exams = await api.get<any[]>(`/examinations/patient/${patientId}`)
+    if (exams && exams.length > 0) {
+      router.push({
+        name: 'meridian-results',
+        params: { patientId, examId: exams[0].id }
+      })
+    } else {
+      alert('Bệnh nhân này chưa có ca khám nào.')
+    }
+  } catch (error) {
+    console.error('Failed to fetch examinations:', error)
+    alert('Không thể tải thông tin ca khám.')
+  }
 }
 
 function formatDate(dateStr: string | null) {
@@ -197,6 +215,7 @@ const pageNumbers = computed(() => {
             <td class="td-address">{{ p.address || '—' }}</td>
             <td class="td-actions">
               <button class="text-btn text-btn--detail" @click="router.push({ name: 'patient-detail', params: { id: p.id } })">Chi tiết</button>
+              <button class="text-btn text-btn--meridian" @click="goToLatestExamination(p.id)">Kinh lạc</button>
               <button class="text-btn text-btn--edit" @click="openEditModal(p)">Sửa</button>
               <button class="text-btn text-btn--delete" @click="confirmDelete(p.id)">Xóa</button>
             </td>
@@ -363,6 +382,8 @@ const pageNumbers = computed(() => {
 .text-btn{padding:4px 10px;border-radius:var(--radius-sm);font-size:var(--font-size-xs);font-weight:600;transition:all var(--transition-fast);display:inline-block}
 .text-btn--detail{color:#2563eb}
 .text-btn--detail:hover{background:#eff6ff}
+.text-btn--meridian{color:var(--brown-700)}
+.text-btn--meridian:hover{background:var(--brown-50)}
 .text-btn--edit{color:var(--brown-600)}
 .text-btn--edit:hover{background:var(--brown-50)}
 .text-btn--delete{color:var(--gray-400)}
